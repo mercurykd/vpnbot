@@ -1,0 +1,5 @@
+/app/config.php
+/cert/*
+!/cert/.gitkeep
+/sftp-config.json
+/tg.pyr

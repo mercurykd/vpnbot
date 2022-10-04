@@ -1,0 +1,91 @@
+version: "3.7"
+
+volumes:
+    nginxkey:
+    sshkey:
+
+networks:
+    default:
+        ipam:
+            config:
+                - subnet: 10.10.0.0/24
+
+services:
+    nginx:
+        image: nginx
+        ports:
+            - 443:443
+        volumes:
+            - ./config/nginx/:/etc/nginx/conf.d/
+            - ./config/.profile:/root/.bashrc:ro
+            - type: volume
+              target: /cert
+              source: nginxkey
+        environment:
+            TZ: ${TZ}
+        hostname: nginx
+        restart: always
+        depends_on:
+            - fpm
+        stop_grace_period: 1s
+    fpm:
+        build:
+            dockerfile: dockerfile/php.dockerfile
+            args:
+                IP: ${IP}
+        volumes:
+            - ./config/fpm/:/usr/local/etc/
+            - ./config/.profile:/root/.bashrc:ro
+            - ./app:/app
+            - ./logs:/app/logs/
+            - ./config/clients.json:/app/clients.json
+            - type: volume
+              target: /ssh
+              source: sshkey
+            - type: volume
+              target: /cert
+              source: nginxkey
+        environment:
+            TZ: ${TZ}
+            ADDRESS: ${ADDRESS}
+            PORT_WG: ${PORT}
+        working_dir: /app
+        hostname: fpm
+        restart: always
+        depends_on:
+            - wg
+        command: bash -c 'chown -R www-data:www-data /app/logs && chown www-data:www-data /app/clients.json && php init.php && php-fpm'
+        stop_grace_period: 1s
+    proxy:
+        build:
+            dockerfile: dockerfile/proxy.dockerfile
+        volumes:
+            - ./config/.profile:/root/.bashrc:ro
+            - ./config/sockd.conf:/etc/sockd.conf
+        hostname: proxy
+        networks:
+            default:
+                ipv4_address: 10.10.0.3
+        environment:
+            TZ: ${TZ}
+    wg:
+        build:
+            dockerfile: dockerfile/wireguard.dockerfile
+        volumes:
+            - ./config/.profile:/root/.bashrc:ro
+            - ./config/wg0.conf:/etc/wireguard/wg0.conf
+            - ./scripts/start_wg.sh:/start_wg.sh
+            - ./scripts/reset_wg.sh:/reset_wg.sh
+            - type: volume
+              target: /ssh
+              source: sshkey
+        hostname: wireguard
+        ports:
+            - ${PORT}:${PORT}/udp
+        environment:
+            TZ: ${TZ}
+            PORT_WG: ${PORT}
+            ADDRESS: ${ADDRESS}
+        cap_add:
+            - NET_ADMIN
+        stop_grace_period: 1s
