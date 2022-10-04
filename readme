@@ -1,0 +1,7 @@
+telegram bot to control wireguard + proxy
+---
+environment: ubuntu 18.04
+
+install:
+
+wget -O- https://raw.githubusercontent.com/mercurykd/vpnbot/master/scripts/init.sh | sh -s YOUR_TELEGRAM_BOT_KEY
