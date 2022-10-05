@@ -176,9 +176,9 @@ class Bot
     {
         $r = $this->send(
             $this->input['chat'],
-            "@{$this->input['username']} перешлите файл экспорта:",
+            "@{$this->input['username']} send the export file:",
             $this->input['message_id'],
-            reply: 'перешлите файл экспорта:',
+            reply: 'send the export file:',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message'  => $this->input['message_id'],
@@ -193,7 +193,7 @@ class Bot
         $r    = $this->request('getFile', ['file_id' => $this->input['file_id']]);
         $json = json_decode(file_get_contents($this->file . $r['result']['file_path']), true);
         if (empty($json) || !is_array($json)) {
-            $this->answer($this->input['callback_id'], 'ошибка', true);
+            $this->answer($this->input['callback_id'], 'error', true);
         } else {
             $this->saveClients($json['clients']);
             $this->restartWG($this->createConfig($json['server']));
@@ -252,9 +252,9 @@ class Bot
     {
         $r = $this->send(
             $this->input['chat'],
-            "@{$this->input['username']} перечислите домены (каждый домен на новой строке, можно часть домена):",
+            "@{$this->input['username']} list the domains (each domain on a new line, you can part of the domain):",
             $this->input['message_id'],
-            reply: 'перечислите домены (каждый домен на новой строке, можно часть домена):',
+            reply: 'list the domains (each domain on a new line, you can part of the domain):',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message'  => $this->input['message_id'],
@@ -267,7 +267,7 @@ class Bot
     public function proxy()
     {
         $proxy = trim($this->ssh("getent hosts proxy | awk '{ print $1 }'"));
-        $this->createPeer("$proxy/32", 'прокси');
+        $this->createPeer("$proxy/32", 'proxy');
         $this->menu();
     }
 
@@ -310,9 +310,9 @@ class Bot
     {
         $r = $this->send(
             $this->input['chat'],
-            "@{$this->input['username']} перечислите подсети через запятую",
+            "@{$this->input['username']} list subnets separated by commas",
             $this->input['message_id'],
-            reply: 'перечислите подсети через запятую',
+            reply: 'list subnets separated by commas',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message' => $this->input['message_id'],
@@ -327,25 +327,25 @@ class Bot
         $data = [
             [
                 [
-                    'text'          => "весь трафик",
+                    'text'          => "all traffic",
                     'callback_data' => "/add",
                 ],
             ],
             [
                 [
-                    'text'          => "подсеть",
+                    'text'          => "subnet",
                     'callback_data' => "/add_ips",
                 ],
             ],
             [
                 [
-                    'text'          => "прокси",
+                    'text'          => "proxy",
                     'callback_data' => "/proxy",
                 ],
             ],
             [
                 [
-                    'text'          => "назад",
+                    'text'          => "back",
                     'callback_data' => "/menu",
                 ],
             ],
@@ -363,11 +363,11 @@ class Bot
         $data = [
             [
                 [
-                    'text'          => "подтвердить",
+                    'text'          => "confirm",
                     'callback_data' => "/reset",
                 ],
                 [
-                    'text'          => "назад",
+                    'text'          => "back",
                     'callback_data' => "/menu",
                 ],
             ],
@@ -390,7 +390,7 @@ class Bot
 
     public function addPeer()
     {
-        $this->createPeer(name: 'весь трафик');
+        $this->createPeer(name: 'all traffic');
         $this->menu();
     }
 
@@ -400,7 +400,7 @@ class Bot
         $data = [
             [
                 [
-                    'text'          => "назад",
+                    'text'          => "back",
                     'callback_data' => "/menu",
                 ],
             ],
@@ -408,7 +408,7 @@ class Bot
         $this->update(
             $this->input['chat'],
             $this->input['message_id'],
-            "Конфиг сервера:\n\n<code>$conf</code>",
+            "Server config:\n\n<code>$conf</code>",
             $data,
         );
     }
@@ -431,25 +431,25 @@ class Bot
             $data = [
                 [
                     [
-                        'text'          => "переименовать",
+                        'text'          => "rename",
                         'callback_data' => "/rename $client",
                     ],
                 ],
                 [
                     [
-                        'text'          => "скачать",
+                        'text'          => "download",
                         'callback_data' => "/download $client",
                     ],
                 ],
                 [
                     [
-                        'text'          => "удалить",
+                        'text'          => "delete",
                         'callback_data' => "/delete $client",
                     ],
                 ],
                 [
                     [
-                        'text'          => "назад",
+                        'text'          => "back",
                         'callback_data' => "/menu",
                     ],
                 ],
@@ -457,7 +457,7 @@ class Bot
         } else {
             $data[] = [
                 [
-                    'text'          => "обновить статус",
+                    'text'          => "update status",
                     'callback_data' => "/menu",
                 ],
             ];
@@ -471,25 +471,25 @@ class Bot
             }
             $data[] = [
                 [
-                    'text'          => "добавить клиента",
+                    'text'          => "add peer",
                     'callback_data' => "/showadd",
                 ],
                 [
-                    'text'          => "PAC скрипт",
+                    'text'          => "PAC script",
                     'callback_data' => "/showpac",
                 ],
             ];
             $data[] = [
                 [
-                    'text'          => "экспорт",
+                    'text'          => "export",
                     'callback_data' => "/export",
                 ],
                 [
-                    'text'          => "импорт",
+                    'text'          => "import",
                     'callback_data' => "/import",
                 ],
                 [
-                    'text'          => "сброс",
+                    'text'          => "reset",
                     'callback_data' => "/showreset",
                 ],
             ];
@@ -729,7 +729,7 @@ class Bot
             fclose($s);
             ssh2_disconnect($c);
         } catch (Exception | Error $e) {
-            $this->send($this->input['chat'], 'нет подключения к wg', $this->input['message_id']);
+            $this->send($this->input['chat'], 'no connection to wg', $this->input['message_id']);
             die();
         }
         return $data;
