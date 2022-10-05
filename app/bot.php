@@ -118,10 +118,48 @@ class Bot
             case preg_match('~^/import$~', $this->input['callback'], $m):
                 $this->import();
                 break;
+            case preg_match('~^/rename (.+)$~', $this->input['callback'], $m):
+                $this->rename($m[1]);
+                break;
             case !empty($this->input['reply']):
                 $this->reply();
                 break;
         }
+    }
+
+    public function rename(int $client)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} введите название:",
+            $this->input['message_id'],
+            reply: 'введите название:',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'renameClient',
+            'args'           => [$client],
+        ];
+    }
+
+    public function renameClient(string $name, int $client)
+    {
+        $clients = $this->readClients();
+        $clients[$client]['interface']['## name'] = $name;
+        $this->saveClients($clients);
+        $server = $this->readConfig();
+        foreach ($server['peers'] as $k => $v) {
+            if ($v['AllowedIPs'] == $clients[$client]['interface']['Address']) {
+                $server['peers'][$k]['## name'] = $name;
+            }
+        }
+        $this->restartWG($this->createConfig($server));
+    }
+
+    public function readClients():array
+    {
+        return json_decode(file_get_contents($this->clients), true) ?: [];
     }
 
     public function export()
@@ -146,6 +184,7 @@ class Bot
             'start_message'  => $this->input['message_id'],
             'start_callback' => $this->input['callback_id'],
             'callback'       => 'importFile',
+            'args'           => [],
         ];
     }
 
@@ -156,7 +195,7 @@ class Bot
         if (empty($json) || !is_array($json)) {
             $this->answer($this->input['callback_id'], 'ошибка', true);
         } else {
-            file_put_contents($this->clients, json_encode($json['clients'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $this->saveClients($json['clients']);
             $this->restartWG($this->createConfig($json['server']));
         }
     }
@@ -221,13 +260,14 @@ class Bot
             'start_message'  => $this->input['message_id'],
             'start_callback' => $this->input['callback_id'],
             'callback'       => 'pac',
+            'args'           => [],
         ];
     }
 
     public function proxy()
     {
         $proxy = trim($this->ssh("getent hosts proxy | awk '{ print $1 }'"));
-        $this->createPeer("$proxy/32");
+        $this->createPeer("$proxy/32", 'прокси');
         $this->menu();
     }
 
@@ -243,7 +283,7 @@ class Bot
         if (!empty($_SESSION['reply'][$this->input['reply']])) {
             $this->delete($this->input['chat'], $this->input['reply']);
             $callback = $_SESSION['reply'][$this->input['reply']]['callback'];
-            $this->{$callback}($this->input['message']);
+            $this->{$callback}($this->input['message'], ...$_SESSION['reply'][$this->input['reply']]['args']);
             switch ($callback) {
                 case 'createPeer':
                 case 'importFile':
@@ -255,6 +295,12 @@ class Bot
                 case 'pac':
                     $this->answer($_SESSION['reply'][$this->input['reply']]['start_callback']);
                     break;
+                case 'renameClient':
+                    $this->delete($this->input['chat'], $this->input['message_id']);
+                    $this->input['message_id']  = $this->input['callback_id'] = $_SESSION['reply'][$this->input['reply']]['start_message'];
+                    $this->menu();
+                    $this->answer($_SESSION['reply'][$this->input['reply']]['start_message']);
+                    break;
             }
             unset($_SESSION['reply'][$this->input['reply']]);
         }
@@ -264,13 +310,14 @@ class Bot
     {
         $r = $this->send(
             $this->input['chat'],
-            "@{$this->input['username']} перечислите через запятую подсети",
+            "@{$this->input['username']} перечислите подсети через запятую",
             $this->input['message_id'],
-            reply: 'перечислите через запятую подсети',
+            reply: 'перечислите подсети через запятую',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message' => $this->input['message_id'],
             'callback'      => 'createPeer',
+            'args'          => ['подсеть'],
         ];
     }
 
@@ -343,7 +390,7 @@ class Bot
 
     public function addPeer()
     {
-        $this->createPeer();
+        $this->createPeer(name: 'весь трафик');
         $this->menu();
     }
 
@@ -369,7 +416,7 @@ class Bot
     public function deletePeer($client)
     {
         $conf = $this->readConfig();
-        $this->deleteClient($conf['peers'][$client]);
+        $this->deleteClient($client);
         unset($conf['peers'][$client]);
         $this->restartWG($this->createConfig($conf));
         $this->menu();
@@ -377,30 +424,26 @@ class Bot
 
     public function menu($client = false, $return = false)
     {
-        $status = $this->ssh('wg');
-        $conf   = $this->readConfig();
-        $text   = "<b>Статус</b>\n\nСеть: {$conf['interface']['Address']}:{$conf['interface']['ListenPort']}\n\n<code>$status</code>\n$text";
+        $clients = $this->readClients();
         if ($client !== false) {
-            $clients = json_decode(file_get_contents($this->clients), true);
-            foreach ($clients as $k => $v) {
-                if ($v['interface']['Address'] == $conf['peers'][$client]['AllowedIPs']) {
-                    $client_conf = $v;
-                    break;
-                }
-            }
-            $client_ip       = explode('/', $conf['peers'][$client]['AllowedIPs'])[0];
-            $client_conf_str = $this->createConfig($client_conf);
-            $text = "<b>$client_ip</b>\n\n<code>$client_conf_str</code>";
+            $name = $this->getName($clients[$client]['interface']);
+            $text = "<code>{$this->createConfig($clients[$client])}</code>\n\n<b>$name</b>";
             $data = [
                 [
                     [
-                        'text'          => "скачать {$conf['peers'][$client]['AllowedIPs']}",
+                        'text'          => "переименовать",
+                        'callback_data' => "/rename $client",
+                    ],
+                ],
+                [
+                    [
+                        'text'          => "скачать",
                         'callback_data' => "/download $client",
                     ],
                 ],
                 [
                     [
-                        'text'          => "удалить {$conf['peers'][$client]['AllowedIPs']}",
+                        'text'          => "удалить",
                         'callback_data' => "/delete $client",
                     ],
                 ],
@@ -412,49 +455,69 @@ class Bot
                 ],
             ];
         } else {
-            if (!empty($conf['peers'])) {
-                foreach ($conf['peers'] as $k => $v) {
-                    $peers[] = [[
-                        'text'          => "{$v['AllowedIPs']}",
-                        'callback_data' => "/client $k",
-                    ]];
-                }
-            }
-            $data = [
-                [
-                    [
-                        'text'          => "добавить клиента",
-                        'callback_data' => "/showadd",
-                    ],
-                    [
-                        'text'          => "PAC скрипт",
-                        'callback_data' => "/showpac",
-                    ],
-                ],
-                [
-                    [
-                        'text'          => "экспорт",
-                        'callback_data' => "/export",
-                    ],
-                    [
-                        'text'          => "импорт",
-                        'callback_data' => "/import",
-                    ],
-                    [
-                        'text'          => "сброс",
-                        'callback_data' => "/showreset",
-                    ],
-                ],
-            ];
-            if ($peers) {
-                $data = array_merge($peers, $data);
-            }
-            array_unshift($data, [
+            $data[] = [
                 [
                     'text'          => "обновить статус",
                     'callback_data' => "/menu",
                 ],
-            ]);
+            ];
+            if (!empty($clients)) {
+                foreach ($clients as $k => $v) {
+                    $data[] = [[
+                        'text'          => $this->getName($v['interface']),
+                        'callback_data' => "/client $k",
+                    ]];
+                }
+            }
+            $data[] = [
+                [
+                    'text'          => "добавить клиента",
+                    'callback_data' => "/showadd",
+                ],
+                [
+                    'text'          => "PAC скрипт",
+                    'callback_data' => "/showpac",
+                ],
+            ];
+            $data[] = [
+                [
+                    'text'          => "экспорт",
+                    'callback_data' => "/export",
+                ],
+                [
+                    'text'          => "импорт",
+                    'callback_data' => "/import",
+                ],
+                [
+                    'text'          => "сброс",
+                    'callback_data' => "/showreset",
+                ],
+            ];
+            $conf   = $this->readConfig();
+            $status = $this->readStatus();
+            $text[] = 'Server:';
+            $text[] = "  address: {$conf['interface']['Address']}";
+            $text[] = "  port: {$status['interface']['listening port']}";
+            $text[] = "  publickey: {$status['interface']['public key']}";
+            $text[] = "\nPeers:";
+            foreach ($conf['peers'] as $k => $v) {
+                foreach ($clients as $cl) {
+                    if ($cl['interface']['Address'] == $v['AllowedIPs']) {
+                        $allowed_ips = $cl['peers'][0]['AllowedIPs'];
+                    }
+                }
+                $peer   = $this->getStatusPeer($v['PublicKey'], $status['peers']);
+                $text[] = "  {$this->getName($v)}: " . (preg_match('~^(\d+ seconds|[12] minute)~', $peer['latest handshake']) ? 'ONLINE' : 'OFFLINE') . ($peer['transfer'] ? "  {$peer['transfer']}": '');
+                $text[] = "    address: {$peer['allowed ips']}";
+                $text[] = "    allowed ips: $allowed_ips";
+                $text[] = "    publickey: {$peer['peer']}";
+                if ($peer['latest handshake']) {
+                    $text[] = "    endpoint: {$peer['endpoint']}";
+                    $text[] = "    handshake: {$peer['latest handshake']}";
+                }
+                $text[] = '';
+            }
+            $text = '<code>' . implode(PHP_EOL, $text) . '</code>';
         }
 
         if ($return) {
@@ -475,6 +538,15 @@ class Bot
                 $this->input['message_id'],
                 $data,
             );
+        }
+    }
+
+    public function getStatusPeer(string $publickey, array $peers)
+    {
+        foreach ($peers as $k => $v) {
+            if ($v['peer'] == $publickey) {
+                return $v;
+            }
         }
     }
 
@@ -509,6 +581,48 @@ class Bot
         return $d;
     }
 
+    public function readStatus()
+    {
+        $r = $this->ssh('wg');
+        $r = explode(PHP_EOL, $r);
+        $r = array_filter($r);
+        $i = 0;
+        foreach ($r as $k => $v) {
+            if (preg_match('~^(interface|peer):~', $v, $m)) {
+                $i++;
+                if ($m[1] == 'interface') {
+                    $data[$i]['type'] = 'interface';
+                } else {
+                    $data[$i]['type'] = 'peer';
+                }
+            }
+            $t = explode(':', $v, 2);
+            $data[$i][trim($t[0])] = trim($t[1]);
+        }
+        foreach ($data as $v) {
+            $type = $v['type'];
+            unset($v['type']);
+            if ($type == 'interface') {
+                $d['interface'] = $v;
+            } else {
+                $d['peers'][] = $v;
+            }
+        }
+        return $d;
+    }
+
+    public function getName(array $a):string
+    {
+        $name = '';
+        foreach ($a as $k => $v) {
+            if (preg_match('~^#.*name$~', $k)) {
+                $name = $v;
+            }
+        }
+        $name = $name ?: $a['AllowedIPs'] ?: $a['Address'];
+        return $name;
+    }
+
     public function createConfig($data)
     {
         $conf[] = "[Interface]";
@@ -527,7 +641,7 @@ class Bot
         return implode(PHP_EOL, $conf);
     }
 
-    public function createPeer($ips_user = false)
+    public function createPeer($ips_user = false, $name = false)
     {
         $conf      = $this->readConfig();
         $ipnet     = explode('/', $conf['interface']['Address']);
@@ -552,11 +666,13 @@ class Bot
         $public_peer_key   = trim($this->ssh("echo $private_peer_key | wg pubkey"));
 
         $conf['peers'][] = [
+            '## name'    => $client_ip . ($name ? " ($name)" : ''),
             'PublicKey'  => $public_peer_key,
             'AllowedIPs' => "$client_ip/32",
         ];
         $client_conf = [
             'interface' => [
+                '## name'    => $client_ip . ($name ? " ($name)" : ''),
                 'PrivateKey' => $private_peer_key,
                 'Address'    => "$client_ip/32",
                 'MTU'        => 1350,
@@ -574,26 +690,21 @@ class Bot
         $this->restartWG($this->createConfig($conf));
     }
 
-    public function deleteClient($conf)
+    public function deleteClient(int $client)
     {
-        $clients = json_decode(file_get_contents($this->clients), true);
-        foreach ($clients as $k => $v) {
-            if ($v['interface']['Address'] == $conf['AllowedIPs']) {
-                unset($clients[$k]);
-            }
-        }
-        file_put_contents($this->clients, json_encode($clients, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $clients = $this->readClients();
+        unset($clients[$client]);
+        $this->saveClients($clients);
     }
 
-    public function saveClient($client)
+    public function saveClient(array $client)
     {
-        if (file_exists($this->clients)) {
-            $conf = json_decode(file_get_contents($this->clients), true) ?: [];
-        } else {
-            $conf = [];
-        }
-        $conf = array_merge($conf, [$client]);
-        file_put_contents($this->clients, json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $this->saveClients(array_merge($this->readClients(), [$client]));
+    }
+
+    public function saveClients(array $clients)
+    {
+        file_put_contents($this->clients, json_encode($clients, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
     public function restartWG($conf_str)
