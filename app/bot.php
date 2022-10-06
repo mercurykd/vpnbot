@@ -202,17 +202,9 @@ class Bot
 
     public function downloadPeer($client)
     {
-        $conf    = $this->readConfig();
-        $peer    = $conf['peers'][$client];
-        $clients = json_decode(file_get_contents($this->clients), true);
-        foreach ($clients as $k => $v) {
-            if ($v['interface']['Address'] == $peer['AllowedIPs']) {
-                $client_conf = $v;
-                break;
-            }
-        }
-        $name = explode('/', $peer['AllowedIPs'])[0];
-        $code = $this->createConfig($client_conf);
+        $client = $this->readClients()[$client];
+        $name   = $this->getName($client['interface']);
+        $code   = $this->createConfig($client);
         $this->upload("$name.conf", $code);
     }
 
