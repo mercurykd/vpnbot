@@ -205,7 +205,7 @@ class Bot
         $client = $this->readClients()[$client];
         $name   = $this->getName($client['interface']);
         $code   = $this->createConfig($client);
-        $this->upload("$name.conf", $code);
+        $this->upload(preg_replace(['~\s+~', '~\(|\)~'], ['_', ''], $name) . ".conf", $code);
     }
 
     public function upload($name, $code)
