@@ -367,7 +367,7 @@ class Bot
         $this->update(
             $this->input['chat'],
             $this->input['message_id'],
-            "Сбросить?",
+            "Reset settings?",
             $data,
         );
     }
