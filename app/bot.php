@@ -668,6 +668,7 @@ class Bot
                 'PrivateKey' => $private_peer_key,
                 'Address'    => "$client_ip/32",
                 'MTU'        => 1350,
+                'DNS'        => '8.8.8.8',
             ],
             'peers' => [
                 [
