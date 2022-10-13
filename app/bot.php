@@ -131,9 +131,9 @@ class Bot
     {
         $r = $this->send(
             $this->input['chat'],
-            "@{$this->input['username']} введите название:",
+            "@{$this->input['username']} enter the title:",
             $this->input['message_id'],
-            reply: 'введите название:',
+            reply: 'enter the title:',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message'  => $this->input['message_id'],
