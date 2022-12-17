@@ -1,7 +1,6 @@
 version: "3.7"
 
 volumes:
-    nginxkey:
     sshkey:
 
 networks:
@@ -11,51 +10,34 @@ networks:
                 - subnet: 10.10.0.0/24
 
 services:
-    nginx:
-        image: nginx
-        ports:
-            - 443:443
-        volumes:
-            - ./config/nginx/:/etc/nginx/conf.d/
-            - ./config/.profile:/root/.bashrc:ro
-            - type: volume
-              target: /cert
-              source: nginxkey
-        environment:
-            TZ: ${TZ}
-        hostname: nginx
-        restart: always
-        depends_on:
-            - fpm
-        stop_grace_period: 1s
-    fpm:
+    unit:
         build:
             dockerfile: dockerfile/php.dockerfile
             args:
                 IP: ${IP}
+        ports:
+            - 443:443
         volumes:
-            - ./config/fpm/:/usr/local/etc/
+            - ./config/unit.json:/docker-entrypoint.d/config.json
+            - ./config/php.ini:/usr/local/etc/php/php.ini
             - ./config/.profile:/root/.bashrc:ro
+            - ./config/clients.json:/app/clients.json
             - ./app:/app
             - ./logs:/app/logs/
-            - ./config/clients.json:/app/clients.json
             - type: volume
               target: /ssh
               source: sshkey
-            - type: volume
-              target: /cert
-              source: nginxkey
         environment:
             TZ: ${TZ}
             ADDRESS: ${ADDRESS}
             PORT_WG: ${PORT}
-        working_dir: /app
-        hostname: fpm
-        restart: always
+        hostname: unit
+        restart: unless-stopped
         depends_on:
             - wg
-        command: bash -c 'chown -R www-data:www-data /app/logs && chown www-data:www-data /app/clients.json && php init.php && php-fpm'
         stop_grace_period: 1s
+        command: bash -c 'chown -R www-data:www-data /app/logs && chown www-data:www-data /app/clients.json && php init.php && /usr/local/bin/docker-entrypoint.sh unitd --no-daemon'
+        working_dir: /app
     proxy:
         build:
             dockerfile: dockerfile/proxy.dockerfile
