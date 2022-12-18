@@ -511,6 +511,10 @@ class Bot
             }
             $text = '<code>' . implode(PHP_EOL, $text) . '</code>';
         }
+        $data[] = [[
+            'text' => 'donate',
+            'url'  => "https://yoomoney.ru/to/410011827900450",
+        ]];
 
         if ($return) {
             return [$text, $data];
