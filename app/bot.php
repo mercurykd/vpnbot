@@ -9,7 +9,8 @@ class Bot
         $this->key     = $key;
         $this->api     = "https://api.telegram.org/bot$key/";
         $this->file    = "https://api.telegram.org/file/bot$key/";
-        $this->clients = __DIR__ . '/clients.json';
+        $this->clients = '/config/clients.json';
+        $this->pac     = '/config/pac.json';
     }
 
     public function input()
@@ -46,7 +47,7 @@ class Bot
     public function callbackCheck()
     {
         if (empty($this->callback) && !empty($this->input['callback_id'])) {
-            $this->answer($this->input['callback_id']);
+            $this->answer($this->input['callback_id'], $GLOBALS['debug'] ? $this->input['callback']: false);
         }
     }
 
@@ -64,13 +65,15 @@ class Bot
         }
     }
 
-    public function sd($var, $log = false, $json = false)
+    public function sd($var, $log = false, $json = false, $raw = false)
     {
         if ($log) {
             if ($json) {
-                file_put_contents(__DIR__ . '/logs/input', json_encode($var, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+                file_put_contents('/logs/debug', json_encode($var, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            } elseif ($raw) {
+                file_put_contents('/logs/debug', $var);
             } else {
-                file_put_contents(__DIR__ . '/logs/input', var_export($var, true));
+                file_put_contents('/logs/debug', var_export($var, true));
             }
         }
         $this->send($this->input['chat'], var_export($var, true), $this->input['message_id']);
@@ -82,23 +85,84 @@ class Bot
             // смена айпи сервера
             case preg_match('~^/menu$~', $this->input['message'], $m):
             case preg_match('~^/menu$~', $this->input['callback'], $m):
-            case preg_match('~^/client (\d+)$~', $this->input['callback'], $m):
-                $this->menu($m[1] ?? false);
+            case preg_match('~^/menu (?P<type>addpeer) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
+            case preg_match('~^/menu (?P<type>wg) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
+            case preg_match('~^/menu (?P<type>client) (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+            case preg_match('~^/menu (?P<type>pac)$~', $this->input['callback'], $m):
+            case preg_match('~^/menu (?P<type>adguard)$~', $this->input['callback'], $m):
+            case preg_match('~^/menu (?P<type>config)$~', $this->input['callback'], $m):
+            case preg_match('~^/menu (?P<type>ss)$~', $this->input['callback'], $m):
+            case preg_match('~^/menu (?P<type>subzoneslist|reverselist|includelist|excludelist) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
+                $this->menu(type: $m['type'] ?? false, arg: $m['arg'] ?? false);
+                break;
+            case preg_match('~^/selfssl$~', $this->input['callback'], $m):
+                $this->selfssl();
+                break;
+            case preg_match('~^/sspswd$~', $this->input['callback'], $m):
+                $this->sspswd();
+                break;
+            case preg_match('~^/v2ray$~', $this->input['callback'], $m):
+                $this->v2ray();
+                break;
+            case preg_match('~^/checkdns$~', $this->input['callback'], $m):
+                $this->checkdns();
+                break;
+            case preg_match('~^/adguardpsswd$~', $this->input['callback'], $m):
+                $this->adguardpsswd();
+                break;
+            case preg_match('~^/addupstream$~', $this->input['callback'], $m):
+                $this->addupstream();
+                break;
+            case preg_match('~^/checkurl$~', $this->input['callback'], $m):
+                $this->checkurl();
+                break;
+            case preg_match('~^/setSSL (\w+)$~', $this->input['callback'], $m):
+                $this->setSSL($m[1]);
+                break;
+            case preg_match('~^/deletessl$~', $this->input['callback'], $m):
+                $this->deleteSSL();
                 break;
             case preg_match('~^/download (\d+)$~', $this->input['callback'], $m):
                 $this->downloadPeer($m[1]);
                 break;
-            case preg_match('~^/delete (\d+)$~', $this->input['callback'], $m):
-                $this->deletePeer($m[1]);
+            case preg_match('~^/delupstream (\d+)$~', $this->input['callback'], $m):
+                $this->delupstream($m[1]);
+                break;
+            case preg_match('~^/delete (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->deletePeer(...explode('_', $m['arg']));
+                break;
+            case preg_match('~^/deldomain$~', $this->input['callback'], $m):
+                $this->delDomain();
+                break;
+            case preg_match('~^/(?P<action>change|delete)(?P<typelist>subzoneslist|reverselist|includelist|excludelist) (?P<arg>[^\s]+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->listPacChange($m['typelist'], $m['action'], ...explode('_', $m['arg']));
+                break;
+            case preg_match('~^/paczapret$~', $this->input['callback'], $m):
+                $this->pacZapret();
+                break;
+            case preg_match('~^/pacupdate$~', $this->input['callback'], $m):
+                $this->pacUpdate();
                 break;
             case preg_match('~^/add$~', $this->input['callback'], $m):
                 $this->addPeer(); // добавление клиента "весь траффик"
                 break;
-            case preg_match('~^/showadd$~', $this->input['callback'], $m):
-                $this->showaddclient(); // меню добавления клиента
-                break;
             case preg_match('~^/add_ips$~', $this->input['callback'], $m):
                 $this->addips(); // ответ с предложением ввести список подсетей
+                break;
+            case preg_match('~^/domain$~', $this->input['callback'], $m):
+                $this->domain();
+                break;
+            case preg_match('~^/include (\d+)$~', $this->input['callback'], $m):
+                $this->include($m[1]);
+                break;
+            case preg_match('~^/exclude (\d+)$~', $this->input['callback'], $m):
+                $this->exclude($m[1]);
+                break;
+            case preg_match('~^/reverse (\d+)$~', $this->input['callback'], $m):
+                $this->reverse($m[1]);
+                break;
+            case preg_match('~^/subzones (\d+)$~', $this->input['callback'], $m):
+                $this->subzones($m[1]);
                 break;
             case preg_match('~^/showreset$~', $this->input['callback'], $m):
                 $this->showreset();
@@ -118,8 +182,8 @@ class Bot
             case preg_match('~^/import$~', $this->input['callback'], $m):
                 $this->import();
                 break;
-            case preg_match('~^/rename (.+)$~', $this->input['callback'], $m):
-                $this->rename($m[1]);
+            case preg_match('~^/rename (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->rename(...explode('_', $m['arg']));
                 break;
             case !empty($this->input['reply']):
                 $this->reply();
@@ -127,7 +191,101 @@ class Bot
         }
     }
 
-    public function rename(int $client)
+    public function checkurl()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter url",
+            $this->input['message_id'],
+            reply: 'enter url',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'urlcheck',
+            'args'           => [],
+        ];
+    }
+
+    public function urlcheck($url)
+    {
+        if (file_exists(__DIR__ . '/zapretlists/mpac')) {
+            $domains = explode("\n", file_get_contents(__DIR__ . '/zapretlists/mpac'));
+            foreach ($domains as $k => $v) {
+                if (preg_match("~$v~", $url)) {
+                    $flag = 1;
+                    break;
+                }
+            }
+            if ($flag) {
+                $text = "$url\nmatch";
+            } else {
+                $text = "$url\nnot match";
+            }
+        } else {
+            $text = 'no file, update pac';
+        }
+        $this->update($this->input['chat'], $this->input['message_id'], $text);
+        sleep(3);
+        $this->menu('pac');
+    }
+
+    public function sspswd()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter password",
+            $this->input['message_id'],
+            reply: 'enter password',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'sspwdch',
+            'args'           => [],
+        ];
+    }
+
+    public function sspwdch($pass)
+    {
+        $this->ssh('pkill ssserver', 'ss');
+        $c = $this->getSSConfig();
+        $c['password'] = $pass;
+        file_put_contents('/config/ssserver.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $this->ssh('/ssserver -v -d -c /config.json', 'ss');
+        $this->menu('ss');
+    }
+
+    public function v2ray()
+    {
+        $this->ssh('pkill sslocal', 'proxy');
+        $this->ssh('pkill ssserver', 'ss');
+        $c = $this->getSSConfig();
+        $l = $this->getSSLocalConfig();
+        $domain = $this->getPacConf()['domain'];
+        if ($c['plugin']) {
+            unset($c['plugin']);
+            unset($c['plugin_opts']);
+            unset($l['plugin']);
+            unset($l['plugin_opts']);
+            $l['server']      = 'ss';
+            $l['server_port'] = 8388;
+        } else {
+            $c['plugin']      = 'v2ray-plugin';
+            $c['plugin_opts'] = 'server;loglevel=none';
+            $l['server']      = 'ng';
+            $l['server_port'] = 443;
+            $l['plugin']      = 'v2ray-plugin';
+            $l['plugin_opts'] = "tls;fast-open;path=/v2ray;host=$domain";
+        }
+        file_put_contents('/config/ssserver.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        file_put_contents('/config/sslocal.json', json_encode($l, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $this->ssh('/ssserver -v -d -c /config.json', 'ss');
+        $this->ssh('/sslocal -v -d -c /config.json', 'proxy');
+        $this->menu('ss');
+    }
+
+    public function rename(int $client, $page)
     {
         $r = $this->send(
             $this->input['chat'],
@@ -139,7 +297,7 @@ class Bot
             'start_message'  => $this->input['message_id'],
             'start_callback' => $this->input['callback_id'],
             'callback'       => 'renameClient',
-            'args'           => [$client],
+            'args'           => [$client, $page],
         ];
     }
 
@@ -155,6 +313,7 @@ class Bot
             }
         }
         $this->restartWG($this->createConfig($server));
+        $this->menu('client', implode('_', $_SESSION['reply'][$this->input['reply']]['args']));
     }
 
     public function readClients():array
@@ -164,12 +323,23 @@ class Bot
 
     public function export()
     {
-        $conf    = $this->readConfig();
-        $export  = [
-            'server'  => $this->readConfig(),
-            'clients' => json_decode(file_get_contents($this->clients), true) ?: [],
+        $conf = [
+            'wg' => [
+                'server'  => $this->readConfig(),
+                'clients' => json_decode(file_get_contents($this->clients), true) ?: [],
+            ],
+            'ss'  => $this->getSSConfig(),
+            'sl'  => $this->getSSLocalConfig(),
+            'ad'  => yaml_parse_file('/config/adguard/AdGuardHome.yaml'),
+            'pac' => $this->getPacConf(),
+            'ssl' => [
+                'private' => file_exists('/certs/cert_private') ? file_get_contents('/certs/cert_private') : false,
+                'public'  => file_exists('/certs/cert_public') ? file_get_contents('/certs/cert_public') : false,
+            ],
+            'nginx' => file_get_contents('/config/nginx.conf')
+
         ];
-        $this->upload(date('d_m_Y_H_i') . '.json', json_encode($export, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $this->upload(date('d_m_Y_H_i') . '.json', json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
     public function import()
@@ -195,8 +365,61 @@ class Bot
         if (empty($json) || !is_array($json)) {
             $this->answer($this->input['callback_id'], 'error', true);
         } else {
-            $this->saveClients($json['clients']);
-            $this->restartWG($this->createConfig($json['server']));
+            // wg
+            if (!empty($json['wg'])) {
+                $out[] = 'update wireguard';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->saveClients($json['wg']['clients']);
+                $this->restartWG($this->createConfig($json['wg']['server']));
+            }
+            // pac
+            if (!empty($json['pac'])) {
+                $out[] = 'update pac';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->setPacConf($json['pac']);
+            }
+            // ad
+            if (!empty($json['ad'])) {
+                $out[] = 'update adguard';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
+                yaml_emit_file('/config/adguard/AdGuardHome.yaml', $json['ad']);
+                $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
+            }
+            // ss
+            if (!empty($json['ss'])) {
+                $out[] = 'update shadowsocks server';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->ssh('pkill ssserver', 'ss');
+                file_put_contents('/config/ssserver.json', json_encode($json['ss'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+                $this->ssh('/ssserver -v -d -c /config.json', 'ss');
+            }
+            // sl
+            if (!empty($json['sl'])) {
+                $out[] = 'update shadowsocks proxy';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->ssh('pkill sslocal', 'proxy');
+                file_put_contents('/config/sslocal.json', json_encode($json['sl'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+                $this->ssh('/sslocal -v -d -c /config.json', 'proxy');
+            }
+            // certs
+            if (!empty($json['ssl'])) {
+                $out[] = 'update certificates';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                file_put_contents('/certs/cert_private', $json['ssl']['private']);
+                file_put_contents('/certs/cert_public', $json['ssl']['public']);
+            }
+            // nginx
+            if (!empty($json['nginx'])) {
+                $out[] = 'reload nginx';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                file_put_contents('/config/nginx.conf', $json['nginx']);
+                $this->ssh("nginx -s reload 2>&1", 'ng');
+            }
+            $out[] = 'end import';
+            $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+            sleep(3);
+            $this->menu();
         }
     }
 
@@ -210,7 +433,7 @@ class Bot
 
     public function upload($name, $code)
     {
-        $path = __DIR__ . "/logs/$name";
+        $path = "/logs/$name";
         file_put_contents($path, $code);
         $this->sendFile(
             $this->input['chat'],
@@ -219,48 +442,10 @@ class Bot
         unlink($path);
     }
 
-    public function pac($domains)
-    {
-        $domains = implode(' || ', array_map(fn($el) => 'shExpMatch(url, "*' . trim($el) . '*")', explode(PHP_EOL, $domains)));
-        $proxy   = trim($this->ssh("getent hosts proxy | awk '{ print $1 }'"));
-        $pac     = <<<PAC
-        function FindProxyForURL(url, host)
-        {
-          if ($domains) {
-            return "SOCKS $proxy:1080";
-          } else {
-            return "DIRECT";
-          }
-        }
-        PAC;
-        $this->send(
-            $this->input['chat'],
-            "<code>$pac</code>",
-            $this->input['message_id'],
-        );
-    }
-
-    public function showpac()
-    {
-        $r = $this->send(
-            $this->input['chat'],
-            "@{$this->input['username']} list the domains (each domain on a new line, you can part of the domain):",
-            $this->input['message_id'],
-            reply: 'list the domains (each domain on a new line, you can part of the domain):',
-        );
-        $_SESSION['reply'][$r['result']['message_id']] = [
-            'start_message'  => $this->input['message_id'],
-            'start_callback' => $this->input['callback_id'],
-            'callback'       => 'pac',
-            'args'           => [],
-        ];
-    }
-
     public function proxy()
     {
         $proxy = trim($this->ssh("getent hosts proxy | awk '{ print $1 }'"));
         $this->createPeer("$proxy/32", 'proxy');
-        $this->menu();
     }
 
     public function change_server_ip($ip)
@@ -274,28 +459,157 @@ class Bot
     {
         if (!empty($_SESSION['reply'][$this->input['reply']])) {
             $this->delete($this->input['chat'], $this->input['reply']);
+            $this->delete($this->input['chat'], $this->input['message_id']);
             $callback = $_SESSION['reply'][$this->input['reply']]['callback'];
+            $this->input['message_id']  = $this->input['callback_id'] = $_SESSION['reply'][$this->input['reply']]['start_message'];
             $this->{$callback}($this->input['message'], ...$_SESSION['reply'][$this->input['reply']]['args']);
-            switch ($callback) {
-                case 'createPeer':
-                case 'importFile':
-                    $this->delete($this->input['chat'], $this->input['message_id']);
-                    $this->input['message_id']  = $this->input['callback_id'] = $_SESSION['reply'][$this->input['reply']]['start_message'];
-                    $this->menu();
-                    $this->answer($_SESSION['reply'][$this->input['reply']]['start_message']);
-                    break;
-                case 'pac':
-                    $this->answer($_SESSION['reply'][$this->input['reply']]['start_callback']);
-                    break;
-                case 'renameClient':
-                    $this->delete($this->input['chat'], $this->input['message_id']);
-                    $this->input['message_id']  = $this->input['callback_id'] = $_SESSION['reply'][$this->input['reply']]['start_message'];
-                    $this->menu();
-                    $this->answer($_SESSION['reply'][$this->input['reply']]['start_message']);
-                    break;
-            }
+            $this->answer($_SESSION['reply'][$this->input['reply']]['start_message']);
             unset($_SESSION['reply'][$this->input['reply']]);
         }
+    }
+
+    public function addDomain($domain)
+    {
+        $domain = trim($domain);
+        if (!empty($domain)) {
+            $conf = $this->getPacConf();
+            $conf['domain'] = idn_to_ascii($domain);
+            $this->setPacConf($conf);
+        }
+        $this->menu('config');
+    }
+
+    public function comment($text)
+    {
+        $text = explode("\n", $text);
+        foreach ($text as $k => $v) {
+            if (preg_match('~##domain~', $v)) {
+                $text[$k] = '#-domain';
+                continue;
+            }
+            $text[$k] = "#$v";
+        }
+        return implode("\n", $text);
+    }
+
+    public function uncomment($text)
+    {
+        $text = explode("\n", $text);
+        foreach ($text as $k => $v) {
+            if (preg_match('~#-domain~', $v)) {
+                $text[$k] = '##domain';
+                continue;
+            }
+            $text[$k] = trim($v, '#');
+        }
+        return implode("\n", $text);
+    }
+
+    public function deleteSSL()
+    {
+        $nginx = file_get_contents('/config/nginx.conf');
+        $t = preg_replace("/#~[^\s]+/", '#~', $nginx);
+        preg_match_all('~##domain.+?##domain~s', $t, $m);
+        foreach ($m[0] as $k => $v) {
+            $t = preg_replace('~##domain.+?##domain~s', $this->comment($v), $t, 1);
+        }
+        file_put_contents('/config/nginx.conf', $t);
+        $u = $this->ssh("nginx -t 2>&1", 'ng');
+        $this->update($this->input['chat'], $this->input['message_id'], $u);
+        if (preg_match('~test is successful~', $u)) {
+            $u .= $this->ssh("nginx -s reload 2>&1", 'ng');
+            $this->update($this->input['chat'], $this->input['message_id'], $u);
+            unlink('/certs/cert_private');
+            unlink('/certs/cert_public');
+            sleep(3);
+        } else {
+            file_put_contents('/config/nginx.conf', $nginx);
+        }
+        $this->menu('config');
+    }
+
+    public function updateUnitInitConfig()
+    {
+        $unit = $this->controlUnit('config');
+        file_put_contents('/config/unit.json', $unit);
+    }
+
+    public function setSSL($name)
+    {
+        $conf = $this->getPacConf();
+        switch ($name) {
+            case 'letsencrypt':
+                $out[] = 'Install certificate:';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                exec("certbot certonly -n --agree-tos --email mail@{$conf['domain']} -d {$conf['domain']} --webroot -w /certs/ 2>&1", $out, $code);
+                if ($code > 0) {
+                    $this->send($this->input['chat'], "ERROR\n" . implode("\n", $out));
+                    break;
+                }
+                $out[] = 'Generate bundle';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $bundle = file_get_contents("/etc/letsencrypt/live/{$conf['domain']}/privkey.pem") . file_get_contents("/etc/letsencrypt/live/{$conf['domain']}/fullchain.pem");
+                break;
+            case 'self':
+                $r      = $this->request('getFile', ['file_id' => $this->input['file_id']]);
+                $bundle = file_get_contents($this->file . $r['result']['file_path']);
+                break;
+        }
+        if (preg_match('~[^\s]+BEGIN PRIVATE KEY.+?END PRIVATE KEY[^\s]+~s', $bundle, $m)) {
+            file_put_contents('/certs/cert_private', $m[0]);
+            file_put_contents('/certs/cert_public', preg_replace('~[^\s]+BEGIN PRIVATE KEY.+?END PRIVATE KEY[^\s]+~s', '', $bundle));
+            $nginx = file_get_contents('/config/nginx.conf');
+            $t = preg_replace('/#~([^\n]+)?/', "#~$name", $nginx);
+            $t = preg_replace('/server_name([^\n]+)?/', "server_name {$conf['domain']};", $t);
+            preg_match_all('~#-domain.+?#-domain~s', $t, $m);
+            foreach ($m[0] as $k => $v) {
+                $t = preg_replace('~#-domain.+?#-domain~s', $this->uncomment($v), $t, 1);
+            }
+            file_put_contents('/config/nginx.conf', $t);
+            $u = $this->ssh("nginx -t 2>&1", 'ng');
+            $out[] = $u;
+            $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+            if (preg_match('~test is successful~', $u)) {
+                $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+            } else {
+                file_put_contents('/config/nginx.conf', $nginx);
+            }
+        } else {
+            $this->update($this->input['chat'], $this->input['message_id'], "wrong format key");
+        }
+        sleep(3);
+        $this->menu('config');
+    }
+
+    public function controlUnit($url, $method = 'GET', $json = false, $bundle = false)
+    {
+        $ch = curl_init();
+        $opt = [
+            CURLOPT_CUSTOMREQUEST    => $method,
+            CURLOPT_URL              => "http://localhost/$url",
+            CURLOPT_RETURNTRANSFER   => 1,
+            CURLOPT_UNIX_SOCKET_PATH => '/var/run/control.unit.sock',
+            CURLOPT_TIMEOUT          => 10,
+        ];
+        if ($json) {
+            $opt[CURLOPT_POSTFIELDS] = $json;
+        }
+        if ($bundle) {
+            $opt[CURLOPT_POSTFIELDS] = ['file' => new CURLStringFile($bundle, 'bundle.pem', 'text/plain')];
+        }
+        curl_setopt_array($ch, $opt);
+        $r = curl_exec($ch);
+        curl_close($ch);
+        return $r ?: 'lost connect to unit';
+    }
+
+    public function delDomain()
+    {
+        $conf = $this->getPacConf();
+        unset($conf['domain']);
+        $this->setPacConf($conf);
+        $this->deleteSSL();
     }
 
     public function addips()
@@ -309,45 +623,292 @@ class Bot
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message' => $this->input['message_id'],
             'callback'      => 'createPeer',
-            'args'          => ['подсеть'],
+            'args'          => ['subnet'],
         ];
     }
 
-    public function showaddclient()
+    public function getPacConf()
     {
-        [$text, $data] = $this->menu(return: true);
-        $data = [
-            [
-                [
-                    'text'          => "all traffic",
-                    'callback_data' => "/add",
-                ],
-            ],
-            [
-                [
-                    'text'          => "subnet",
-                    'callback_data' => "/add_ips",
-                ],
-            ],
-            [
-                [
-                    'text'          => "proxy",
-                    'callback_data' => "/proxy",
-                ],
-            ],
-            [
-                [
-                    'text'          => "back",
-                    'callback_data' => "/menu",
-                ],
-            ],
-        ];
-        $this->update(
+        return json_decode(file_get_contents($this->pac), true);
+    }
+
+    public function setPacConf(array $conf)
+    {
+        return file_put_contents($this->pac, json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    }
+
+    public function domain()
+    {
+        $r = $this->send(
             $this->input['chat'],
+            "@{$this->input['username']} enter domain",
             $this->input['message_id'],
-            $text,
-            $data,
+            reply: 'enter domain',
         );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'addDomain',
+            'args'          => [],
+        ];
+    }
+
+    public function selfssl()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} send file with your certificate chain and private key <code>cat key.pem ca.pem cert.pem</code>",
+            $this->input['message_id'],
+            reply: 'send file with your certificate chain and private key',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'selfsslInstall',
+            'args'          => [],
+        ];
+    }
+
+    public function adguardpsswd()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter password",
+            $this->input['message_id'],
+            reply: 'enter password',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'chpsswd',
+            'args'          => [],
+        ];
+    }
+
+    public function chpsswd($pass)
+    {
+        $out[] = 'Restart Adguard Home';
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
+        $c['users'][0]['password'] = password_hash($pass, PASSWORD_DEFAULT);
+        yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
+        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        sleep(3);
+        $this->menu('adguard');
+    }
+
+    public function checkdns()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter dns address
+Plain DNS:
+<code>example.org 94.140.14.14</code>
+DNS-over-TLS:
+<code>example.org tls://dns.adguard.com</code>
+DNS-over-TLS with IP:
+<code>example.org tls://dns.adguard.com 94.140.14.14</code>
+DNS-over-HTTPS with HTTP/2:
+<code>example.org https://dns.adguard.com/dns-query</code>
+DNS-over-HTTPS forcing HTTP/3 only:
+<code>example.org h3://dns.google/dns-query</code>
+DNS-over-HTTPS with IP:
+<code>example.org https://dns.adguard.com/dns-query 94.140.14.14</code>",
+            $this->input['message_id'],
+            reply: 'enter command',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'dnscheck',
+            'args'          => [],
+        ];
+    }
+
+    public function dnscheck($dns)
+    {
+        exec("JSON=1 dnslookup $dns", $out, $code);
+        if ($code) {
+            $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out), mode: false);
+        } else {
+            $this->send($this->input['chat'], "JSON=1 dnslookup $dns\n" . implode("\n", $out), mode: false);
+        }
+        sleep(3);
+        $this->menu('adguard');
+    }
+
+    public function addupstream()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter address upstream",
+            $this->input['message_id'],
+            reply: 'enter address upstream',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'upstream',
+            'args'          => [],
+        ];
+    }
+
+    public function upstream($url)
+    {
+        $out[] = 'Restart Adguard Home';
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
+        $c['dns']['upstream_dns'][] = $url;
+        yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
+        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        sleep(3);
+        $this->menu('adguard');
+    }
+
+    public function delupstream($k)
+    {
+        $out[] = 'Restart Adguard Home';
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
+        unset($c['dns']['upstream_dns'][$k]);
+        yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
+        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        sleep(3);
+        $this->menu('adguard');
+    }
+
+    public function selfsslInstall()
+    {
+        $this->setSSL('self');
+    }
+
+    public function include(int $count)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} list domains separated by commas",
+            $this->input['message_id'],
+            reply: 'list domains separated by commas',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'addInclude',
+            'args'          => [$count],
+        ];
+    }
+
+    public function addInclude(string $domains, int $count)
+    {
+        $domains = explode(',', $domains);
+        $domains = array_filter($domains, fn($x) => !empty(trim($x)));
+        if (!empty($domains)) {
+            $conf = $this->getPacConf();
+            foreach ($domains as $k => $v) {
+                $conf['includelist'][idn_to_ascii(trim($v))] = true;
+            }
+            ksort($conf['includelist']);
+            $this->setPacConf($conf);
+            $page = (int) floor(array_search($v, array_keys($conf['includelist'])) / $count);
+        }
+        $page = $page ?: -2;
+        $this->menu('includelist', $page);
+    }
+
+    public function reverse(int $count)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} list domains separated by commas",
+            $this->input['message_id'],
+            reply: 'list domains separated by commas',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'addReverse',
+            'args'          => [$count],
+        ];
+    }
+
+    public function addReverse(string $domains, int $count)
+    {
+        $domains = explode(',', $domains);
+        $domains = array_filter($domains, fn($x) => !empty(trim($x)));
+        if (!empty($domains)) {
+            $conf = $this->getPacConf();
+            foreach ($domains as $k => $v) {
+                $conf['reverselist'][idn_to_ascii(trim($v))] = true;
+            }
+            ksort($conf['reverselist']);
+            $this->setPacConf($conf);
+            $page = (int) floor(array_search($v, array_keys($conf['reverselist'])) / $count);
+        }
+        $page = $page ?: -2;
+        $this->menu('reverselist', $page);
+    }
+
+    public function subzones(int $count)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} list subdomains separated by commas",
+            $this->input['message_id'],
+            reply: 'list subdomains separated by commas',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'addSubzones',
+            'args'          => [$count],
+        ];
+    }
+
+    public function addSubzones(string $domains, int $count)
+    {
+        $domains = explode(',', $domains);
+        $domains = array_filter($domains, fn($x) => !empty(trim($x)));
+        if (!empty($domains)) {
+            $conf = $this->getPacConf();
+            foreach ($domains as $k => $v) {
+                $conf['subzoneslist'][idn_to_ascii(trim($v))] = true;
+            }
+            ksort($conf['subzoneslist']);
+            $this->setPacConf($conf);
+            $page = (int) floor(array_search($v, array_keys($conf['subzoneslist'])) / $count);
+        }
+        $page = $page ?: -2;
+        $this->menu('subzoneslist', $page);
+    }
+
+    public function exclude(int $count)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter regular expression",
+            $this->input['message_id'],
+            reply: 'enter regular expression',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'addExclude',
+            'args'          => [$count],
+        ];
+    }
+
+    public function addExclude(string $reg, int $count)
+    {
+        $reg = trim($reg);
+        if (!empty($reg)) {
+            $conf = $this->getPacConf();
+            $conf['excludelist'][$reg] = true;
+            ksort($conf['excludelist']);
+            $this->setPacConf($conf);
+            $page = (int) floor(array_search($reg, array_keys($conf['excludelist'])) / $count);
+        }
+        $page = $page ?: -2;
+        $this->menu('excludelist', $page);
     }
 
     public function showreset()
@@ -374,8 +935,10 @@ class Bot
 
     public function reset()
     {
-        $conf = $this->readConfig();
-        $r    = $this->ssh("/bin/sh /reset_wg.sh {$_SERVER['ADDRESS']} {$_SERVER['PORT_WG']}");
+        $conf    = $this->readConfig();
+        $address = getenv('ADDRESS');
+        $port    = getenv('PORT_WG');
+        $r       = $this->ssh("/bin/sh /reset_wg.sh $address $port");
         file_put_contents($this->clients, '');
         $this->menu();
     }
@@ -383,7 +946,6 @@ class Bot
     public function addPeer()
     {
         $this->createPeer(name: 'all traffic');
-        $this->menu();
     }
 
     public function config()
@@ -405,116 +967,519 @@ class Bot
         );
     }
 
-    public function deletePeer($client)
+    public function deletePeer($client, $page)
     {
         $conf = $this->readConfig();
         $this->deleteClient($client);
         unset($conf['peers'][$client]);
         $this->restartWG($this->createConfig($conf));
-        $this->menu();
+        $this->menu('wg', $page);
     }
 
-    public function menu($client = false, $return = false)
+    public function statusWg(int $page = 0)
+    {
+        $conf   = $this->readConfig();
+        $status = $this->readStatus();
+        $text[] = 'Server:';
+        $text[] = "  address: {$conf['interface']['Address']}";
+        $text[] = "  port: {$status['interface']['listening port']}";
+        $text[] = "  publickey: {$status['interface']['public key']}";
+        $text[] = "\nPeers:";
+        foreach ($conf['peers'] as $k => $v) {
+            foreach ($clients as $cl) {
+                if ($cl['interface']['Address'] == $v['AllowedIPs']) {
+                    $allowed_ips = $cl['peers'][0]['AllowedIPs'];
+                }
+            }
+            $conf['peers'][$k]['status'] = $this->getStatusPeer($v['PublicKey'], $status['peers']);
+            $conf['peers'][$k]['online'] = preg_match('~^(\d+ seconds|[12] minute)~', $conf['peers'][$k]['status']['latest handshake']) ? $conf['peers'][$k]['status']['endpoint'] : 'OFFLINE';
+        }
+        usort($conf['peers'], fn($a, $b) => ($a['online'] == 'OFFLINE') <=> ($b['online'] == 'OFFLINE'));
+        foreach ($conf['peers'] as $k => $v) {
+            preg_match_all('~([0-9.]+\.?)\s(\w+)~', $v['status']['transfer'], $m);
+            $text[] = ($v['online'] == 'OFFLINE' ? '(OFFLINE) ' : '')
+                    . "{$this->getName($v)} "
+                    . ($v['online'] != 'OFFLINE' ? "({$v['online']})" : '')
+                    . ($m[0] ? " {$m[1][0]}↑ {$m[2][0]} / {$m[1][1]}↓ {$m[2][1]}" : '')
+                    . "\n"
+            ;
+        }
+        $text = "Menu -> Wireguard\n\n<code>" . implode(PHP_EOL, $text) . '</code>';
+        $data = [
+            [[
+                'text'          => "update status",
+                'callback_data' => "/menu wg",
+            ]],
+            [[
+                    'text'          => "add peer",
+                    'callback_data' => "/menu addpeer $page",
+            ]],
+        ];
+        if ($clients = $this->getClients($page)) {
+            $data = array_merge($data, $clients);
+        }
+        $data[] = [[
+            'text'          => 'back',
+            'callback_data' => "/menu",
+        ]];
+        return [
+            'text' => $text,
+            'data' => $data,
+        ];
+    }
+
+    public function getClient($client, $page)
     {
         $clients = $this->readClients();
-        if ($client !== false) {
+        if ($clients) {
             $name = $this->getName($clients[$client]['interface']);
-            $text = "<code>{$this->createConfig($clients[$client])}</code>\n\n<b>$name</b>";
-            $data = [
-                [
+            return [
+                'text' => "<code>{$this->createConfig($clients[$client])}</code>\n\n<b>$name</b>",
+                'data' => [
                     [
-                        'text'          => "rename",
-                        'callback_data' => "/rename $client",
+                        [
+                            'text'          => "rename",
+                            'callback_data' => "/rename {$client}_$page",
+                        ],
                     ],
+                    [
+                        [
+                            'text'          => "download",
+                            'callback_data' => "/download $client",
+                        ],
+                    ],
+                    [
+                        [
+                            'text'          => "delete",
+                            'callback_data' => "/delete {$client}_$page",
+                        ],
+                    ],
+                    [
+                        [
+                            'text'          => "back",
+                            'callback_data' => "/menu wg $page",
+                        ],
+                    ],
+                ]
+            ];
+        }
+        return [
+            'text' => "no clients",
+            'data' => false
+        ];
+    }
+
+    public function getClients(int $page, int $count = 5)
+    {
+        $clients = $this->readClients();
+        if (!empty($clients)) {
+            $all     = (int) ceil(count($clients) / $count);
+            $page    = min($page, $all - 1);
+            $page    = $page == -2 ? $all - 1 : $page;
+            $clients = $page != -1 ? array_slice($clients, $page * $count, $count, true) : $clients;
+            foreach ($clients as $k => $v) {
+                $data[] = [[
+                    'text'          => $this->getName($v['interface']),
+                    'callback_data' => "/menu client {$k}_$page",
+                ]];
+            }
+            if ($page != -1 && $all > 1) {
+                $data[] = [
+                    [
+                        'text'          => '<<',
+                        'callback_data' => "/menu wg " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
+                    ],
+                    [
+                        'text'          => 'all',
+                        'callback_data' => "/menu wg -1",
+                    ],
+                    [
+                        'text'          => '>>',
+                        'callback_data' => "/menu wg " . ($page < $all - 1 ? $page + 1 : 0),
+                    ]
+                ];
+            }
+        }
+        return $data;
+    }
+
+    public function sizeFormat($bytes)
+    {
+        if (floor($bytes / 1024 ** 2) > 0) {
+            $r = round($bytes / 1024 ** 2, 2) . 'MB';
+        } elseif (floor($bytes / 1024) > 0) {
+            $r = round($bytes / 1024, 2) . 'KB';
+        } else {
+            $r = $bytes . 'B';
+        }
+        return $r;
+    }
+
+    public function pacMenu()
+    {
+        $rmpac    = stat(__DIR__ . '/zapretlists/rmpac');
+        $rpac     = stat(__DIR__ . '/zapretlists/rpac');
+        $mpac     = stat(__DIR__ . '/zapretlists/mpac');
+        $pac      = stat(__DIR__ . '/zapretlists/pac');
+        $conf     = $this->getPacConf();
+        $zapret   = $conf['zapret'] ? 'ON' : 'OFF';
+        $ip       = $conf['domain'] ?: file_get_contents('https://ipinfo.io/ip');
+        $hash     = substr(md5($this->key), 0, 8);
+        $scheme   = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
+        $text     = <<<text
+                Menu -> pac
+
+                <code>RU blacklist:</code> <code>https://github.com/zapret-info/z-i</code>
+
+                self lists - domains that will work through a proxy
+
+                reverse lists - domains that will work without a proxy, all others through a proxy
+                text;
+        if ($pac) {
+            $pac['time']  = date('d.m.Y H:i:s', $pac['mtime']);
+            $pac['sz']    = $this->sizeFormat($pac['size']);
+            $text .= <<<text
+
+
+                    <b>PAC ({$pac['time']} / {$pac['sz']}):</b>
+                    <code>$scheme://$ip/pac?h=$hash&a=127.0.0.1&p=1080</code>
+                    text;
+            $urls[] = [
+                'text' => "PAC",
+                'url'  => "$scheme://$ip/pac?h=$hash&a=127.0.0.1&p=1080",
+            ];
+            $urls[] = [
+                'text' => "PAC Wireguard proxy",
+                'url'  => "$scheme://$ip/pac?h=$hash&a=10.10.0.3&p=1080",
+            ];
+        }
+        if ($mpac) {
+            $mpac['time']  = date('d.m.Y H:i:s', $mpac['mtime']);
+            $mpac['sz']    = $this->sizeFormat($mpac['size']);
+            $text .= <<<text
+
+
+                    <b>Shadowsocks-android PAC ({$mpac['time']} / {$mpac['sz']}):</b>
+                    <code>$scheme://$ip/pac?h=$hash&t=mpac</code>
+                    text;
+            $urls[] = [
+                'text' => "PAC ShadowSocks(Android)",
+                'url'  => "$scheme://$ip/pac?h=$hash&t=mpac",
+            ];
+        }
+        if ($rpac) {
+            $rpac['time']  = date('d.m.Y H:i:s', $rpac['mtime']);
+            $rpac['sz']    = $this->sizeFormat($rpac['size']);
+            $text .= <<<text
+
+
+                    <b>Reverse PAC ({$rpac['time']} / {$rpac['sz']}):</b>
+                    <code>$scheme://$ip/pac?h=$hash&t=rpac&a=127.0.0.1&p=1080</code>
+                    text;
+            $urls[] = [
+                'text' => "Reverse PAC",
+                'url'  => "$scheme://$ip/pac?h=$hash&t=rpac",
+            ];
+            $urls[] = [
+                'text' => "Reverse PAC Wireguard proxy",
+                'url'  => "$scheme://$ip/pac?h=$hash&t=rpac&a=10.10.0.3",
+            ];
+        }
+        if ($rmpac) {
+            $rmpac['time']  = date('d.m.Y H:i:s', $rmpac['mtime']);
+            $rmpac['sz']    = $this->sizeFormat($rmpac['size']);
+            $text .= <<<text
+
+
+                    <b>Reverse shadowsocks-android PAC ({$rmpac['time']} / {$rmpac['sz']}):</b>
+                    <code>$scheme://$ip/pac?h=$hash&t=rmpac</code>
+                    text;
+            $urls[] = [
+                'text' => "Reverse PAC SS(Android)",
+                'url'  => "$scheme://$ip/pac?h=$hash&t=rmpac",
+            ];
+        }
+        if ($urls) {
+            $data = array_chunk($urls, 2);
+        }
+        if ($conf['zapret']) {
+            $data[] = [
+                [
+                    'text'          => "RU blacklist : $zapret",
+                    'callback_data' => "/paczapret",
                 ],
                 [
-                    [
-                        'text'          => "download",
-                        'callback_data' => "/download $client",
-                    ],
-                ],
-                [
-                    [
-                        'text'          => "delete",
-                        'callback_data' => "/delete $client",
-                    ],
-                ],
-                [
-                    [
-                        'text'          => "back",
-                        'callback_data' => "/menu",
-                    ],
+                    'text'          => 'blacklist exclude',
+                    'callback_data' => "/menu excludelist 0",
                 ],
             ];
         } else {
             $data[] = [
                 [
-                    'text'          => "update status",
-                    'callback_data' => "/menu",
+                    'text'          => "RU blacklist : $zapret",
+                    'callback_data' => "/paczapret",
                 ],
             ];
-            if (!empty($clients)) {
-                foreach ($clients as $k => $v) {
-                    $data[] = [[
-                        'text'          => $this->getName($v['interface']),
-                        'callback_data' => "/client $k",
-                    ]];
-                }
-            }
-            $data[] = [
-                [
-                    'text'          => "add peer",
-                    'callback_data' => "/showadd",
-                ],
-                [
-                    'text'          => "PAC script",
-                    'callback_data' => "/showpac",
-                ],
-            ];
-            $data[] = [
-                [
-                    'text'          => "export",
-                    'callback_data' => "/export",
-                ],
-                [
-                    'text'          => "import",
-                    'callback_data' => "/import",
-                ],
-                [
-                    'text'          => "reset",
-                    'callback_data' => "/showreset",
-                ],
-            ];
-            $conf   = $this->readConfig();
-            $status = $this->readStatus();
-            $text[] = 'Server:';
-            $text[] = "  address: {$conf['interface']['Address']}";
-            $text[] = "  port: {$status['interface']['listening port']}";
-            $text[] = "  publickey: {$status['interface']['public key']}";
-            $text[] = "\nPeers:";
-            foreach ($conf['peers'] as $k => $v) {
-                foreach ($clients as $cl) {
-                    if ($cl['interface']['Address'] == $v['AllowedIPs']) {
-                        $allowed_ips = $cl['peers'][0]['AllowedIPs'];
-                    }
-                }
-                $peer   = $this->getStatusPeer($v['PublicKey'], $status['peers']);
-                $text[] = "  {$this->getName($v)}: " . (preg_match('~^(\d+ seconds|[12] minute)~', $peer['latest handshake']) ? 'ONLINE' : 'OFFLINE') . ($peer['transfer'] ? "  {$peer['transfer']}": '');
-                $text[] = "    address: {$peer['allowed ips']}";
-                $text[] = "    allowed ips: $allowed_ips";
-                $text[] = "    publickey: {$peer['peer']}";
-                if ($peer['latest handshake']) {
-                    $text[] = "    endpoint: {$peer['endpoint']}";
-                    $text[] = "    handshake: {$peer['latest handshake']}";
-                }
-                $text[] = '';
-            }
-            $text = '<code>' . implode(PHP_EOL, $text) . '</code>';
         }
-        $data[] = [[
-            'text' => 'donate',
-            'url'  => "https://yoomoney.ru/to/410011827900450",
-        ]];
+        $data[] = [
+            [
+                'text'          => 'self list',
+                'callback_data' => "/menu includelist 0",
+            ],
+            [
+                'text'          => 'subzones',
+                'callback_data' => "/menu subzoneslist 0",
+            ],
+            [
+                'text'          => "reverse list",
+                'callback_data' => "/menu reverselist 0",
+            ],
+        ];
+        if ($conf['zapret'] || !empty($conf['includelist'])) {
+            $data[] = [
+                [
+                    'text'          => 'update PAC',
+                    'callback_data' => "/pacupdate",
+                ],
+                [
+                    'text'          => 'check url',
+                    'callback_data' => "/checkurl",
+                ],
+            ];
+        }
+        $data[] = [
+            [
+                'text'          => 'back',
+                'callback_data' => "/menu",
+            ],
+        ];
+        return [
+            'text' => $text,
+            'data' => $data,
+        ];
+    }
+
+    public function pacList($type, int $page, int $count = 5)
+    {
+        $name = str_replace('list', '', $type);
+        $text = "Menu -> pac -> {$name}list\n\n";
+        $data[] = [
+            [
+                'text'          => 'add',
+                'callback_data' => "/$name $count",
+            ],
+        ];
+        $domains = $this->getPacConf()[$type];
+        if (!empty($domains)) {
+            ksort($domains);
+            $all     = (int) ceil(count($domains) / $count);
+            $page    = min($page, $all - 1);
+            $page    = $page == -2 ? $all - 1 : $page;
+            $domains = $page != -1 ? array_slice($domains, $page * $count, $count, true) : $domains;
+            foreach ($domains as $k => $v) {
+                $data[] = [
+                    [
+                        'text'          => '(' . ($v ? 'ON' : 'OFF') . ') ' . ($type == 'includelist' ? idn_to_utf8($k) : $k),
+                        'callback_data' => "/change{$name}list {$k}_$count",
+                    ],
+                    [
+                        'text'          => 'delete',
+                        'callback_data' => "/delete{$name}list {$k}_$count",
+                    ],
+                ];
+            }
+            if ($page != -1 && $all > 1) {
+                $data[] = [
+                    [
+                        'text'          => '<<',
+                        'callback_data' => "/menu $type " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
+                    ],
+                    // [
+                    //     'text'          => 'all',
+                    //     'callback_data' => "/menu $type -1",
+                    // ],
+                    [
+                        'text'          => '>>',
+                        'callback_data' => "/menu $type " . ($page < $all - 1 ? $page + 1 : 0),
+                    ]
+                ];
+            }
+        }
+        $data[] = [
+            [
+                'text'          => 'back',
+                'callback_data' => "/menu pac",
+            ],
+        ];
+        return [
+            'text' => $text,
+            'data' => $data,
+        ];
+    }
+
+    public function listPacChange($type, $action, $key, int $count)
+    {
+        $conf = $this->getPacConf();
+        ksort($conf[$type]);
+        $page = (int) floor(array_search($key, array_keys($conf[$type])) / $count);
+        switch ($action) {
+            case 'change':
+                $conf[$type][$key] = !$conf[$type][$key];
+                $page = (int) floor(array_search($key, array_keys($conf[$type])) / $count);
+                break;
+            case 'delete':
+                unset($conf[$type][$key]);
+                break;
+        }
+        $this->setPacConf($conf);
+        $this->menu($type, $page);
+    }
+
+    public function pacZapret()
+    {
+        $conf = $this->getPacConf();
+        $conf['zapret'] = !$conf['zapret'];
+        $this->setPacConf($conf);
+        $this->menu('pac');
+    }
+
+    public function pacUpdate()
+    {
+        exec("php updatepac.php start {$this->input['chat']} {$this->input['message_id']} {$this->input['callback_id']} > /dev/null &");
+    }
+
+    public function getSSConfig()
+    {
+        return json_decode(file_get_contents('/config/ssserver.json'), true);
+    }
+
+    public function getSSLocalConfig()
+    {
+        return json_decode(file_get_contents('/config/sslocal.json'), true);
+    }
+
+    public function menuSS()
+    {
+        $conf    = $this->getPacConf();
+        $ip      = file_get_contents('https://ipinfo.io/ip');
+        $domain  = $conf['domain'] ?: $ip;
+        $scheme  = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
+        $ss      = $this->getSSConfig();
+        $v2ray   = !empty($ss['plugin']) ? 'ON' : 'OFF';
+        $port    = !empty($ssl) && !empty($ss['plugin']) ? 443 : 8388;
+        $options = !empty($ssl) && !empty($ss['plugin']) ? "tls;fast-open;path=/v2ray;host=$domain" : "path=/v2ray;host=$domain";
+
+        $text = "Menu -> ShadowSocks";
+        $data[] = [
+            [
+                'text'          => 'change password',
+                'callback_data' => "/sspswd",
+            ],
+        ];
+        $text .= "\n\nserver: <code>$domain:$port</code>";
+        $text .= "\n\nmethod: <code>{$ss['method']}</code>";
+        $text .= "\n\nnameserver: <code>10.10.0.5</code>";
+        if ($ss['plugin']) {
+            $text .= "\n\nplugin: <code>v2ray-plugin_windows_amd64</code>";
+            $text .= "\n\nv2ray options: <code>$options</code>";
+        }
+        $data[] = [
+            [
+                'text'          => "v2ray: $v2ray",
+                'callback_data' => "/v2ray",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => 'back',
+                'callback_data' => "/menu",
+            ],
+        ];
+        return [
+            'text' => $text,
+            'data' => $data,
+        ];
+    }
+
+    public function menu($type = false, $arg = false, $return = false)
+    {
+        $menu = [
+            'main' => [
+                'text' => "Menu",
+                'data' => [
+                    [
+                        [
+                            'text'          => "Wireguard",
+                            'callback_data' => "/menu wg 0",
+                        ],
+                        [
+                            'text'          => "Shadowsocks",
+                            'callback_data' => "/menu ss",
+                        ],
+                    ],
+                    [
+                        [
+                            'text'          => "Adguard",
+                            'callback_data' => "/menu adguard",
+                        ],
+                        [
+                            'text'          => "PAC",
+                            'callback_data' => "/menu pac",
+                        ],
+                    ],
+                    [
+                        [
+                            'text'          => "config",
+                            'callback_data' => "/menu config",
+                        ]
+                    ],
+                    [
+                        [
+                            'text' => 'discussion group',
+                            'url'  => "https://t.me/vpnbot_group",
+                        ],
+                        [
+                            'text' => 'donate for a new laptop',
+                            'url'  => "https://yoomoney.ru/to/410011827900450",
+                        ],
+                    ]
+                ],
+            ],
+            'wg'      => $type == 'wg' ? $this->statusWg($arg) : false,
+            'client'  => $type == 'client' ? $this->getClient(...explode('_', $arg)) : false,
+            'addpeer' => [
+                'text' => "Menu -> Wireguard -> Add peer\n\n",
+                'data' => [
+                    [[
+                        'text'          => "all traffic",
+                        'callback_data' => "/add",
+                    ]],
+                    [[
+                        'text'          => "subnet",
+                        'callback_data' => "/add_ips",
+                    ]],
+                    [[
+                        'text'          => "proxy ip",
+                        'callback_data' => "/proxy",
+                    ]],
+                    [[
+                        'text'          => "back",
+                        'callback_data' => "/menu wg $arg",
+                    ]],
+                ],
+            ],
+            'pac'          => $type == 'pac'          ? $this->pacMenu() : false,
+            'adguard'      => $type == 'adguard'      ? $this->adguardMenu() : false,
+            'includelist'  => $type == 'includelist'  ? $this->pacList($type, $arg) : false,
+            'excludelist'  => $type == 'excludelist'  ? $this->pacList($type, $arg) : false,
+            'reverselist'  => $type == 'reverselist'  ? $this->pacList($type, $arg) : false,
+            'subzoneslist' => $type == 'subzoneslist' ? $this->pacList($type, $arg) : false,
+            'config'       => $type == 'config'       ? $this->configMenu() : false,
+            'ss'           => $type == 'ss'           ? $this->menuSS() : false,
+        ];
+
+        $text = $menu[$type ?: 'main' ]['text'];
+        $data = $menu[$type ?: 'main' ]['data'];
 
         if ($return) {
             return [$text, $data];
@@ -525,16 +1490,152 @@ class Bot
                 $this->input['chat'],
                 $this->input['message_id'],
                 $text,
-                $data,
+                $data ?: false,
             );
         } else {
             $this->send(
                 $this->input['chat'],
                 $text,
                 $this->input['message_id'],
-                $data,
+                $data ?: false,
             );
         }
+    }
+
+    public function adguardMenu()
+    {
+        $conf   = $this->getPacConf();
+        $ip     = file_get_contents('https://ipinfo.io/ip');
+        $domain = $conf['domain'] ?: $ip;
+        $scheme = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
+
+        $text = "Menu -> Adguard Home\n\nDNS server:\n<code>$ip</code>\n\n";
+        if ($ssl) {
+            $text .= "DNS over HTTPS:\n<code>$ip</code>\n<code>$scheme://$domain/dns-query</code>\n\n";
+            $text .= "DNS over TLS:\n<code>$ip:853</code>";
+        }
+        $data = [
+            [
+                [
+                    'text' => 'Adguard Home',
+                    'url'  => "$scheme://$domain/adguard",
+                ],
+                [
+                    'text'          => 'change password',
+                    'callback_data' => "/adguardpsswd",
+                ],
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => 'add upstream',
+                'callback_data' => "/addupstream",
+            ],
+        ];
+        $upstreams = yaml_parse_file('/config/adguard/AdGuardHome.yaml')['dns']['upstream_dns'];
+        if (!empty($upstreams)) {
+            foreach ($upstreams as $k => $v) {
+                $data[] = [
+                    [
+                        'text'          => $v,
+                        'callback_data' => "/menu adguard",
+                    ],
+                    [
+                        'text'          => 'delete',
+                        'callback_data' => "/delupstream $k",
+                    ],
+                ];
+            }
+        }
+        $data[] = [
+            [
+                'text'          => 'check DNS',
+                'callback_data' => "/checkdns",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => 'back',
+                'callback_data' => "/menu",
+            ],
+        ];
+        return [
+            'text' => $text,
+            'data' => $data,
+        ];
+    }
+
+    public function configMenu()
+    {
+        $conf = $this->getPacConf();
+        $text = "Menu -> Config\n\nSome clients require a valid certificate when connecting, such as windows 11 DoH or ShadowSocks Android (PAC url), this requires a domain";
+        $data = [
+            [
+                [
+                    'text'          => $conf['domain'] ? "delete {$conf['domain']}" : 'install domain',
+                    'callback_data' => $conf['domain'] ? '/deldomain' : '/domain',
+                ],
+            ],
+        ];
+        if ($conf['domain']) {
+            if ($cert = $this->nginxGetTypeCert()) {
+                switch ($cert) {
+                    case 'letsencrypt':
+                        $data[] = [
+                            [
+                                'text'          => 'renew SSL',
+                                'callback_data' => "/setSSL letsencrypt",
+                            ],
+                            [
+                                'text'          => 'delete SSL',
+                                'callback_data' => "/deletessl",
+                            ],
+                        ];
+                        break;
+                    case 'self':
+                        $data[] = [
+                            [
+                                'text'          => 'delete SSL',
+                                'callback_data' => "/deletessl",
+                            ],
+                        ];
+                        break;
+                }
+            } else {
+                $data[] = [
+                    [
+                        'text'          => 'Letsencrypt SSL',
+                        'callback_data' => "/setSSL letsencrypt",
+                    ],
+                    [
+                        'text'          => 'Self SSL',
+                        'callback_data' => "/selfssl",
+                    ],
+                ];
+            }
+        }
+        $data[] = [
+            [
+                'text'          => 'import',
+                'callback_data' => "/import",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => 'export',
+                'callback_data' => "/export",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => 'back',
+                'callback_data' => "/menu",
+            ],
+        ];
+        return [
+            'text' => $text,
+            'data' => $data,
+        ];
     }
 
     public function getStatusPeer(string $publickey, array $peers)
@@ -575,6 +1676,13 @@ class Bot
             }
         }
         return $d;
+    }
+
+    public function nginxGetTypeCert()
+    {
+        $conf = $this->ssh('cat /etc/nginx/nginx.conf', 'ng');
+        preg_match("/#~([^\s]+)/", $conf, $m);
+        return $m[1];
     }
 
     public function readStatus()
@@ -672,19 +1780,20 @@ class Bot
                 'PrivateKey' => $private_peer_key,
                 'Address'    => "$client_ip/32",
                 'MTU'        => 1350,
-                'DNS'        => '8.8.8.8',
+                'DNS'        => '10.10.0.5',
             ],
             'peers' => [
                 [
                     'PublicKey'           => $public_server_key,
-                    'Endpoint'            => "{$_SERVER['HTTP_HOST']}:{$_SERVER['PORT_WG']}",
+                    'Endpoint'            => "{$_SERVER['HTTP_HOST']}:" . getenv('PORT_WG'),
                     'AllowedIPs'          => $ips_user ?: "0.0.0.0/0",
                     'PersistentKeepalive' => 20,
                 ]
             ]
         ];
-        $this->saveClient($client_conf);
+        $k = $this->saveClient($client_conf);
         $this->restartWG($this->createConfig($conf));
+        $this->menu('client', "{$k}_-2");
     }
 
     public function deleteClient(int $client)
@@ -696,7 +1805,9 @@ class Bot
 
     public function saveClient(array $client)
     {
-        $this->saveClients(array_merge($this->readClients(), [$client]));
+        $r = array_merge($this->readClients(), [$client]);
+        $this->saveClients($r);
+        return count($r) - 1;
     }
 
     public function saveClients(array $clients)
@@ -712,12 +1823,26 @@ class Bot
         return true;
     }
 
-    public function ssh($cmd)
+    public function disconnect(...$args)
+    {
+        $this->send($this->input['chat'], "disconnect: \n" . var_export($args, true) . "\n", $this->input['message_id']);
+    }
+
+    public function ssh($cmd, $service = 'wg')
     {
         try {
-            $c = ssh2_connect('wg', 22);
-            ssh2_auth_pubkey_file($c, 'root', '/ssh/key.pub', '/ssh/key');
+            $c = ssh2_connect($service, 22);
+            if (empty($c)) {
+                throw new Exception("no connection to $service: \n$cmd\n" . var_export($c, true));
+            }
+            $a = ssh2_auth_pubkey_file($c, 'root', '/ssh/key.pub', '/ssh/key');
+            if (empty($a)) {
+                throw new Exception("auth fail: \n$cmd\n" . var_export($a, true));
+            }
             $s = ssh2_exec($c, $cmd);
+            if (empty($s)) {
+                throw new Exception("exec fail: \n$cmd\n" . var_export($s, true));
+            }
             stream_set_blocking($s, true);
             $data = "";
             while ($buf = fread($s, 4096)) {
@@ -726,7 +1851,7 @@ class Bot
             fclose($s);
             ssh2_disconnect($c);
         } catch (Exception | Error $e) {
-            $this->send($this->input['chat'], 'no connection to wg', $this->input['message_id']);
+            $this->send($this->input['chat'], $e->getMessage(), $this->input['message_id']);
             die();
         }
         return $data;
@@ -756,8 +1881,8 @@ class Bot
         }
         echo "$ip\n";
         var_dump($this->request('setWebhook', [
-            'url'         => "https://$ip/{$this->key}",
-            'certificate' => curl_file_create('/cert/nginx_public.pem'),
+            'url'         => "https://$ip/tlgrm?k={$this->key}",
+            'certificate' => curl_file_create('/certs/self_public'),
         ]));
     }
 
@@ -774,7 +1899,7 @@ class Bot
         var_dump($this->request('setMyCommands', json_encode($data), 1));
     }
 
-    public function send($chat, $text, ?int $to = 0, $button = false, $reply = false)
+    public function send($chat, $text, ?int $to = 0, $button = false, $reply = false, $mode = 'HTML')
     {
         if ($button) {
             $extra = ['inline_keyboard' => $button];
@@ -793,7 +1918,7 @@ class Bot
                 $data = [
                     'chat_id'                  => $chat,
                     'text'                     => "$v\n",
-                    'parse_mode'               => 'HTML',
+                    'parse_mode'               => $mode,
                     // 'disable_web_page_preview' => true,
                     // 'disable_notification'     => !empty($to) && 0 == $k,
                     'reply_to_message_id'      => 0 == $k && $to > 0 ? $to : false,
@@ -809,7 +1934,7 @@ class Bot
             $data = [
                 'chat_id'                  => $chat,
                 'text'                     => $text,
-                'parse_mode'               => 'HTML',
+                'parse_mode'               => $mode,
                 // 'disable_web_page_preview' => true,
                 // 'disable_notification'     => !empty($to),
                 'reply_to_message_id'      => $to,
@@ -864,7 +1989,7 @@ class Bot
         ]);
     }
 
-    public function update($chat, $message_id, $text, $button = false, $reply = false)
+    public function update($chat, $message_id, $text, $button = false, $reply = false, $mode = 'HTML')
     {
         if ($button) {
             $extra = ['inline_keyboard' => $button];
@@ -879,7 +2004,7 @@ class Bot
             'chat_id'                  => $chat,
             'message_id'               => $message_id,
             'text'                     => $text,
-            'parse_mode'               => 'HTML',
+            'parse_mode'               => $mode,
             'disable_web_page_preview' => true,
         ];
         if (!empty($extra)) {

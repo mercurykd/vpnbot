@@ -1,5 +1,15 @@
 /app/config.php
-/cert/*
-!/cert/.gitkeep
+/certs/*
+!/certs/.gitkeep
+/logs/*
+!/logs/.gitkeep
+/ssh/*
+!/ssh/.gitkeep
+/app/zaprelists/*
+!/app/zaprelists/.gitkeep
 /sftp-config.json
 /tg.pyr
+/config/wg0.conf
+/todo.todo
+/app/zapretlists/*
+!/app/zapretlists/.gitkeep

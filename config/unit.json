@@ -1,17 +1,17 @@
 {
-    "listeners":{
-        "*:443":{
-            "pass": "applications/php",
-            "tls": {
-                "certificate": "cert"
-            }
-        }
-    },
-    "applications":{
-        "php":{
-            "type":"php",
-            "root":"/app",
-            "script":"index.php"
-        }
-    }
+	"listeners": {
+		"*:80": {
+			"pass": "applications/php"
+		}
+	},
+	"applications": {
+		"php": {
+			"type": "php",
+			"root": "/app",
+			"script": "index.php",
+			"user": "root",
+			"group": "root"
+		}
+	},
+	"access_log": "/logs/unit_access"
 }

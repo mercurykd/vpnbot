@@ -1,55 +1,90 @@
 version: "3.7"
 
-volumes:
-    sshkey:
-
 networks:
     default:
         ipam:
             config:
                 - subnet: 10.10.0.0/24
+volumes:
+    adguard:
 
 services:
+    ng:
+        build:
+            context: dockerfile
+            dockerfile: doh.dockerfile
+        volumes:
+            - ./config/.profile:/root/.bashrc:ro
+            - ./config/nginx.conf:/etc/nginx/nginx.conf
+            - ./scripts/start_ng.sh:/start_ng.sh
+            - ./certs/:/certs/
+            - ./ssh/:/ssh/
+            - ./logs/:/logs/
+        ports:
+            - 80:80
+            - 443:443
+        hostname: nginx
+        environment:
+            TZ: ${TZ}
+        stop_grace_period: 1s
+        command: ["/bin/sh", "/start_ng.sh"]
+        networks:
+            default:
+                ipv4_address: 10.10.0.2
     unit:
         build:
             dockerfile: dockerfile/php.dockerfile
             args:
                 IP: ${IP}
-        ports:
-            - 443:443
         volumes:
-            - ./config/unit.json:/docker-entrypoint.d/config.json
-            - ./config/php.ini:/usr/local/etc/php/php.ini
             - ./config/.profile:/root/.bashrc:ro
-            - ./config/clients.json:/app/clients.json
-            - ./app:/app
-            - ./logs:/app/logs/
+            - ./config/php.ini:/usr/local/etc/php/php.ini
+            - ./config/clients.json:/config/clients.json
+            - ./config/pac.json:/config/pac.json
+            - ./config/unit.json:/config/unit.json
+            - ./config/nginx.conf:/config/nginx.conf
+            - ./config/ssserver.json:/config/ssserver.json
+            - ./config/sslocal.json:/config/sslocal.json
+            - ./certs/:/certs/
             - type: volume
-              target: /ssh
-              source: sshkey
+              target: /config/adguard
+              source: adguard
+            - ./ssh/:/ssh/
+            - ./app:/app
+            - ./logs/:/logs/
+            - ./scripts/start_unit.sh:/start_unit.sh
         environment:
             TZ: ${TZ}
-            ADDRESS: ${ADDRESS}
-            PORT_WG: ${PORT}
+            ADDRESS: ${WGADDRESS}
+            PORT_WG: ${WGPORT}
         hostname: unit
         restart: unless-stopped
-        depends_on:
-            - wg
         stop_grace_period: 1s
-        command: bash -c 'chown -R www-data:www-data /app/logs && chown www-data:www-data /app/clients.json && php init.php && /usr/local/bin/docker-entrypoint.sh unitd --no-daemon'
+        command: ["/bin/sh", "/start_unit.sh"]
         working_dir: /app
+        depends_on:
+            - ng
+        networks:
+            default:
+                ipv4_address: 10.10.0.7
     proxy:
         build:
-            dockerfile: dockerfile/proxy.dockerfile
+            dockerfile: dockerfile/shadowsocks.dockerfile
+        ports:
+            - 1080:1080
         volumes:
             - ./config/.profile:/root/.bashrc:ro
-            - ./config/sockd.conf:/etc/sockd.conf
+            - ./config/sslocal.json:/config.json
+            - ./ssh:/ssh
+            - ./scripts/start_proxy.sh:/start_proxy.sh
         hostname: proxy
         networks:
             default:
                 ipv4_address: 10.10.0.3
         environment:
             TZ: ${TZ}
+        stop_grace_period: 1s
+        command: ["/bin/sh", "/start_proxy.sh"]
     wg:
         build:
             dockerfile: dockerfile/wireguard.dockerfile
@@ -58,16 +93,57 @@ services:
             - ./config/wg0.conf:/etc/wireguard/wg0.conf
             - ./scripts/start_wg.sh:/start_wg.sh
             - ./scripts/reset_wg.sh:/reset_wg.sh
-            - type: volume
-              target: /ssh
-              source: sshkey
+            - ./ssh:/ssh
         hostname: wireguard
         ports:
-            - ${PORT}:${PORT}/udp
+            - ${WGPORT}:${WGPORT}/udp
         environment:
             TZ: ${TZ}
-            PORT_WG: ${PORT}
-            ADDRESS: ${ADDRESS}
+            PORT_WG: ${WGPORT}
+            ADDRESS: ${WGADDRESS}
         cap_add:
             - NET_ADMIN
         stop_grace_period: 1s
+        command: ["/bin/sh", "/start_wg.sh"]
+        networks:
+            default:
+                ipv4_address: 10.10.0.4
+    ad:
+        build:
+            dockerfile: dockerfile/adguard.dockerfile
+        volumes:
+            - ./config/.profile:/root/.bashrc:ro
+            - type: volume
+              target: /opt/adguardhome
+              source: adguard
+            - ./ssh:/ssh
+            - ./logs/:/logs/
+            - ./scripts/start_ad.sh:/start_ad.sh
+        hostname: adguard
+        environment:
+            TZ: ${TZ}
+        stop_grace_period: 1s
+        networks:
+            default:
+                ipv4_address: 10.10.0.5
+        command: ["/bin/sh", "/start_ad.sh"]
+    ss:
+        build:
+            dockerfile: dockerfile/shadowsocks.dockerfile
+        volumes:
+            - ./config/.profile:/root/.bashrc:ro
+            - ./config/ssserver.json:/config.json
+            - ./ssh:/ssh
+            - ./scripts/start_ss.sh:/start_ss.sh
+        hostname: shadowsocks
+        ports:
+            - 8388:8388/udp
+            - 8388:8388/tcp
+        environment:
+            TZ: ${TZ}
+        stop_grace_period: 1s
+        command: ["/bin/sh", "/start_ss.sh"]
+        networks:
+            default:
+                ipv4_address: 10.10.0.6
+

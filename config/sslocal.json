@@ -1,0 +1,15 @@
+{
+    "server": "ss",
+    "server_port": 8388,
+    "local_address": "0.0.0.0",
+    "local_port": 1080,
+    "password": "test",
+    "timeout": 120,
+    "method": "chacha20-ietf-poly1305",
+    "no_delay": true,
+    "fast_open": true,
+    "reuse_port": true,
+    "workers": 1,
+    "nameserver": "10.10.0.5",
+    "mode": "tcp_and_udp"
+}

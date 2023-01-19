@@ -6,10 +6,10 @@ unhosts:
 	sed -i '/test.ru/d' /mnt/c/Windows/System32/drivers/etc/hosts
 u: # запуск контейнеров
 	IP=$(shell curl https://ipinfo.io/ip) docker compose up -d --build --force-recreate
-	sleep 1
-	docker compose logs wg unit proxy
+# 	sleep 1
+# 	docker compose logs unit wg ss proxy
 d: # остановка контейнеров
-	docker compose down -v
+	docker compose down
 ps: # список контейнеров
 	docker compose ps
 l: # логи из контейнеров
@@ -20,3 +20,13 @@ proxy: # консоль сервиса
 	docker compose exec proxy bash
 wg: # консоль сервиса
 	docker compose exec wg bash
+ss: # консоль сервиса
+	docker compose exec ss bash
+ng: # консоль сервиса
+	docker compose exec ng bash
+doh: # консоль сервиса
+	docker compose exec doh bash
+ad: # консоль сервиса
+	docker compose exec ad bash
+proxy: # консоль сервиса
+	docker compose exec proxy bash

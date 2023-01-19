@@ -1,7 +1,7 @@
-INTERFACE=$(route | grep '^default' | grep -o '[^ ]*$')
-PRIVATEKEY=$(cat /etc/wireguard/privatekey)
 if [ $(cat /etc/wireguard/wg0.conf | wc -c) -eq 0 ]
 then
+    PRIVATEKEY=$(wg genkey | tee /etc/wireguard/privatekey)
+    INTERFACE=$(route | grep '^default' | grep -o '[^ ]*$')
     echo "[Interface]" > /etc/wireguard/wg0.conf
     echo "PrivateKey = $PRIVATEKEY" >> /etc/wireguard/wg0.conf
     echo "Address = $ADDRESS" >> /etc/wireguard/wg0.conf
