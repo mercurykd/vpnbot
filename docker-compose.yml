@@ -24,6 +24,10 @@ services:
             - 80:80
             - 443:443
         hostname: nginx
+        depends_on:
+            - unit
+            - ad
+            - ss
         environment:
             TZ: ${TZ}
         stop_grace_period: 1s
@@ -62,8 +66,6 @@ services:
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_unit.sh"]
         working_dir: /app
-        depends_on:
-            - ng
         networks:
             default:
                 ipv4_address: 10.10.0.7
@@ -78,6 +80,8 @@ services:
             - ./ssh:/ssh
             - ./scripts/start_proxy.sh:/start_proxy.sh
         hostname: proxy
+        depends_on:
+            - unit
         networks:
             default:
                 ipv4_address: 10.10.0.3
@@ -95,6 +99,8 @@ services:
             - ./scripts/reset_wg.sh:/reset_wg.sh
             - ./ssh:/ssh
         hostname: wireguard
+        depends_on:
+            - unit
         ports:
             - ${WGPORT}:${WGPORT}/udp
         environment:
@@ -120,6 +126,8 @@ services:
             - ./logs/:/logs/
             - ./scripts/start_ad.sh:/start_ad.sh
         hostname: adguard
+        depends_on:
+            - unit
         environment:
             TZ: ${TZ}
         stop_grace_period: 1s
@@ -136,6 +144,8 @@ services:
             - ./ssh:/ssh
             - ./scripts/start_ss.sh:/start_ss.sh
         hostname: shadowsocks
+        depends_on:
+            - unit
         ports:
             - 8388:8388/udp
             - 8388:8388/tcp
