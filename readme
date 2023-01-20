@@ -1,4 +1,8 @@
-telegram bot to control wireguard + proxy
+telegram bot to control
+- wireguard
+- shadowsocks + v2ray
+- adguard home
+- PAC dynamic url
 ---
 environment: ubuntu 18.04
 
