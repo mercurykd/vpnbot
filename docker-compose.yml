@@ -72,8 +72,6 @@ services:
     proxy:
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
-        ports:
-            - 1080:1080
         volumes:
             - ./config/.profile:/root/.bashrc:ro
             - ./config/sslocal.json:/config.json
