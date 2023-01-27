@@ -16,8 +16,6 @@ l: # логи из контейнеров
 	docker compose logs $(SERVICE)
 unit: # консоль сервиса
 	docker compose exec unit bash
-proxy: # консоль сервиса
-	docker compose exec proxy bash
 wg: # консоль сервиса
 	docker compose exec wg bash
 ss: # консоль сервиса
