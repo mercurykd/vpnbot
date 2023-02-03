@@ -1787,7 +1787,7 @@ DNS-over-HTTPS with IP:
             'peers' => [
                 [
                     'PublicKey'           => $public_server_key,
-                    'Endpoint'            => "{$_SERVER['HTTP_HOST']}:" . getenv('PORT_WG'),
+                    'Endpoint'            => file_get_contents('https://ipinfo.io/ip') . ":" . getenv('PORT_WG'),
                     'AllowedIPs'          => $ips_user ?: "0.0.0.0/0",
                     'PersistentKeepalive' => 20,
                 ]
