@@ -1010,7 +1010,7 @@ DNS-over-HTTPS with IP:
         $data = [
             [[
                 'text'          => "update status",
-                'callback_data' => "/menu wg",
+                'callback_data' => "/menu wg 0",
             ]],
             [[
                     'text'          => "add peer",
