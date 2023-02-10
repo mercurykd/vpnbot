@@ -15,5 +15,7 @@ apt update
 apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 git clone https://github.com/mercurykd/vpnbot.git
 cd ./vpnbot
-echo "<?php\n\nreturn \$c = ['key' => '$1'];\n" > ./app/config.php
+echo "<?php
+
+return \$c = ['key' => '$1'];" > ./app/config.php
 make u
