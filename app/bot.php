@@ -122,6 +122,9 @@ class Bot
             case preg_match('~^/checkdns$~', $this->input['callback'], $m):
                 $this->checkdns();
                 break;
+            case preg_match('~^/resetnginx$~', $this->input['callback'], $m):
+                $this->resetnginx();
+                break;
             case preg_match('~^/adguardpsswd$~', $this->input['callback'], $m):
                 $this->adguardpsswd();
                 break;
@@ -717,6 +720,27 @@ class Bot
             'callback'      => 'selfsslInstall',
             'args'          => [],
         ];
+    }
+
+    public function resetnginx()
+    {
+        $nginx   = file_get_contents('/config/nginx.conf');
+        $default = file_get_contents('/config/nginx_default.conf');
+        file_put_contents('/config/nginx.conf', $default);
+        $u = $this->ssh("nginx -t 2>&1", 'ng');
+        $out[] = $u;
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        if (preg_match('~test is successful~', $u)) {
+            $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
+            $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+            $conf = $this->getPacConf();
+            unset($conf['domain']);
+            $this->setPacConf($conf);
+        } else {
+            file_put_contents('/config/nginx.conf', $nginx);
+        }
+        sleep(5);
+        $this->menu('config');
     }
 
     public function adguardpsswd()
@@ -1687,6 +1711,12 @@ DNS-over-HTTPS with IP:
                 ];
             }
         }
+        $data[] = [
+            [
+                'text'          => 'reset nginx',
+                'callback_data' => "/resetnginx",
+            ],
+        ];
         $data[] = [
             [
                 'text'          => 'import',
