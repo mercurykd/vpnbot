@@ -110,6 +110,9 @@ class Bot
             case preg_match('~^/adguardpsswd$~', $this->input['callback'], $m):
                 $this->adguardpsswd();
                 break;
+            case preg_match('~^/adguardreset$~', $this->input['callback'], $m):
+                $this->adguardreset();
+                break;
             case preg_match('~^/addupstream$~', $this->input['callback'], $m):
                 $this->addupstream();
                 break;
@@ -690,6 +693,21 @@ class Bot
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
         $c['users'][0]['password'] = password_hash($pass, PASSWORD_DEFAULT);
+        yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
+        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        sleep(3);
+        $this->menu('adguard');
+    }
+
+    public function adguardreset()
+    {
+        $out[] = 'Restart Adguard Home';
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        $c = yaml_parse_file('/config/AdGuardHome.yaml');
+        $this->sd($c);
         yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
         $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
@@ -1525,6 +1543,10 @@ DNS-over-HTTPS with IP:
                 [
                     'text'          => 'change password',
                     'callback_data' => "/adguardpsswd",
+                ],
+                [
+                    'text'          => 'reset settings',
+                    'callback_data' => "/adguardreset",
                 ],
             ],
         ];
