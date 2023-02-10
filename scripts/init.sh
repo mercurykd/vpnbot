@@ -17,5 +17,5 @@ git clone https://github.com/mercurykd/vpnbot.git
 cd ./vpnbot
 echo "<?php
 
-return \$c = ['key' => '$1'];" > ./app/config.php
+\$c = ['key' => '$1'];" > ./app/config.php
 make u
