@@ -39,9 +39,23 @@ class Bot
             'new_member_id'     => $input['my_chat_member']['new_chat_member']['user']['id'] ?? false,
             'new_member_status' => $input['my_chat_member']['new_chat_member']['status'] ?? false,
         ];
+        $this->auth();
         $this->session();
         $this->action();
         $this->callbackCheck();
+    }
+
+    public function auth()
+    {
+        $file = __DIR__ . '/config.php';
+        require $file;
+        if (empty($c['admin'])) {
+            $c['admin'] = $this->input['from'];
+            file_put_contents($file, "<?php\n\n\$c = " . var_export($c, true) . ";\n");
+        } elseif ($c['admin'] != $this->input['from']) {
+            $this->send($this->input['chat'], 'you are not authorized', $this->input['message_id']);
+            exit;
+        }
     }
 
     public function callbackCheck()
@@ -84,6 +98,7 @@ class Bot
         switch (true) {
             // смена айпи сервера
             case preg_match('~^/menu$~', $this->input['message'], $m):
+            case preg_match('~^/start$~', $this->input['message'], $m):
             case preg_match('~^/menu$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>addpeer) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>wg) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
