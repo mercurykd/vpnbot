@@ -1237,11 +1237,11 @@ DNS-over-HTTPS with IP:
                     <b>PAC ({$pac['time']} / {$pac['sz']}):</b>
                     <code>$scheme://$ip/pac?h=$hash&a=127.0.0.1&p=1080</code>
                     text;
-            $urls[] = [
+            $urls[0][] = [
                 'text' => "PAC",
                 'url'  => "$scheme://$ip/pac?h=$hash&a=127.0.0.1&p=1080",
             ];
-            $urls[] = [
+            $urls[1][] = [
                 'text' => "PAC Wireguard proxy",
                 'url'  => "$scheme://$ip/pac?h=$hash&a=10.10.0.3&p=1080",
             ];
@@ -1255,7 +1255,7 @@ DNS-over-HTTPS with IP:
                     <b>Shadowsocks-android PAC ({$mpac['time']} / {$mpac['sz']}):</b>
                     <code>$scheme://$ip/pac?h=$hash&t=mpac</code>
                     text;
-            $urls[] = [
+            $urls[2][] = [
                 'text' => "PAC ShadowSocks(Android)",
                 'url'  => "$scheme://$ip/pac?h=$hash&t=mpac",
             ];
@@ -1269,11 +1269,11 @@ DNS-over-HTTPS with IP:
                     <b>Reverse PAC ({$rpac['time']} / {$rpac['sz']}):</b>
                     <code>$scheme://$ip/pac?h=$hash&t=rpac&a=127.0.0.1&p=1080</code>
                     text;
-            $urls[] = [
+            $urls[0][] = [
                 'text' => "Reverse PAC",
                 'url'  => "$scheme://$ip/pac?h=$hash&t=rpac",
             ];
-            $urls[] = [
+            $urls[1][] = [
                 'text' => "Reverse PAC Wireguard proxy",
                 'url'  => "$scheme://$ip/pac?h=$hash&t=rpac&a=10.10.0.3",
             ];
@@ -1287,13 +1287,13 @@ DNS-over-HTTPS with IP:
                     <b>Reverse shadowsocks-android PAC ({$rmpac['time']} / {$rmpac['sz']}):</b>
                     <code>$scheme://$ip/pac?h=$hash&t=rmpac</code>
                     text;
-            $urls[] = [
+            $urls[2][] = [
                 'text' => "Reverse PAC SS(Android)",
                 'url'  => "$scheme://$ip/pac?h=$hash&t=rmpac",
             ];
         }
         if ($urls) {
-            $data = array_chunk($urls, 2);
+            $data = $urls;
         }
         if ($conf['zapret']) {
             $data[] = [

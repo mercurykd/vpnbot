@@ -308,7 +308,7 @@ $load = [
 
 switch ($_SERVER['argv'][1]) {
     case 'start':
-        $bot                       = new Bot($key);
+        $bot                       = new Bot($c['key']);
         $bot->input['chat']        = $_SERVER['argv'][2];
         $bot->input['message_id']  = $_SERVER['argv'][3];
         $bot->input['callback_id'] = $_SERVER['argv'][4];

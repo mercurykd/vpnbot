@@ -17,7 +17,7 @@ $type = $_GET['t'] ?? 'pac';
 $address = $_GET['a'] ?: '127.0.0.1';
 $port = $_GET['p'] ?: '1080';
 $hash = $_GET['h'];
-if ($hash == substr(md5($key), 0, 8)) {
+if ($hash == substr(md5($c['key']), 0, 8)) {
     if (file_exists($file = __DIR__ . "/zapretlists/$type")) {
         $pac = file_get_contents($file);
         header('Content-Type: text/plain');
