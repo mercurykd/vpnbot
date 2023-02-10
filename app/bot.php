@@ -492,17 +492,34 @@ class Bot
         if (!empty($domain)) {
             $conf = $this->getPacConf();
             $conf['domain'] = idn_to_ascii($domain);
-            $this->setPacConf($conf);
+            $nginx = file_get_contents('/config/nginx.conf');
+            $t = preg_replace('/server_name([^\n]+)?/', "server_name {$conf['domain']};", $nginx);
+            preg_match_all('~#-domain.+?#-domain~s', $t, $m);
+            foreach ($m[0] as $k => $v) {
+                $t = preg_replace('~#-domain.+?#-domain~s', $this->uncomment($v, 'domain'), $t, 1);
+            }
+            file_put_contents('/config/nginx.conf', $t);
+            $u = $this->ssh("nginx -t 2>&1", 'ng');
+            $out[] = $u;
+            $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+            if (preg_match('~test is successful~', $u)) {
+                $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->setPacConf($conf);
+            } else {
+                file_put_contents('/config/nginx.conf', $nginx);
+            }
         }
+        sleep(3);
         $this->menu('config');
     }
 
-    public function comment($text)
+    public function comment($text, $tag)
     {
         $text = explode("\n", $text);
         foreach ($text as $k => $v) {
-            if (preg_match('~##domain~', $v)) {
-                $text[$k] = '#-domain';
+            if (preg_match("~##$tag~", $v)) {
+                $text[$k] = "#-$tag";
                 continue;
             }
             $text[$k] = "#$v";
@@ -510,26 +527,26 @@ class Bot
         return implode("\n", $text);
     }
 
-    public function uncomment($text)
+    public function uncomment($text, $tag)
     {
         $text = explode("\n", $text);
         foreach ($text as $k => $v) {
-            if (preg_match('~#-domain~', $v)) {
-                $text[$k] = '##domain';
+            if (preg_match("~#-$tag~", $v)) {
+                $text[$k] = "##$tag";
                 continue;
             }
-            $text[$k] = trim($v, '#');
+            $text[$k] = preg_replace('~#~', '', $v, 1);
         }
         return implode("\n", $text);
     }
 
-    public function deleteSSL()
+    public function deleteSSL($notmenu = false)
     {
         $nginx = file_get_contents('/config/nginx.conf');
         $t = preg_replace("/#~[^\s]+/", '#~', $nginx);
-        preg_match_all('~##domain.+?##domain~s', $t, $m);
+        preg_match_all('~##ssl.+?##ssl~s', $t, $m);
         foreach ($m[0] as $k => $v) {
-            $t = preg_replace('~##domain.+?##domain~s', $this->comment($v), $t, 1);
+            $t = preg_replace('~##ssl.+?##ssl~s', $this->comment($v, 'ssl'), $t, 1);
         }
         file_put_contents('/config/nginx.conf', $t);
         $u = $this->ssh("nginx -t 2>&1", 'ng');
@@ -543,7 +560,9 @@ class Bot
         } else {
             file_put_contents('/config/nginx.conf', $nginx);
         }
-        $this->menu('config');
+        if (!$notmenu) {
+            $this->menu('config');
+        }
     }
 
     public function updateUnitInitConfig()
@@ -578,10 +597,9 @@ class Bot
             file_put_contents('/certs/cert_public', preg_replace('~[^\s]+BEGIN PRIVATE KEY.+?END PRIVATE KEY[^\s]+~s', '', $bundle));
             $nginx = file_get_contents('/config/nginx.conf');
             $t = preg_replace('/#~([^\n]+)?/', "#~$name", $nginx);
-            $t = preg_replace('/server_name([^\n]+)?/', "server_name {$conf['domain']};", $t);
-            preg_match_all('~#-domain.+?#-domain~s', $t, $m);
+            preg_match_all('~#-ssl.+?#-ssl~s', $t, $m);
             foreach ($m[0] as $k => $v) {
-                $t = preg_replace('~#-domain.+?#-domain~s', $this->uncomment($v), $t, 1);
+                $t = preg_replace('~#-ssl.+?#-ssl~s', $this->uncomment($v, 'ssl'), $t, 1);
             }
             file_put_contents('/config/nginx.conf', $t);
             $u = $this->ssh("nginx -t 2>&1", 'ng');
@@ -624,10 +642,26 @@ class Bot
 
     public function delDomain()
     {
+        $this->deleteSSL(1);
         $conf = $this->getPacConf();
         unset($conf['domain']);
-        $this->setPacConf($conf);
-        $this->deleteSSL();
+        $nginx = $t = file_get_contents('/config/nginx.conf');
+        preg_match_all('~##domain.+?##domain~s', $t, $m);
+        foreach ($m[0] as $k => $v) {
+            $t = preg_replace('~##domain.+?##domain~s', $this->comment($v, 'domain'), $t, 1);
+        }
+        file_put_contents('/config/nginx.conf', $t);
+        $u = $this->ssh("nginx -t 2>&1", 'ng');
+        $out[] = $u;
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        if (preg_match('~test is successful~', $u)) {
+            $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
+            $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+            $this->setPacConf($conf);
+        } else {
+            file_put_contents('/config/nginx.conf', $nginx);
+        }
+        $this->menu('config');
     }
 
     public function addips()
