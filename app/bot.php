@@ -363,7 +363,6 @@ class Bot
                 'private' => file_exists('/certs/cert_private') ? file_get_contents('/certs/cert_private') : false,
                 'public'  => file_exists('/certs/cert_public') ? file_get_contents('/certs/cert_public') : false,
             ],
-            'nginx' => file_get_contents('/config/nginx.conf')
 
         ];
         $this->upload(date('d_m_Y_H_i') . '.json', json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
@@ -437,13 +436,30 @@ class Bot
                 file_put_contents('/certs/cert_public', $json['ssl']['public']);
             }
             // nginx
-            if (!empty($json['nginx'])) {
-                $out[] = 'reload nginx';
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                file_put_contents('/config/nginx.conf', $json['nginx']);
-                $this->ssh("nginx -s reload 2>&1", 'ng');
+            $out[] = 'reset nginx';
+            $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+
+            $t = file_get_contents('/config/nginx_default.conf');
+            if (!empty($json['pac']['domain'])) {
+                $t = preg_replace('/server_name([^\n]+)?/', "server_name {$json['pac']['domain']};", $t);
+                preg_match_all('~#-domain.+?#-domain~s', $t, $m);
+                foreach ($m[0] as $k => $v) {
+                    $t = preg_replace('~#-domain.+?#-domain~s', $this->uncomment($v, 'domain'), $t, 1);
+                }
             }
-            $out[] = 'end import';
+            if (!empty($json['ssl'])) {
+                $name = $json['pac']['letsencrypt'] ? 'letsencrypt' : 'self';
+                $t = preg_replace('/#~([^\n]+)?/', "#~$name", $t);
+                preg_match_all('~#-ssl.+?#-ssl~s', $t, $m);
+                foreach ($m[0] as $k => $v) {
+                    $t = preg_replace('~#-ssl.+?#-ssl~s', $this->uncomment($v, 'ssl'), $t, 1);
+                }
+            }
+            file_put_contents('/config/nginx.conf', $t);
+            $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
+            $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+
+            $out[] = "end import";
             $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
             sleep(3);
             $this->menu();
