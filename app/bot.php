@@ -146,6 +146,9 @@ class Bot
             case preg_match('~^/download (\d+)$~', $this->input['callback'], $m):
                 $this->downloadPeer($m[1]);
                 break;
+            case preg_match('~^/qr (\d+)$~', $this->input['callback'], $m):
+                $this->qrPeer($m[1]);
+                break;
             case preg_match('~^/delupstream (\d+)$~', $this->input['callback'], $m):
                 $this->delupstream($m[1]);
                 break;
@@ -450,6 +453,22 @@ class Bot
         $name   = $this->getName($client['interface']);
         $code   = $this->createConfig($client);
         $this->upload(preg_replace(['~\s+~', '~\(|\)~'], ['_', ''], $name) . ".conf", $code);
+    }
+
+    public function qrPeer($client)
+    {
+        $client  = $this->readClients()[$client];
+        $name    = $this->getName($client['interface']);
+        $code    = $this->createConfig($client);
+        $qr      = preg_replace(['~\s+~', '~\(~', '~\)~'], ['_', '\(', '\)'], $name);
+        $qr_file = __DIR__ . "/qr/$qr.png";
+        exec("qrencode -t png -o $qr_file '$code'");
+        $r = $this->sendPhoto(
+            $this->input['chat'],
+            curl_file_create($qr_file),
+            $name,
+        );
+        unlink($qr_file);
     }
 
     public function upload($name, $code)
@@ -1126,8 +1145,9 @@ DNS-over-HTTPS with IP:
         $clients = $this->readClients();
         if ($clients) {
             $name = $this->getName($clients[$client]['interface']);
+            $conf = $this->createConfig($clients[$client]);
             return [
-                'text' => "<code>{$this->createConfig($clients[$client])}</code>\n\n<b>$name</b>",
+                'text' => "<code>$conf</code>\n\n<b>$name</b>",
                 'data' => [
                     [
                         [
@@ -1137,7 +1157,11 @@ DNS-over-HTTPS with IP:
                     ],
                     [
                         [
-                            'text'          => "download",
+                            'text'          => "show QR",
+                            'callback_data' => "/qr $client",
+                        ],
+                        [
+                            'text'          => "download config",
                             'callback_data' => "/download $client",
                         ],
                     ],
@@ -1153,7 +1177,7 @@ DNS-over-HTTPS with IP:
                             'callback_data' => "/menu wg $page",
                         ],
                     ],
-                ]
+                ],
             ];
         }
         return [
@@ -2078,6 +2102,17 @@ DNS-over-HTTPS with IP:
             'photo'               => $id_url_cFile,
             'caption'             => $caption,
             'reply_to_message_id' => $to,
+        ]);
+    }
+
+    public function sendPhoto($chat, $id_url_cFile, $caption = false, $to = false)
+    {
+        return $this->request('sendPhoto', [
+            'chat_id'             => $chat,
+            'photo'               => $id_url_cFile,
+            'caption'             => $caption,
+            'reply_to_message_id' => $to,
+            'parse_mode'          => 'html',
         ]);
     }
 
