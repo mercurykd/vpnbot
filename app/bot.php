@@ -149,6 +149,9 @@ class Bot
             case preg_match('~^/qr (\d+)$~', $this->input['callback'], $m):
                 $this->qrPeer($m[1]);
                 break;
+            case preg_match('~^/qrSS$~', $this->input['callback'], $m):
+                $this->qrSS();
+                break;
             case preg_match('~^/delupstream (\d+)$~', $this->input['callback'], $m):
                 $this->delupstream($m[1]);
                 break;
@@ -467,6 +470,24 @@ class Bot
             $this->input['chat'],
             curl_file_create($qr_file),
             $name,
+        );
+        unlink($qr_file);
+    }
+
+    public function qrSS()
+    {
+        $conf    = $this->getPacConf();
+        $ip      = file_get_contents('https://ipinfo.io/ip');
+        $domain  = $conf['domain'] ?: $ip;
+        $scheme  = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
+        $ss      = $this->getSSConfig();
+        $port    = !empty($ssl) && !empty($ss['plugin']) ? 443 : 8388;
+        $ss_link = 'ss://' . base64_encode("{$ss['method']}:{$ss['password']}@$domain:$port");
+        $qr_file = __DIR__ . "/qr/shadowsocks.png";
+        exec("qrencode -t png -o $qr_file '$ss_link'");
+        $r = $this->sendPhoto(
+            $this->input['chat'],
+            curl_file_create($qr_file),
         );
         unlink($qr_file);
     }
@@ -1493,6 +1514,8 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/sspswd",
             ],
         ];
+        $ss_link = 'ss://' . base64_encode("{$ss['method']}:{$ss['password']}@$domain:$port");
+        $text .= "\n\n<code>$ss_link</code>\n";
         $text .= "\n\nserver: <code>$domain:$port</code>";
         $text .= "\n\nmethod: <code>{$ss['method']}</code>";
         $text .= "\n\nnameserver: <code>10.10.0.5</code>";
@@ -1504,6 +1527,12 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => "v2ray: $v2ray",
                 'callback_data' => "/v2ray",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => 'show QR',
+                'callback_data' => "/qrSS",
             ],
         ];
         $data[] = [
