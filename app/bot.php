@@ -1780,12 +1780,12 @@ DNS-over-HTTPS with IP:
                 ];
             }
         }
-        $data[] = [
-            [
-                'text'          => 'reset nginx',
-                'callback_data' => "/resetnginx",
-            ],
-        ];
+        // $data[] = [
+        //     [
+        //         'text'          => 'reset nginx',
+        //         'callback_data' => "/resetnginx",
+        //     ],
+        // ];
         $data[] = [
             [
                 'text'          => 'import',
