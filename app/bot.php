@@ -47,12 +47,18 @@ class Bot
 
     public function auth()
     {
+        if (preg_match('~^/id$~', $this->input['message'])) {
+            return;
+        }
         $file = __DIR__ . '/config.php';
         require $file;
         if (empty($c['admin'])) {
-            $c['admin'] = $this->input['from'];
+            $c['admin'] = [$this->input['from']];
             file_put_contents($file, "<?php\n\n\$c = " . var_export($c, true) . ";\n");
-        } elseif ($c['admin'] != $this->input['from']) {
+        } elseif (!is_array($c['admin'])){
+            $c['admin'] = [$c['admin']];
+            file_put_contents($file, "<?php\n\n\$c = " . var_export($c, true) . ";\n");
+        } elseif (!in_array($this->input['from'], $c['admin'])) {
             $this->send($this->input['chat'], 'you are not authorized', $this->input['message_id']);
             exit;
         }
@@ -110,6 +116,9 @@ class Bot
             case preg_match('~^/menu (?P<type>subzoneslist|reverselist|includelist|excludelist) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
                 $this->menu(type: $m['type'] ?? false, arg: $m['arg'] ?? false);
                 break;
+            case preg_match('~^/id$~', $this->input['message'], $m):
+                $this->send($this->input['chat'], $this->input['from'], $this->input['message_id']);
+                break;
             case preg_match('~^/selfssl$~', $this->input['callback'], $m):
                 $this->selfssl();
                 break;
@@ -128,6 +137,9 @@ class Bot
             case preg_match('~^/adguardpsswd$~', $this->input['callback'], $m):
                 $this->adguardpsswd();
                 break;
+            case preg_match('~^/addadmin$~', $this->input['callback'], $m):
+                $this->enterAdmin();
+                break;
             case preg_match('~^/adguardreset$~', $this->input['callback'], $m):
                 $this->adguardreset();
                 break;
@@ -145,6 +157,9 @@ class Bot
                 break;
             case preg_match('~^/download (\d+)$~', $this->input['callback'], $m):
                 $this->downloadPeer($m[1]);
+                break;
+            case preg_match('~^/deladmin (\d+)$~', $this->input['callback'], $m):
+                $this->delAdmin($m[1]);
                 break;
             case preg_match('~^/qr (\d+)$~', $this->input['callback'], $m):
                 $this->qrPeer($m[1]);
@@ -812,6 +827,39 @@ class Bot
             'callback'      => 'chpsswd',
             'args'          => [],
         ];
+    }
+
+    public function enterAdmin()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter id",
+            $this->input['message_id'],
+            reply: 'enter id',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'addAdmin',
+            'args'          => [],
+        ];
+    }
+
+    public function addAdmin($id)
+    {
+        $file = __DIR__ . '/config.php';
+        require $file;
+        $c['admin'][] = $id;
+        file_put_contents($file, "<?php\n\n\$c = " . var_export($c, true) . ";\n");
+        $this->menu('config');
+    }
+
+    public function delAdmin($id)
+    {
+        $file = __DIR__ . '/config.php';
+        require $file;
+        unset($c['admin'][array_search($id, $c['admin'])]);
+        file_put_contents($file, "<?php\n\n\$c = " . var_export($c, true) . ";\n");
+        $this->menu('config');
     }
 
     public function chpsswd($pass)
@@ -1780,12 +1828,23 @@ DNS-over-HTTPS with IP:
                 ];
             }
         }
-        // $data[] = [
-        //     [
-        //         'text'          => 'reset nginx',
-        //         'callback_data' => "/resetnginx",
-        //     ],
-        // ];
+        $data[] = [
+            [
+                'text'          => 'add admin',
+                'callback_data' => "/addadmin",
+            ],
+        ];
+        $file = __DIR__ . '/config.php';
+        opcache_invalidate($file);
+        require $file;
+        foreach ($c['admin'] as $k => $v) {
+            $data[] = [
+                [
+                    'text'          => "delete $v",
+                    'callback_data' => "/deladmin $v",
+                ],
+            ];
+        }
         $data[] = [
             [
                 'text'          => 'import',
@@ -2065,6 +2124,10 @@ DNS-over-HTTPS with IP:
                 [
                     'command'     => 'menu',
                     'description' => '...',
+                ],
+                [
+                    'command'     => 'id',
+                    'description' => 'your id telegram',
                 ],
             ]
         ];
