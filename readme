@@ -4,8 +4,12 @@ telegram bot to control
 - adguard home
 - PAC dynamic url
 ---
-environment: ubuntu 18.04
+environment: ubuntu 18.04/20.04
 
 install:
 
 wget -O- https://raw.githubusercontent.com/mercurykd/vpnbot/master/scripts/init.sh | sh -s YOUR_TELEGRAM_BOT_KEY
+
+open 53 port for adguardhome:
+
+bash scripts/dns_open_53_port.sh
