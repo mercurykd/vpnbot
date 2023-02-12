@@ -479,7 +479,7 @@ class Bot
         $client  = $this->readClients()[$client];
         $name    = $this->getName($client['interface']);
         $code    = $this->createConfig($client);
-        $qr      = preg_replace(['~\s+~', '~\(~', '~\)~'], ['_', '\(', '\)'], $name);
+        $qr      = preg_replace(['~\s+~', '~\(~', '~\)~'], ['_'], $name);
         $qr_file = __DIR__ . "/qr/$qr.png";
         exec("qrencode -t png -o $qr_file '$code'");
         $r = $this->sendPhoto(
