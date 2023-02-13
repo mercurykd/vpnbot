@@ -7,3 +7,4 @@ require __DIR__ . '/config.php';
 $bot = new Bot($c['key']);
 $bot->setwebhook($c['key']);
 $bot->setcommands();
+$bot->syncPortClients();

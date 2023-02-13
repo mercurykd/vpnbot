@@ -40,8 +40,6 @@ services:
     unit:
         build:
             dockerfile: dockerfile/php.dockerfile
-            args:
-                IP: ${IP}
         volumes:
             - ./config/.profile:/root/.bashrc:ro
             - ./config/php.ini:/usr/local/etc/php/php.ini
@@ -64,7 +62,8 @@ services:
         environment:
             TZ: ${TZ}
             ADDRESS: ${WGADDRESS}
-            PORT_WG: ${WGPORT}
+            WGPORT: ${WGPORT}
+            SSPORT: ${SSPORT}
         hostname: unit
         restart: unless-stopped
         stop_grace_period: 1s
@@ -73,6 +72,8 @@ services:
         networks:
             default:
                 ipv4_address: 10.10.0.7
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
     proxy:
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
@@ -89,6 +90,7 @@ services:
                 ipv4_address: 10.10.0.3
         environment:
             TZ: ${TZ}
+            SSPORT: ${SSPORT}
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_proxy.sh"]
     wg:
@@ -107,7 +109,7 @@ services:
             - ${WGPORT}:${WGPORT}/udp
         environment:
             TZ: ${TZ}
-            PORT_WG: ${WGPORT}
+            WGPORT: ${WGPORT}
             ADDRESS: ${WGADDRESS}
         cap_add:
             - NET_ADMIN
@@ -149,10 +151,11 @@ services:
         depends_on:
             - unit
         ports:
-            - 8388:8388/udp
-            - 8388:8388/tcp
+            - ${SSPORT}:${SSPORT}/tcp
+            - ${SSPORT}:${SSPORT}/udp
         environment:
             TZ: ${TZ}
+            SSPORT: ${SSPORT}
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_ss.sh"]
         networks:

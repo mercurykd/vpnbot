@@ -5,7 +5,7 @@ hosts: unhosts # маппинг доменов на локалку
 unhosts:
 	sed -i '/test.ru/d' /mnt/c/Windows/System32/drivers/etc/hosts
 u: # запуск контейнеров
-	IP=$(shell curl https://ipinfo.io/ip) docker compose up -d --build --force-recreate
+	docker compose up -d --build --force-recreate
 # 	sleep 1
 # 	docker compose logs unit wg ss proxy
 d: # остановка контейнеров

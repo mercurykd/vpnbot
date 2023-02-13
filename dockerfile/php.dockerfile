@@ -1,5 +1,4 @@
 from nginx/unit:1.29.0-php8.1
-arg IP
 run apt update && apt install -y qrencode wget libssh2-1-dev ssh libicu-dev libyaml-dev certbot && \
 pecl install https://pecl.php.net/get/ssh2-1.3.1.tgz && \
 pecl install https://pecl.php.net/get/yaml-2.2.2.tgz && \

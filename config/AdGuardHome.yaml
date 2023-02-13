@@ -27,7 +27,7 @@ dns:
   blocked_response_ttl: 10
   parental_block_host: family-block.dns.adguard.com
   safebrowsing_block_host: standard-block.dns.adguard.com
-  ratelimit: 20
+  ratelimit: 200
   ratelimit_whitelist: []
   refuse_any: true
   upstream_dns:

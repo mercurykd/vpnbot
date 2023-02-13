@@ -311,12 +311,14 @@ class Bot
             unset($l['plugin']);
             unset($l['plugin_opts']);
             $l['server']      = 'ss';
-            $l['server_port'] = 8388;
+            $l['server_port'] = (int) getenv('SSPORT');
+            $c['server_port'] = (int) getenv('SSPORT');
         } else {
             $c['plugin']      = 'v2ray-plugin';
             $c['plugin_opts'] = 'server;loglevel=none';
             $l['server']      = 'ng';
             $l['server_port'] = 443;
+            $c['server_port'] = 443;
             $l['plugin']      = 'v2ray-plugin';
             $l['plugin_opts'] = "tls;fast-open;path=/v2ray;host=$domain";
         }
@@ -512,7 +514,7 @@ class Bot
         $domain  = $conf['domain'] ?: $ip;
         $scheme  = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
         $ss      = $this->getSSConfig();
-        $port    = !empty($ssl) && !empty($ss['plugin']) ? 443 : 8388;
+        $port    = !empty($ssl) && !empty($ss['plugin']) ? 443 : getenv('SSPORT');
         $ss_link = 'ss://' . base64_encode("{$ss['method']}:{$ss['password']}@$domain:$port");
         $qr_file = __DIR__ . "/qr/shadowsocks.png";
         exec("qrencode -t png -o $qr_file '$ss_link'");
@@ -884,7 +886,6 @@ class Bot
         $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         $c = yaml_parse_file('/config/AdGuardHome.yaml');
-        $this->sd($c);
         yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
         $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
@@ -1132,7 +1133,7 @@ DNS-over-HTTPS with IP:
     {
         $conf    = $this->readConfig();
         $address = getenv('ADDRESS');
-        $port    = getenv('PORT_WG');
+        $port    = getenv('WGPORT');
         $r       = $this->ssh("/bin/sh /reset_wg.sh $address $port");
         file_put_contents($this->clients, '');
         $this->menu();
@@ -1568,7 +1569,7 @@ DNS-over-HTTPS with IP:
         $scheme  = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
         $ss      = $this->getSSConfig();
         $v2ray   = !empty($ss['plugin']) ? 'ON' : 'OFF';
-        $port    = !empty($ssl) && !empty($ss['plugin']) ? 443 : 8388;
+        $port    = !empty($ssl) && !empty($ss['plugin']) ? 443 : getenv('SSPORT');
         $options = !empty($ssl) && !empty($ss['plugin']) ? "tls;fast-open;path=/v2ray;host=$domain" : "path=/v2ray;host=$domain";
 
         $text = "Menu -> ShadowSocks";
@@ -2016,7 +2017,7 @@ DNS-over-HTTPS with IP:
             'peers' => [
                 [
                     'PublicKey'           => $public_server_key,
-                    'Endpoint'            => file_get_contents('https://ipinfo.io/ip') . ":" . getenv('PORT_WG'),
+                    'Endpoint'            => file_get_contents('https://ipinfo.io/ip') . ":" . getenv('WGPORT'),
                     'AllowedIPs'          => $ips_user ?: "0.0.0.0/0",
                     'PersistentKeepalive' => 20,
                 ]
@@ -2039,6 +2040,18 @@ DNS-over-HTTPS with IP:
         $r = array_merge($this->readClients(), [$client]);
         $this->saveClients($r);
         return count($r) - 1;
+    }
+
+    public function syncPortClients()
+    {
+        $endpoint = file_get_contents('https://ipinfo.io/ip') . ':' . getenv('WGPORT');
+        $clients  = $this->readClients();
+        foreach ($clients as $k => $v) {
+            foreach ($v['peers'] as $i => $j) {
+                $clients[$k]['peers'][$i]['Endpoint'] = $endpoint;
+            }
+        }
+        $this->saveClients($clients);
     }
 
     public function saveClients(array $clients)
