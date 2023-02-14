@@ -300,18 +300,31 @@ class Bot
 
     public function v2ray()
     {
+        $this->ssh('pkill sslocal', 'proxy');
         $this->ssh('pkill ssserver', 'ss');
         $c = $this->getSSConfig();
+        $l = $this->getSSLocalConfig();
         $domain = $this->getPacConf()['domain'];
         if ($c['plugin']) {
             unset($c['plugin']);
             unset($c['plugin_opts']);
+            unset($l['plugin']);
+            unset($l['plugin_opts']);
+            $l['server']      = 'ss';
+            $l['server_port'] = (int) getenv('SSPORT');
+            $c['server_port'] = (int) getenv('SSPORT');
         } else {
             $c['plugin']      = 'v2ray-plugin';
             $c['plugin_opts'] = 'server;loglevel=none';
+            $l['server']      = 'ng';
+            $l['server_port'] = 443;
+            $l['plugin']      = 'v2ray-plugin';
+            $l['plugin_opts'] = "tls;fast-open;path=/v2ray;host=$domain";
         }
         file_put_contents('/config/ssserver.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        file_put_contents('/config/sslocal.json', json_encode($l, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         $this->ssh('/ssserver -v -d -c /config.json', 'ss');
+        $this->ssh('/sslocal -v -d -c /config.json', 'proxy');
         $this->menu('ss');
     }
 
