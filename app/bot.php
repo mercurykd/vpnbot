@@ -318,7 +318,6 @@ class Bot
             $c['plugin_opts'] = 'server;loglevel=none';
             $l['server']      = 'ng';
             $l['server_port'] = 443;
-            $c['server_port'] = 443;
             $l['plugin']      = 'v2ray-plugin';
             $l['plugin_opts'] = "tls;fast-open;path=/v2ray;host=$domain";
         }
