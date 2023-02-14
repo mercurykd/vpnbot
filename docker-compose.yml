@@ -16,6 +16,7 @@ services:
         volumes:
             - ./config/.profile:/root/.bashrc:ro
             - ./config/nginx.conf:/etc/nginx/nginx.conf
+            - ./config/nginx_default.conf:/nginx_default.conf
             - ./scripts/start_ng.sh:/start_ng.sh
             - ./certs/:/certs/
             - ./ssh/:/ssh/
@@ -30,6 +31,7 @@ services:
             - ss
         environment:
             TZ: ${TZ}
+            SSPORT: ${SSPORT}
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_ng.sh"]
         networks:
