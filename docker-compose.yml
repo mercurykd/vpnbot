@@ -77,6 +77,9 @@ services:
     proxy:
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
+            args:
+                RELEASE: ${RELEASE}
+                SYSTEM: ${SYSTEM}
         volumes:
             - ./config/.profile:/root/.bashrc:ro
             - ./config/sslocal.json:/config.json
@@ -96,6 +99,9 @@ services:
     wg:
         build:
             dockerfile: dockerfile/wireguard.dockerfile
+            args:
+                RELEASE: ${RELEASE}
+                SYSTEM: ${SYSTEM}
         volumes:
             - ./config/.profile:/root/.bashrc:ro
             - ./config/wg0.conf:/etc/wireguard/wg0.conf
@@ -121,6 +127,9 @@ services:
     ad:
         build:
             dockerfile: dockerfile/adguard.dockerfile
+            args:
+                RELEASE: ${RELEASE}
+                SYSTEM: ${SYSTEM}
         volumes:
             - ./config/.profile:/root/.bashrc:ro
             - type: volume
@@ -142,6 +151,9 @@ services:
     ss:
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
+            args:
+                RELEASE: ${RELEASE}
+                SYSTEM: ${SYSTEM}
         volumes:
             - ./config/.profile:/root/.bashrc:ro
             - ./config/ssserver.json:/config.json

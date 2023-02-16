@@ -5,7 +5,7 @@ hosts: unhosts # маппинг доменов на локалку
 unhosts:
 	sed -i '/test.ru/d' /mnt/c/Windows/System32/drivers/etc/hosts
 u: # запуск контейнеров
-	docker compose up -d --build --force-recreate
+	RELEASE=$(shell lsb_release -rs) SYSTEM=$(shell lsb_release -is | tr '[:upper:]' '[:lower:]') docker compose up -d --build --force-recreate
 # 	sleep 1
 # 	docker compose logs unit wg ss proxy
 d: # остановка контейнеров
