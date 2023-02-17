@@ -3,8 +3,8 @@ arg RELEASE
 from ${SYSTEM}:${RELEASE}
 ENV DEBIAN_FRONTEND noninteractive
 run apt update && \
-apt install -y git net-tools lsof ssh wget && \
-wget https://github.com/AdguardTeam/AdGuardHome/releases/download/v0.107.23/AdGuardHome_linux_amd64.tar.gz && \
+apt install -y git net-tools lsof ssh wget
+run wget https://github.com/AdguardTeam/AdGuardHome/releases/download/v0.107.24/AdGuardHome_linux_amd64.tar.gz && \
 tar -xf AdGuardHome_linux_amd64.tar.gz && \
 mkdir -p /opt/adguardhome && \
 mkdir /root/.ssh
