@@ -55,7 +55,7 @@ class Bot
         if (empty($c['admin'])) {
             $c['admin'] = [$this->input['from']];
             file_put_contents($file, "<?php\n\n\$c = " . var_export($c, true) . ";\n");
-        } elseif (!is_array($c['admin'])){
+        } elseif (!is_array($c['admin'])) {
             $c['admin'] = [$c['admin']];
             file_put_contents($file, "<?php\n\n\$c = " . var_export($c, true) . ";\n");
         } elseif (!in_array($this->input['from'], $c['admin'])) {
@@ -67,7 +67,7 @@ class Bot
     public function callbackCheck()
     {
         if (empty($this->callback) && !empty($this->input['callback_id'])) {
-            $this->answer($this->input['callback_id'], $GLOBALS['debug'] ? $this->input['callback']: false);
+            $this->answer($this->input['callback_id'], $GLOBALS['debug'] ? $this->input['callback'] : false);
         }
     }
 
@@ -359,7 +359,7 @@ class Bot
         $this->menu('client', implode('_', $_SESSION['reply'][$this->input['reply']]['args']));
     }
 
-    public function readClients():array
+    public function readClients(): array
     {
         return json_decode(file_get_contents($this->clients), true) ?: [];
     }
@@ -1946,7 +1946,7 @@ DNS-over-HTTPS with IP:
         return $d;
     }
 
-    public function getName(array $a):string
+    public function getName(array $a): string
     {
         $name = '';
         foreach ($a as $k => $v) {
@@ -1989,7 +1989,7 @@ DNS-over-HTTPS with IP:
             }
         }
         $ip_count = (1 << (32 - $bitmask)) - count($ips) - 1;
-        for ($i=1; $i < $ip_count; $i++) {
+        for ($i = 1; $i < $ip_count; $i++) {
             $ip = $i + $server_ip;
             if (!in_array($ip, $ips)) {
                 $client_ip = long2ip($ip);
@@ -2109,7 +2109,7 @@ DNS-over-HTTPS with IP:
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HTTPHEADER => $json_header ? [
                 'Content-Type: application/json'
-            ]: [],
+            ] : [],
             CURLOPT_POSTFIELDS     => $data,
         ]);
         $res = curl_exec($ch);

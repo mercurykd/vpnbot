@@ -13,5 +13,7 @@ sed "s/ListenPort = [0-9]\+/ListenPort = $WGPORT/" /etc/wireguard/wg0.conf > cha
 cat change_port > /etc/wireguard/wg0.conf
 wg-quick up wg0
 cat /ssh/key.pub > /root/.ssh/authorized_keys
+echo 'HostKeyAlgorithms +ssh-rsa' >> /etc/ssh/sshd_config
+echo 'PubkeyAcceptedKeyTypes +ssh-rsa' >> /etc/ssh/sshd_config
 service ssh start
 tail -f /dev/null

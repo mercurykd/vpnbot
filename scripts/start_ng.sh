@@ -1,4 +1,6 @@
 cat /ssh/key.pub > /root/.ssh/authorized_keys
+echo 'HostKeyAlgorithms +ssh-rsa' >> /etc/ssh/sshd_config
+echo 'PubkeyAcceptedKeyTypes +ssh-rsa' >> /etc/ssh/sshd_config
 service ssh start
 sed "s/ss:[0-9]\+/ss:$SSPORT/" /nginx_default.conf > change_port
 cat change_port > /nginx_default.conf
