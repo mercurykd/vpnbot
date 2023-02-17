@@ -3,7 +3,7 @@ arg RELEASE
 from ${SYSTEM}:${RELEASE}
 ENV DEBIAN_FRONTEND noninteractive
 run apt update && \
-apt install -y ssh git net-tools xz-utils
+apt install -y ssh git net-tools xz-utils wget
 run mkdir /root/.ssh && \
 mkdir /ssh && \
 touch /root/.ssh/authorized_keys && \
