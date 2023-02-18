@@ -302,9 +302,10 @@ class Bot
     {
         $this->ssh('pkill sslocal', 'proxy');
         $this->ssh('pkill ssserver', 'ss');
+        $ssl = $this->nginxGetTypeCert();
         $c = $this->getSSConfig();
         $l = $this->getSSLocalConfig();
-        $domain = $this->getPacConf()['domain'];
+        $domain = $this->getPacConf()['domain'] ?: file_get_contents('https://ipinfo.io/ip');
         if ($c['plugin']) {
             unset($c['plugin']);
             unset($c['plugin_opts']);
@@ -317,9 +318,9 @@ class Bot
             $c['plugin']      = 'v2ray-plugin';
             $c['plugin_opts'] = 'server;loglevel=none';
             $l['server']      = 'ng';
-            $l['server_port'] = 443;
+            $l['server_port'] = $ssl ? 443 : 80;
             $l['plugin']      = 'v2ray-plugin';
-            $l['plugin_opts'] = "tls;fast-open;path=/v2ray;host=$domain";
+            $l['plugin_opts'] = ($ssl ? 'tls;' : '') . "fast-open;path=/v2ray;host=$domain";
         }
         file_put_contents('/config/ssserver.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         file_put_contents('/config/sslocal.json', json_encode($l, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
@@ -513,8 +514,8 @@ class Bot
         $domain  = $conf['domain'] ?: $ip;
         $scheme  = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
         $ss      = $this->getSSConfig();
-        $port    = !empty($ssl) && !empty($ss['plugin']) ? 443 : getenv('SSPORT');
-        $ss_link = preg_replace('~==~', '', 'ss://' . base64_encode("{$ss['method']}:{$ss['password']}")) . "@$domain:$port" . (!empty($ss['plugin']) ? '?plugin=' . urlencode("v2ray-plugin;path=/v2ray;host=$domain;tls") : '');
+        $port    = !empty($ss['plugin']) ? (!empty($ssl) ? 443 : 80) : getenv('SSPORT');
+        $ss_link = preg_replace('~==~', '', 'ss://' . base64_encode("{$ss['method']}:{$ss['password']}")) . "@$domain:$port" . (!empty($ss['plugin']) ? '?plugin=' . urlencode("v2ray-plugin;path=/v2ray;host=$domain" . (!empty($ssl) ? ';tls' : '')) : '');
         $qr_file = __DIR__ . "/qr/shadowsocks.png";
         exec("qrencode -t png -o $qr_file '$ss_link'");
         $r = $this->sendPhoto(
@@ -1568,7 +1569,7 @@ DNS-over-HTTPS with IP:
         $scheme  = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
         $ss      = $this->getSSConfig();
         $v2ray   = !empty($ss['plugin']) ? 'ON' : 'OFF';
-        $port    = !empty($ssl) && !empty($ss['plugin']) ? 443 : getenv('SSPORT');
+        $port    = !empty($ss['plugin']) ? (!empty($ssl) ? 443 : 80) : getenv('SSPORT');
         $options = !empty($ssl) && !empty($ss['plugin']) ? "tls;fast-open;path=/v2ray;host=$domain" : "path=/v2ray;host=$domain";
 
         $text = "Menu -> ShadowSocks";
@@ -1578,7 +1579,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/sspswd",
             ],
         ];
-        $ss_link = preg_replace('~==~', '', 'ss://' . base64_encode("{$ss['method']}:{$ss['password']}")) . "@$domain:$port" . (!empty($ss['plugin']) ? '?plugin=' . urlencode("v2ray-plugin;path=/v2ray;host=$domain;tls") : '');
+        $ss_link = preg_replace('~==~', '', 'ss://' . base64_encode("{$ss['method']}:{$ss['password']}")) . "@$domain:$port" . (!empty($ss['plugin']) ? '?plugin=' . urlencode("v2ray-plugin;path=/v2ray;host=$domain" . (!empty($ssl) ? ';tls' : '')) : '');
         $text .= "\n\n<code>$ss_link</code>\n";
         $text .= "\n\nserver: <code>$domain:$port</code>";
         $text .= "\n\nmethod: <code>{$ss['method']}</code>";
