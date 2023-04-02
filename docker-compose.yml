@@ -1,5 +1,12 @@
 version: "3.7"
 
+x-logging: 
+      &default-logging
+      driver: "json-file"
+      options:
+          max-size: "200k"
+          max-file: "10"
+      
 networks:
     default:
         ipam:
@@ -37,6 +44,7 @@ services:
         networks:
             default:
                 ipv4_address: 10.10.0.2
+        logging: *default-logging
     unit:
         build:
             dockerfile: dockerfile/php.dockerfile
@@ -74,6 +82,7 @@ services:
                 ipv4_address: 10.10.0.7
         extra_hosts:
             - "host.docker.internal:host-gateway"
+        logging: *default-logging
     proxy:
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
@@ -96,6 +105,7 @@ services:
             SSPORT: ${SSPORT}
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_proxy.sh"]
+        logging: *default-logging
     wg:
         build:
             dockerfile: dockerfile/wireguard.dockerfile
@@ -124,6 +134,7 @@ services:
         networks:
             default:
                 ipv4_address: 10.10.0.4
+        logging: *default-logging
     ad:
         build:
             dockerfile: dockerfile/adguard.dockerfile
@@ -148,6 +159,7 @@ services:
             default:
                 ipv4_address: 10.10.0.5
         command: ["/bin/sh", "/start_ad.sh"]
+        logging: *default-logging
     ss:
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
@@ -173,4 +185,4 @@ services:
         networks:
             default:
                 ipv4_address: 10.10.0.6
-
+        logging: *default-logging
