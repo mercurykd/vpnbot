@@ -61,7 +61,10 @@ dns:
   bogus_nxdomain: []
   aaaa_disabled: false
   enable_dnssec: false
-  edns_client_subnet: false
+  edns_client_subnet:
+    enabled: false
+    use_custom: false
+    custom_ip: ''
   max_goroutines: 300
   handle_ddr: true
   ipset: []
@@ -147,4 +150,4 @@ os:
   group: ""
   user: ""
   rlimit_nofile: 0
-schema_version: 16
+schema_version: 17
