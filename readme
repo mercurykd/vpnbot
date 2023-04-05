@@ -10,6 +10,10 @@ install:
 
 wget -O- https://raw.githubusercontent.com/mercurykd/vpnbot/master/scripts/init.sh | sh -s YOUR_TELEGRAM_BOT_KEY
 
+---
+
+additional options:
+
 open 53 port for adguardhome:
 
 bash scripts/dns_open_53_port.sh
