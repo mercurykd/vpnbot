@@ -1,12 +1,12 @@
 version: "3.7"
 
-x-logging: 
+x-logging:
       &default-logging
       driver: "json-file"
       options:
           max-size: "200k"
           max-file: "10"
-      
+
 networks:
     default:
         ipam:

@@ -11,6 +11,7 @@ class Bot
         $this->file    = "https://api.telegram.org/file/bot$key/";
         $this->clients = '/config/clients.json';
         $this->pac     = '/config/pac.json';
+        $this->ip      = getenv('IP');
     }
 
     public function input()
@@ -305,7 +306,7 @@ class Bot
         $ssl = $this->nginxGetTypeCert();
         $c = $this->getSSConfig();
         $l = $this->getSSLocalConfig();
-        $domain = $this->getPacConf()['domain'] ?: file_get_contents('https://ipinfo.io/ip');
+        $domain = $this->getPacConf()['domain'] ?: $this->ip;
         if ($c['plugin']) {
             unset($c['plugin']);
             unset($c['plugin_opts']);
@@ -510,7 +511,7 @@ class Bot
     public function qrSS()
     {
         $conf    = $this->getPacConf();
-        $ip      = file_get_contents('https://ipinfo.io/ip');
+        $ip      = $this->ip;
         $domain  = $conf['domain'] ?: $ip;
         $scheme  = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
         $ss      = $this->getSSConfig();
@@ -1326,7 +1327,7 @@ DNS-over-HTTPS with IP:
         $pac      = stat(__DIR__ . '/zapretlists/pac');
         $conf     = $this->getPacConf();
         $zapret   = $conf['zapret'] ? 'ON' : 'OFF';
-        $ip       = $conf['domain'] ?: file_get_contents('https://ipinfo.io/ip');
+        $ip       = $conf['domain'] ?: $this->ip;
         $hash     = substr(md5($this->key), 0, 8);
         $scheme   = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $text     = <<<text
@@ -1564,7 +1565,7 @@ DNS-over-HTTPS with IP:
     public function menuSS()
     {
         $conf    = $this->getPacConf();
-        $ip      = file_get_contents('https://ipinfo.io/ip');
+        $ip      = $this->ip;
         $domain  = $conf['domain'] ?: $ip;
         $scheme  = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
         $ss      = $this->getSSConfig();
@@ -1716,7 +1717,7 @@ DNS-over-HTTPS with IP:
     public function adguardMenu()
     {
         $conf   = $this->getPacConf();
-        $ip     = file_get_contents('https://ipinfo.io/ip');
+        $ip     = $this->ip;
         $domain = $conf['domain'] ?: $ip;
         $scheme = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
 
@@ -2017,7 +2018,7 @@ DNS-over-HTTPS with IP:
             'peers' => [
                 [
                     'PublicKey'           => $public_server_key,
-                    'Endpoint'            => file_get_contents('https://ipinfo.io/ip') . ":" . getenv('WGPORT'),
+                    'Endpoint'            => $this->ip . ":" . getenv('WGPORT'),
                     'AllowedIPs'          => $ips_user ?: "0.0.0.0/0",
                     'PersistentKeepalive' => 20,
                 ]
@@ -2044,7 +2045,7 @@ DNS-over-HTTPS with IP:
 
     public function syncPortClients()
     {
-        $endpoint = file_get_contents('https://ipinfo.io/ip') . ':' . getenv('WGPORT');
+        $endpoint = $this->ip . ':' . getenv('WGPORT');
         $clients  = $this->readClients();
         foreach ($clients as $k => $v) {
             foreach ($v['peers'] as $i => $j) {
@@ -2119,7 +2120,7 @@ DNS-over-HTTPS with IP:
 
     public function setwebhook()
     {
-        $ip = file_get_contents('https://ipinfo.io/ip');
+        $ip = $this->ip;
         if (empty($ip)) {
             die('нет айпи');
         }
