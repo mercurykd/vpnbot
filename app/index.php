@@ -7,7 +7,8 @@ require __DIR__ . '/config.php';
 if ('POST' == $_SERVER['REQUEST_METHOD'] && $_GET['k'] == $c['key']) {
     // require __DIR__ . '/debug.php';
     require __DIR__ . '/bot.php';
-    $bot = new Bot($c['key']);
+    require __DIR__ . '/i18n.php';
+    $bot = new Bot($c['key'], $i);
     $bot->input();
     exit;
 }

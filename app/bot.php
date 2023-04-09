@@ -4,14 +4,16 @@ class Bot
 {
     public $input;
 
-    public function __construct($key)
+    public function __construct($key, $i18n)
     {
-        $this->key     = $key;
-        $this->api     = "https://api.telegram.org/bot$key/";
-        $this->file    = "https://api.telegram.org/file/bot$key/";
-        $this->clients = '/config/clients.json';
-        $this->pac     = '/config/pac.json';
-        $this->ip      = getenv('IP');
+        $this->key      = $key;
+        $this->api      = "https://api.telegram.org/bot$key/";
+        $this->file     = "https://api.telegram.org/file/bot$key/";
+        $this->clients  = '/config/clients.json';
+        $this->pac      = '/config/pac.json';
+        $this->ip       = getenv('IP');
+        $this->i18n     = $i18n;
+        $this->language = $this->getPacConf()['language'] ?: 'en';
     }
 
     public function input()
@@ -114,6 +116,7 @@ class Bot
             case preg_match('~^/menu (?P<type>adguard)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>config)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>ss)$~', $this->input['callback'], $m):
+            case preg_match('~^/menu (?P<type>lang)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>subzoneslist|reverselist|includelist|excludelist) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
                 $this->menu(type: $m['type'] ?? false, arg: $m['arg'] ?? false);
                 break;
@@ -152,6 +155,9 @@ class Bot
                 break;
             case preg_match('~^/setSSL (\w+)$~', $this->input['callback'], $m):
                 $this->setSSL($m[1]);
+                break;
+            case preg_match('~^/lang (\w+)$~', $this->input['callback'], $m):
+                $this->setLang($m[1]);
                 break;
             case preg_match('~^/deletessl$~', $this->input['callback'], $m):
                 $this->deleteSSL();
@@ -232,6 +238,14 @@ class Bot
                 $this->reply();
                 break;
         }
+    }
+
+    public function setLang($lang)
+    {
+        $conf = $this->getPacConf();
+        $this->language = $conf['language'] = $lang;
+        $this->setPacConf($conf);
+        $this->menu('config');
     }
 
     public function checkurl()
@@ -1117,7 +1131,7 @@ DNS-over-HTTPS with IP:
                     'callback_data' => "/reset",
                 ],
                 [
-                    'text'          => "back",
+                    'text'          => $this->i18n('back'),
                     'callback_data' => "/menu",
                 ],
             ],
@@ -1151,7 +1165,7 @@ DNS-over-HTTPS with IP:
         $data = [
             [
                 [
-                    'text'          => "back",
+                    'text'          => $this->i18n('back'),
                     'callback_data' => "/menu",
                 ],
             ],
@@ -1206,11 +1220,11 @@ DNS-over-HTTPS with IP:
         $text = "Menu -> Wireguard\n\n<code>" . implode(PHP_EOL, $text) . '</code>';
         $data = [
             [[
-                'text'          => "update status",
+                'text'          =>  $this->i18n('update status'),
                 'callback_data' => "/menu wg 0",
             ]],
             [[
-                    'text'          => "add peer",
+                    'text'          =>  $this->i18n('add peer'),
                     'callback_data' => "/menu addpeer $page",
             ]],
         ];
@@ -1218,7 +1232,7 @@ DNS-over-HTTPS with IP:
             $data = array_merge($data, $clients);
         }
         $data[] = [[
-            'text'          => 'back',
+            'text'          => $this->i18n('back'),
             'callback_data' => "/menu",
         ]];
         return [
@@ -1238,29 +1252,29 @@ DNS-over-HTTPS with IP:
                 'data' => [
                     [
                         [
-                            'text'          => "rename",
+                            'text'          =>  $this->i18n('rename'),
                             'callback_data' => "/rename {$client}_$page",
                         ],
                     ],
                     [
                         [
-                            'text'          => "show QR",
+                            'text'          => $this->i18n('show QR'),
                             'callback_data' => "/qr $client",
                         ],
                         [
-                            'text'          => "download config",
+                            'text'          => $this->i18n('download config'),
                             'callback_data' => "/download $client",
                         ],
                     ],
                     [
                         [
-                            'text'          => "delete",
+                            'text'          => $this->i18n('delete'),
                             'callback_data' => "/delete {$client}_$page",
                         ],
                     ],
                     [
                         [
-                            'text'          => "back",
+                            'text'          => $this->i18n('back'),
                             'callback_data' => "/menu wg $page",
                         ],
                     ],
@@ -1335,9 +1349,9 @@ DNS-over-HTTPS with IP:
 
                 <code>RU blacklist:</code> <code>https://github.com/zapret-info/z-i</code>
 
-                self lists - domains that will work through a proxy
+                {$this->i18n('self list')}{$this->i18n('self list explain')}
 
-                reverse lists - domains that will work without a proxy, all others through a proxy
+                {$this->i18n('reverse list')}{$this->i18n('reverse list explain')}
                 text;
         if ($pac) {
             $pac['time']  = date('d.m.Y H:i:s', $pac['mtime']);
@@ -1413,7 +1427,7 @@ DNS-over-HTTPS with IP:
                     'callback_data' => "/paczapret",
                 ],
                 [
-                    'text'          => 'blacklist exclude',
+                    'text'          => $this->i18n('blacklist exclude'),
                     'callback_data' => "/menu excludelist 0",
                 ],
             ];
@@ -1427,33 +1441,33 @@ DNS-over-HTTPS with IP:
         }
         $data[] = [
             [
-                'text'          => 'self list',
+                'text'          => $this->i18n('self list'),
                 'callback_data' => "/menu includelist 0",
             ],
             [
-                'text'          => 'subzones',
+                'text'          => $this->i18n('subzones'),
                 'callback_data' => "/menu subzoneslist 0",
             ],
             [
-                'text'          => "reverse list",
+                'text'          => $this->i18n('reverse list'),
                 'callback_data' => "/menu reverselist 0",
             ],
         ];
         if ($conf['zapret'] || !empty($conf['includelist'])) {
             $data[] = [
                 [
-                    'text'          => 'update PAC',
+                    'text'          => "{$this->i18n('update')} PAC",
                     'callback_data' => "/pacupdate",
                 ],
                 [
-                    'text'          => 'check url',
+                    'text'          => $this->i18n('check url'),
                     'callback_data' => "/checkurl",
                 ],
             ];
         }
         $data[] = [
             [
-                'text'          => 'back',
+                'text'          => $this->i18n('back'),
                 'callback_data' => "/menu",
             ],
         ];
@@ -1511,7 +1525,7 @@ DNS-over-HTTPS with IP:
         }
         $data[] = [
             [
-                'text'          => 'back',
+                'text'          => $this->i18n('back'),
                 'callback_data' => "/menu pac",
             ],
         ];
@@ -1576,7 +1590,7 @@ DNS-over-HTTPS with IP:
         $text = "Menu -> ShadowSocks";
         $data[] = [
             [
-                'text'          => 'change password',
+                'text'          => $this->i18n('change password'),
                 'callback_data' => "/sspswd",
             ],
         ];
@@ -1597,13 +1611,13 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
-                'text'          => 'show QR',
+                'text'          => $this->i18n('show QR'),
                 'callback_data' => "/qrSS",
             ],
         ];
         $data[] = [
             [
-                'text'          => 'back',
+                'text'          => $this->i18n('back'),
                 'callback_data' => "/menu",
             ],
         ];
@@ -1613,45 +1627,50 @@ DNS-over-HTTPS with IP:
         ];
     }
 
+    public function i18n(string $menu): string
+    {
+        return $this->i18n[$this->language][$menu] ?: 'no translate';
+    }
+
     public function menu($type = false, $arg = false, $return = false)
     {
         $menu = [
             'main' => [
-                'text' => "Menu",
+                'text' => $this->i18n('menu'),
                 'data' => [
                     [
                         [
-                            'text'          => "Wireguard",
+                            'text'          => $this->i18n('wg_title'),
                             'callback_data' => "/menu wg 0",
                         ],
                         [
-                            'text'          => "Shadowsocks",
+                            'text'          => $this->i18n('sh_title'),
                             'callback_data' => "/menu ss",
                         ],
                     ],
                     [
                         [
-                            'text'          => "Adguard",
+                            'text'          => $this->i18n('ad_title'),
                             'callback_data' => "/menu adguard",
                         ],
                         [
-                            'text'          => "PAC",
+                            'text'          => $this->i18n('pac'),
                             'callback_data' => "/menu pac",
                         ],
                     ],
                     [
                         [
-                            'text'          => "config",
+                            'text'          => $this->i18n('config'),
                             'callback_data' => "/menu config",
                         ]
                     ],
                     [
                         [
-                            'text' => 'discussion group',
+                            'text' => $this->i18n('chat'),
                             'url'  => "https://t.me/vpnbot_group",
                         ],
                         [
-                            'text' => 'donate for a new laptop',
+                            'text' => $this->i18n('donate'),
                             'url'  => "https://yoomoney.ru/to/410011827900450",
                         ],
                     ]
@@ -1663,19 +1682,19 @@ DNS-over-HTTPS with IP:
                 'text' => "Menu -> Wireguard -> Add peer\n\n",
                 'data' => [
                     [[
-                        'text'          => "all traffic",
+                        'text'          =>  $this->i18n('all traffic'),
                         'callback_data' => "/add",
                     ]],
                     [[
-                        'text'          => "subnet",
+                        'text'          =>  $this->i18n('subnet'),
                         'callback_data' => "/add_ips",
                     ]],
                     [[
-                        'text'          => "proxy ip",
+                        'text'          =>  $this->i18n('proxy ip'),
                         'callback_data' => "/proxy",
                     ]],
                     [[
-                        'text'          => "back",
+                        'text'          => $this->i18n('back'),
                         'callback_data' => "/menu wg $arg",
                     ]],
                 ],
@@ -1688,6 +1707,7 @@ DNS-over-HTTPS with IP:
             'subzoneslist' => $type == 'subzoneslist' ? $this->pacList($type, $arg) : false,
             'config'       => $type == 'config'       ? $this->configMenu() : false,
             'ss'           => $type == 'ss'           ? $this->menuSS() : false,
+            'lang'         => $type == 'lang'         ? $this->menuLang() : false,
         ];
 
         $text = $menu[$type ?: 'main' ]['text'];
@@ -1721,7 +1741,7 @@ DNS-over-HTTPS with IP:
         $domain = $conf['domain'] ?: $ip;
         $scheme = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
 
-        $text = "Menu -> Adguard Home\n\nDNS server:\n<code>$ip</code>\n\n";
+        $text = "";
         if ($ssl) {
             $text .= "DNS over HTTPS:\n<code>$ip</code>\n<code>$scheme://$domain/dns-query</code>\n\n";
             $text .= "DNS over TLS:\n<code>$ip:853</code>";
@@ -1729,22 +1749,22 @@ DNS-over-HTTPS with IP:
         $data = [
             [
                 [
-                    'text' => 'Adguard Home',
+                    'text' => $this->i18n('adguard web'),
                     'url'  => "$scheme://$domain/adguard",
                 ],
                 [
-                    'text'          => 'change password',
+                    'text'          => $this->i18n('change password'),
                     'callback_data' => "/adguardpsswd",
                 ],
                 [
-                    'text'          => 'reset settings',
+                    'text'          => $this->i18n('reset settings'),
                     'callback_data' => "/adguardreset",
                 ],
             ],
         ];
         $data[] = [
             [
-                'text'          => 'add upstream',
+                'text'          => $this->i18n('add upstream'),
                 'callback_data' => "/addupstream",
             ],
         ];
@@ -1757,7 +1777,7 @@ DNS-over-HTTPS with IP:
                         'callback_data' => "/menu adguard",
                     ],
                     [
-                        'text'          => 'delete',
+                        'text'          => $this->i18n('delete'),
                         'callback_data' => "/delupstream $k",
                     ],
                 ];
@@ -1765,13 +1785,13 @@ DNS-over-HTTPS with IP:
         }
         $data[] = [
             [
-                'text'          => 'check DNS',
+                'text'          => $this->i18n('check DNS'),
                 'callback_data' => "/checkdns",
             ],
         ];
         $data[] = [
             [
-                'text'          => 'back',
+                'text'          => $this->i18n('back'),
                 'callback_data' => "/menu",
             ],
         ];
@@ -1781,14 +1801,39 @@ DNS-over-HTTPS with IP:
         ];
     }
 
+    public function menuLang()
+    {
+        $data = [];
+        foreach ($this->i18n as $k => $v) {
+            if ($k != $this->language) {
+                $data[] = [
+                    [
+                        'text'          => $k,
+                        'callback_data' => "/lang $k",
+                    ],
+                ];
+            }
+        }
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu config",
+            ],
+        ];
+        return [
+            'text' => 'Language',
+            'data' => $data,
+        ];
+    }
+
     public function configMenu()
     {
         $conf = $this->getPacConf();
-        $text = "Menu -> Config\n\nSome clients require a valid certificate when connecting, such as windows 11 DoH or ShadowSocks Android (PAC url), this requires a domain";
+        $text = $this->i18n('domain explain');
         $data = [
             [
                 [
-                    'text'          => $conf['domain'] ? "delete {$conf['domain']}" : 'install domain',
+                    'text'          => $conf['domain'] ? "{$this->i18n('delete')} {$conf['domain']}" : $this->i18n('install domain'),
                     'callback_data' => $conf['domain'] ? '/deldomain' : '/domain',
                 ],
             ],
@@ -1799,11 +1844,11 @@ DNS-over-HTTPS with IP:
                     case 'letsencrypt':
                         $data[] = [
                             [
-                                'text'          => 'renew SSL',
+                                'text'          => $this->i18n('renew SSL'),
                                 'callback_data' => "/setSSL letsencrypt",
                             ],
                             [
-                                'text'          => 'delete SSL',
+                                'text'          => $this->i18n('delete SSL'),
                                 'callback_data' => "/deletessl",
                             ],
                         ];
@@ -1811,7 +1856,7 @@ DNS-over-HTTPS with IP:
                     case 'self':
                         $data[] = [
                             [
-                                'text'          => 'delete SSL',
+                                'text'          => $this->i18n('delete SSL'),
                                 'callback_data' => "/deletessl",
                             ],
                         ];
@@ -1820,11 +1865,11 @@ DNS-over-HTTPS with IP:
             } else {
                 $data[] = [
                     [
-                        'text'          => 'Letsencrypt SSL',
+                        'text'          => $this->i18n('Letsencrypt SSL'),
                         'callback_data' => "/setSSL letsencrypt",
                     ],
                     [
-                        'text'          => 'Self SSL',
+                        'text'          => $this->i18n('Self SSL'),
                         'callback_data' => "/selfssl",
                     ],
                 ];
@@ -1832,7 +1877,7 @@ DNS-over-HTTPS with IP:
         }
         $data[] = [
             [
-                'text'          => 'add admin',
+                'text'          => "{$this->i18n('add')} {$this->i18n('admin')}",
                 'callback_data' => "/addadmin",
             ],
         ];
@@ -1842,26 +1887,32 @@ DNS-over-HTTPS with IP:
         foreach ($c['admin'] as $k => $v) {
             $data[] = [
                 [
-                    'text'          => "delete $v",
+                    'text'          => $this->i18n('delete') . " $v",
                     'callback_data' => "/deladmin $v",
                 ],
             ];
         }
         $data[] = [
             [
-                'text'          => 'import',
+                'text'          => $this->i18n('lang'),
+                'callback_data' => "/menu lang",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('import'),
                 'callback_data' => "/import",
             ],
         ];
         $data[] = [
             [
-                'text'          => 'export',
+                'text'          => $this->i18n('export'),
                 'callback_data' => "/export",
             ],
         ];
         $data[] = [
             [
-                'text'          => 'back',
+                'text'          => $this->i18n('back'),
                 'callback_data' => "/menu",
             ],
         ];
