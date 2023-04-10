@@ -1829,18 +1829,13 @@ DNS-over-HTTPS with IP:
         $ip     = $this->ip;
         $domain = $conf['domain'] ?: $ip;
         $scheme = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
-
-        $text = "";
+        $text = "$scheme://$domain/adguard\n\n";
         if ($ssl) {
             $text .= "DNS over HTTPS:\n<code>$ip</code>\n<code>$scheme://$domain/dns-query</code>\n\n";
             $text .= "DNS over TLS:\n<code>$ip:853</code>";
         }
         $data = [
             [
-                [
-                    'text' => $this->i18n('adguard web'),
-                    'url'  => "$scheme://$domain/adguard",
-                ],
                 [
                     'text'          => $this->i18n('change password'),
                     'callback_data' => "/adguardpsswd",
