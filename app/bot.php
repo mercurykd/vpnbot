@@ -1966,6 +1966,12 @@ DNS-over-HTTPS with IP:
         }
         $data[] = [
             [
+                'text'          => $this->i18n('reset nginx'),
+                'callback_data' => "/resetnginx",
+            ],
+        ];
+        $data[] = [
+            [
                 'text'          => "{$this->i18n('add')} {$this->i18n('admin')}",
                 'callback_data' => "/addadmin",
             ],

@@ -45,6 +45,7 @@ $i = [
         'self list explain'    => ' - domains that will work through a proxy',
         'reverse list explain' => ' - domains that will work without a proxy, all others through a proxy',
         'timer'                => 'set timer',
+        'reset nginx'          => 'reset nginx',
     ],
     'ru' => [
         'wg_title'              => 'Wireguard',
@@ -90,5 +91,6 @@ $i = [
         'self list explain'    => ' - домены, которые будут работать через прокси',
         'reverse list explain' => ' - домены которые будут работать без прокси, все остальные через прокси',
         'timer'                => 'установить время действия',
+        'reset nginx'          => 'сбросить nginx',
     ],
 ];
