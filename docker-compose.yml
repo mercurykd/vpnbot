@@ -141,12 +141,15 @@ services:
             args:
                 RELEASE: ${RELEASE}
                 SYSTEM: ${SYSTEM}
+        ports:
+            - 853:853
         volumes:
             - ./config/.profile:/root/.bashrc:ro
             - type: volume
               target: /opt/adguardhome
               source: adguard
             - ./ssh:/ssh
+            - ./certs/:/certs/
             - ./logs/:/logs/
             - ./scripts/start_ad.sh:/start_ad.sh
         hostname: adguard

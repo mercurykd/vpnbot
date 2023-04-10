@@ -14,10 +14,6 @@ wget -O- https://raw.githubusercontent.com/mercurykd/vpnbot/master/scripts/init.
 
 additional options:
 
-open 53 port for adguardhome:
-
-bash scripts/dns_open_53_port.sh
-
 install as service(autoload on start):
 
 bash scripts/install_as_service.sh

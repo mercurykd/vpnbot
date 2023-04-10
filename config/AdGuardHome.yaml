@@ -100,8 +100,8 @@ tls:
   allow_unencrypted_doh: false
   certificate_chain: ""
   private_key: ""
-  certificate_path: ""
-  private_key_path: ""
+  certificate_path: /certs/cert_public
+  private_key_path: /certs/cert_private
   strict_sni_check: false
 filters:
   - enabled: true

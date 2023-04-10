@@ -709,6 +709,14 @@ class Bot
         if (preg_match('~test is successful~', $u)) {
             $u .= $this->ssh("nginx -s reload 2>&1", 'ng');
             $this->update($this->input['chat'], $this->input['message_id'], $u);
+            $u .= $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
+            $this->update($this->input['chat'], $this->input['message_id'], $u);
+            $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
+            $c['tls']['enabled'] = false;
+            $c['tls']['server_name'] = '';
+            yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
+            $u .= $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
+            $this->update($this->input['chat'], $this->input['message_id'], $u);
             unlink('/certs/cert_private');
             unlink('/certs/cert_public');
             sleep(3);
@@ -762,6 +770,16 @@ class Bot
             $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
             if (preg_match('~test is successful~', $u)) {
                 $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $out[] = 'Restart Adguard Home';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
+                $c['tls']['enabled'] = true;
+                $c['tls']['server_name'] = $conf['domain'];
+                yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
+                $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
             } else {
                 file_put_contents('/config/nginx.conf', $nginx);
