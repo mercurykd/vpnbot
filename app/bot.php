@@ -1832,7 +1832,7 @@ DNS-over-HTTPS with IP:
         $text = "$scheme://$domain/adguard\n\n";
         if ($ssl) {
             $text .= "DNS over HTTPS:\n<code>$ip</code>\n<code>$scheme://$domain/dns-query</code>\n\n";
-            $text .= "DNS over TLS:\n<code>$ip:853</code>";
+            $text .= "DNS over TLS:\n<code>tls://$domain</code>";
         }
         $data = [
             [
