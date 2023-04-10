@@ -234,6 +234,9 @@ class Bot
             case preg_match('~^/rename (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->rename(...explode('_', $m['arg']));
                 break;
+            case preg_match('~^/timer (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->timer(...explode('_', $m['arg']));
+                break;
             case !empty($this->input['reply']):
                 $this->reply();
                 break;
@@ -358,6 +361,67 @@ class Bot
             'callback'       => 'renameClient',
             'args'           => [$client, $page],
         ];
+    }
+
+    public function timer(int $client, $page)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter time like 1 month/1 day/1 hour/1 minute/1 second:",
+            $this->input['message_id'],
+            reply: 'enter time like 1 month/1 day/1 hour/1 minute/1 second:',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'timerClient',
+            'args'           => [$client, $page],
+        ];
+    }
+
+    public function timerClient(string $time, int $client)
+    {
+        $clients = $this->readClients();
+        $server  = $this->readConfig();
+        switch (true) {
+            case preg_match('~(\d+)\s(month|day|second|minute)~', $time, $m):
+                $date = date('Y-m-d H:i:s', strtotime("+{$m[1]} {$m[2]}"));
+                $clients[$client]['interface']['## time'] = $date;
+                foreach ($server['peers'] as $k => $v) {
+                    if ($v['AllowedIPs'] == $clients[$client]['interface']['Address']) {
+                        $server['peers'][$k]['## time'] = $date;
+                    }
+                }
+                break;
+            case preg_match('~0~', $time):
+                unset($clients[$client]['interface']['## time']);
+                foreach ($server['peers'] as $k => $v) {
+                    if ($v['AllowedIPs'] == $clients[$client]['interface']['Address']) {
+                        unset($server['peers'][$k]['## time']);
+                    }
+                }
+                break;
+        }
+        $this->saveClients($clients);
+        $this->restartWG($this->createConfig($server));
+        $this->menu('client', implode('_', $_SESSION['reply'][$this->input['reply']]['args']));
+    }
+
+    public function cron()
+    {
+        while (true) {
+            $clients = $this->readClients();
+            if ($clients) {
+                foreach ($clients as $k => $v) {
+                    if (!empty($v['interface']['## time'])) {
+                        if (strtotime($v['interface']['## time']) < time()) {
+                            $this->deletePeer($k, 0, false);
+                        }
+                    }
+                }
+            }
+            sleep(10);
+        }
     }
 
     public function renameClient(string $name, int $client)
@@ -1178,13 +1242,15 @@ DNS-over-HTTPS with IP:
         );
     }
 
-    public function deletePeer($client, $page)
+    public function deletePeer($client, $page, $menu = true)
     {
         $conf = $this->readConfig();
         $this->deleteClient($client);
         unset($conf['peers'][$client]);
         $this->restartWG($this->createConfig($conf));
-        $this->menu('wg', $page);
+        if ($menu) {
+            $this->menu('wg', $page);
+        }
     }
 
     public function statusWg(int $page = 0)
@@ -1210,6 +1276,7 @@ DNS-over-HTTPS with IP:
             foreach ($conf['peers'] as $k => $v) {
                 preg_match_all('~([0-9.]+\.?)\s(\w+)~', $v['status']['transfer'], $m);
                 $text[] = ($v['online'] == 'OFFLINE' ? '(OFFLINE) ' : '')
+                        . ($v['## time'] ? "({$v['## time']}) ": "")
                         . "{$this->getName($v)} "
                         . ($v['online'] != 'OFFLINE' ? "({$v['online']})" : '')
                         . ($m[0] ? " {$m[1][0]}↑ {$m[2][0]} / {$m[1][1]}↓ {$m[2][1]}" : '')
@@ -1254,6 +1321,10 @@ DNS-over-HTTPS with IP:
                         [
                             'text'          =>  $this->i18n('rename'),
                             'callback_data' => "/rename {$client}_$page",
+                        ],
+                        [
+                            'text'          =>  $this->i18n('timer'),
+                            'callback_data' => "/timer {$client}_$page",
                         ],
                     ],
                     [
