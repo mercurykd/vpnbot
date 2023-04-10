@@ -1,6 +1,6 @@
 <?php
 
-date_default_timezone_set(getenv('TZ'));
+require __DIR__ . '/timezone.php';
 
 // require __DIR__ . '/debug.php';
 require __DIR__ . '/bot.php';

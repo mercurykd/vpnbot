@@ -1,7 +1,5 @@
 <?php
 
-ini_set('memory_limit', '256M');
-
 function elzw(string $str)
 {
     global $text, $load;
@@ -283,6 +281,8 @@ function download($index)
     file_put_contents($source[$index]['dest'], file_get_contents($source[$index]['source']));
 }
 
+ini_set('memory_limit', '256M');
+require __DIR__ . '/timezone.php';
 require __DIR__ . '/debug.php';
 require __DIR__ . '/bot.php';
 require __DIR__ . '/config.php';
