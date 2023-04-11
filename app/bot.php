@@ -2154,7 +2154,7 @@ DNS-over-HTTPS with IP:
                 'PrivateKey' => $private_peer_key,
                 'Address'    => "$client_ip/32",
                 'MTU'        => 1350,
-                'DNS'        => '10.10.0.5',
+                // 'DNS'        => '10.10.0.5',
             ],
             'peers' => [
                 [
