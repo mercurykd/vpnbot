@@ -976,6 +976,9 @@ class Bot
         $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
         $c['users'][0]['password'] = password_hash($pass, PASSWORD_DEFAULT);
         yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
+        $p = $this->getPacConf();
+        $p['adpswd'] = $pass;
+        $this->setPacConf($p);
         $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         sleep(3);
@@ -1857,7 +1860,7 @@ DNS-over-HTTPS with IP:
         $ip     = $this->ip;
         $domain = $conf['domain'] ?: $ip;
         $scheme = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
-        $text = "$scheme://$domain/adguard\n\n";
+        $text = "$scheme://$domain/adguard\nLogin: admin\nPass: <span class='tg-spoiler'>{$conf['adpswd']}</span>\n\n";
         if ($ssl) {
             $text .= "DNS over HTTPS:\n<code>$ip</code>\n<code>$scheme://$domain/dns-query</code>\n\n";
             $text .= "DNS over TLS:\n<code>tls://$domain</code>";
