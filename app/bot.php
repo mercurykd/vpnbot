@@ -180,6 +180,12 @@ class Bot
             case preg_match('~^/delete (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->deletePeer(...explode('_', $m['arg']));
                 break;
+            case preg_match('~^/dns (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->dnsPeer(...explode('_', $m['arg']));
+                break;
+            case preg_match('~^/deletedns (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->deletednsPeer(...explode('_', $m['arg']));
+                break;
             case preg_match('~^/deldomain$~', $this->input['callback'], $m):
                 $this->delDomain();
                 break;
@@ -1271,6 +1277,22 @@ DNS-over-HTTPS with IP:
         }
     }
 
+    public function dnsPeer($client, $page)
+    {
+        $clients = $this->readClients();
+        $clients[$client]['interface']['DNS'] = '10.10.0.5';
+        $this->saveClients($clients);
+        $this->menu('client', "{$client}_$page");
+    }
+
+    public function deletednsPeer($client, $page)
+    {
+        $clients = $this->readClients();
+        unset($clients[$client]['interface']['DNS']);
+        $this->saveClients($clients);
+        $this->menu('client', "{$client}_$page");
+    }
+
     public function statusWg(int $page = 0)
     {
         $conf   = $this->readConfig();
@@ -1353,6 +1375,12 @@ DNS-over-HTTPS with IP:
                         [
                             'text'          => $this->i18n('download config'),
                             'callback_data' => "/download $client",
+                        ],
+                    ],
+                    [
+                        [
+                            'text'          => $this->i18n($clients[$client]['interface']['DNS'] ? 'delete internal dns' : 'set internal dns'),
+                            'callback_data' => "/" . ($clients[$client]['interface']['DNS'] ? 'delete' : '') . "dns {$client}_$page",
                         ],
                     ],
                     [
@@ -2154,7 +2182,6 @@ DNS-over-HTTPS with IP:
                 'PrivateKey' => $private_peer_key,
                 'Address'    => "$client_ip/32",
                 'MTU'        => 1350,
-                // 'DNS'        => '10.10.0.5',
             ],
             'peers' => [
                 [
