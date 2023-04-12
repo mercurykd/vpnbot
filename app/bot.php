@@ -1600,7 +1600,7 @@ DNS-over-HTTPS with IP:
         $text = "Menu -> pac -> {$name}list\n\n";
         $data[] = [
             [
-                'text'          => 'add',
+                'text'          => $this->i18n('add'),
                 'callback_data' => "/$name $count",
             ],
         ];
