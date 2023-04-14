@@ -11,7 +11,7 @@ theme: auto
 debug_pprof: false
 web_session_ttl: 720
 statistics:
-  interval: 1
+  interval: 24h
 querylog:
   enabled: true
   file_enabled: true
@@ -72,7 +72,14 @@ dns:
   filtering_enabled: true
   filters_update_interval: 24
   parental_enabled: false
-  safesearch_enabled: false
+  safe_search:
+    enabled: false
+    bing: true
+    duckduckgo: true
+    google: true
+    pixabay: true
+    yandex: true
+    youtube: true
   safebrowsing_enabled: false
   safebrowsing_cache_size: 1048576
   safesearch_cache_size: 1048576
@@ -150,4 +157,4 @@ os:
   group: ""
   user: ""
   rlimit_nofile: 0
-schema_version: 17
+schema_version: 20
