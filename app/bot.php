@@ -112,11 +112,7 @@ class Bot
             case preg_match('~^/menu (?P<type>addpeer) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>wg) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>client) (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
-            case preg_match('~^/menu (?P<type>pac)$~', $this->input['callback'], $m):
-            case preg_match('~^/menu (?P<type>adguard)$~', $this->input['callback'], $m):
-            case preg_match('~^/menu (?P<type>config)$~', $this->input['callback'], $m):
-            case preg_match('~^/menu (?P<type>ss)$~', $this->input['callback'], $m):
-            case preg_match('~^/menu (?P<type>lang)$~', $this->input['callback'], $m):
+            case preg_match('~^/menu (?P<type>pac|adguard|config|ss|lang)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>subzoneslist|reverselist|includelist|excludelist) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
                 $this->menu(type: $m['type'] ?? false, arg: $m['arg'] ?? false);
                 break;
@@ -1749,7 +1745,7 @@ DNS-over-HTTPS with IP:
 
     public function i18n(string $menu): string
     {
-        return $this->i18n[$this->language][$menu] ?: 'no translate';
+        return $this->i18n[$menu][$this->language] ?: 'no translate';
     }
 
     public function menu($type = false, $arg = false, $return = false)
