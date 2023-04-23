@@ -33,9 +33,12 @@ services:
             - 443:443
         hostname: nginx
         depends_on:
-            - unit
-            - ad
-            - ss
+            unit:
+                condition: service_healthy
+            ad:
+                condition: service_started
+            ss:
+                condition: service_started
         environment:
             TZ: ${TZ}
             SSPORT: ${SSPORT}
@@ -67,6 +70,7 @@ services:
             - ./app:/app
             - ./logs/:/logs/
             - ./scripts/start_unit.sh:/start_unit.sh
+            - ./scripts/check_file.sh:/check_file.sh
         environment:
             TZ: ${TZ}
             ADDRESS: ${WGADDRESS}
@@ -83,6 +87,11 @@ services:
         extra_hosts:
             - "host.docker.internal:host-gateway"
         logging: *default-logging
+        healthcheck:
+            test: ["CMD", "bash", "/check_file.sh"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
     proxy:
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
@@ -96,7 +105,8 @@ services:
             - ./scripts/start_proxy.sh:/start_proxy.sh
         hostname: proxy
         depends_on:
-            - unit
+            unit:
+                condition: service_healthy
         networks:
             default:
                 ipv4_address: 10.10.0.3
@@ -120,7 +130,8 @@ services:
             - ./ssh:/ssh
         hostname: wireguard
         depends_on:
-            - unit
+            unit:
+                condition: service_healthy
         ports:
             - ${WGPORT}:${WGPORT}/udp
         environment:
@@ -154,7 +165,8 @@ services:
             - ./scripts/start_ad.sh:/start_ad.sh
         hostname: adguard
         depends_on:
-            - unit
+            unit:
+                condition: service_healthy
         environment:
             TZ: ${TZ}
         stop_grace_period: 1s
@@ -176,7 +188,8 @@ services:
             - ./scripts/start_ss.sh:/start_ss.sh
         hostname: shadowsocks
         depends_on:
-            - unit
+            unit:
+                condition: service_healthy
         ports:
             - ${SSPORT}:${SSPORT}/tcp
             - ${SSPORT}:${SSPORT}/udp
