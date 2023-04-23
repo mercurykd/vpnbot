@@ -2185,7 +2185,7 @@ DNS-over-HTTPS with IP:
             'peers' => [
                 [
                     'PublicKey'           => $public_server_key,
-                    'Endpoint'            => $this->ip . ":" . getenv('WGPORT'),
+                    'Endpoint'            => ($this->getPacConf()['domain'] ?: $this->ip) . ":" . getenv('WGPORT'),
                     'AllowedIPs'          => $ips_user ?: "0.0.0.0/0",
                     'PersistentKeepalive' => 20,
                 ]
