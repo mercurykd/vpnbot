@@ -1915,12 +1915,17 @@ DNS-over-HTTPS with IP:
     public function menuLang()
     {
         $data = [];
+        $lang = [];
         foreach ($this->i18n as $k => $v) {
-            if ($k != $this->language) {
+            $lang = array_merge($lang, array_keys($v));
+        }
+        $lang = array_unique($lang);
+        foreach ($lang as $v) {
+            if ($v != $this->language) {
                 $data[] = [
                     [
-                        'text'          => $k,
-                        'callback_data' => "/lang $k",
+                        'text'          => $v,
+                        'callback_data' => "/lang $v",
                     ],
                 ];
             }
