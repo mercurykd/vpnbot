@@ -10,6 +10,7 @@ u: # запуск контейнеров
 # 	docker compose logs unit wg ss proxy
 d: # остановка контейнеров
 	docker compose down
+r: d u
 ps: # список контейнеров
 	docker compose ps
 l: # логи из контейнеров
