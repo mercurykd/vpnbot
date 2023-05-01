@@ -1571,7 +1571,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/menu reverselist 0",
             ],
         ];
-        if ($conf['zapret'] || !empty($conf['includelist'])) {
+        if ($conf['zapret'] || !empty($conf['includelist']) || !empty($conf['reverselist'])) {
             $data[] = [
                 [
                     'text'          => "{$this->i18n('update')} PAC",
