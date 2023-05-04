@@ -369,9 +369,9 @@ class Bot
     {
         $r = $this->send(
             $this->input['chat'],
-            "@{$this->input['username']} enter time like 1 month/1 day/1 hour/1 minute/1 second:",
+            "@{$this->input['username']} enter time like https://www.php.net/manual/ru/function.strtotime.php:",
             $this->input['message_id'],
-            reply: 'enter time like 1 month/1 day/1 hour/1 minute/1 second:',
+            reply: 'enter time like https://www.php.net/manual/ru/function.strtotime.php:',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message'  => $this->input['message_id'],
@@ -386,20 +386,20 @@ class Bot
         $clients = $this->readClients();
         $server  = $this->readConfig();
         switch (true) {
-            case preg_match('~(\d+)\s(month|day|second|minute)~', $time, $m):
-                $date = date('Y-m-d H:i:s', strtotime("+{$m[1]} {$m[2]}"));
-                $clients[$client]['interface']['## time'] = $date;
-                foreach ($server['peers'] as $k => $v) {
-                    if ($v['AllowedIPs'] == $clients[$client]['interface']['Address']) {
-                        $server['peers'][$k]['## time'] = $date;
-                    }
-                }
-                break;
             case preg_match('~0~', $time):
                 unset($clients[$client]['interface']['## time']);
                 foreach ($server['peers'] as $k => $v) {
                     if ($v['AllowedIPs'] == $clients[$client]['interface']['Address']) {
                         unset($server['peers'][$k]['## time']);
+                    }
+                }
+                break;
+            default:
+                $date = date('Y-m-d H:i:s', strtotime($time));
+                $clients[$client]['interface']['## time'] = $date;
+                foreach ($server['peers'] as $k => $v) {
+                    if ($v['AllowedIPs'] == $clients[$client]['interface']['Address']) {
+                        $server['peers'][$k]['## time'] = $date;
                     }
                 }
                 break;
