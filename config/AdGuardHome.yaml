@@ -146,7 +146,7 @@ clients:
     dhcp: true
     hosts: true
   persistent: []
-log_file: ""
+log_file: "/logs/adguard"
 log_max_backups: 0
 log_max_size: 100
 log_max_age: 3
