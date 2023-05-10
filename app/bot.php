@@ -161,6 +161,9 @@ class Bot
             case preg_match('~^/download (\d+)$~', $this->input['callback'], $m):
                 $this->downloadPeer($m[1]);
                 break;
+            case preg_match('~^/switchClient (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->switchClient(...explode('_', $m['arg']));
+                break;
             case preg_match('~^/deladmin (\d+)$~', $this->input['callback'], $m):
                 $this->delAdmin($m[1]);
                 break;
@@ -570,6 +573,30 @@ class Bot
         $name   = $this->getName($client['interface']);
         $code   = $this->createConfig($client);
         $this->upload(preg_replace(['~\s+~', '~\(|\)~'], ['_', ''], $name) . ".conf", $code);
+    }
+
+    public function switchClient($client)
+    {
+        $clients = $this->readClients();
+        if ($clients[$client]['# off']) {
+            unset($clients[$client]['# off']);
+        } else {
+            $clients[$client]['# off'] = 1;
+        }
+        $this->saveClients($clients);
+        $server = $this->readConfig();
+        if (array_key_exists('# PublicKey', $server['peers'][$client])) {
+            foreach ($server['peers'][$client] as $k => $v) {
+                $new[trim(preg_replace('~#~', '', $k, 1))] = $v;
+            }
+        } else {
+            foreach ($server['peers'][$client] as $k => $v) {
+                $new["# $k"] = $v;
+            }
+        }
+        $server['peers'][$client] = $new;
+        $this->restartWG($this->createConfig($server));
+        $this->menu('client', "{$client}_0");
     }
 
     public function qrPeer($client)
@@ -1379,6 +1406,10 @@ DNS-over-HTTPS with IP:
                         ],
                     ],
                     [
+                        [
+                            'text'          => $this->i18n($clients[$client]['# off'] ? 'off' : 'on'),
+                            'callback_data' => "/switchClient {$client}_$page",
+                        ],
                         [
                             'text'          => $this->i18n($clients[$client]['interface']['DNS'] ? 'delete internal dns' : 'set internal dns'),
                             'callback_data' => "/" . ($clients[$client]['interface']['DNS'] ? 'delete' : '') . "dns {$client}_$page",
