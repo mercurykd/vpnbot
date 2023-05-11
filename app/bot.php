@@ -2175,7 +2175,7 @@ DNS-over-HTTPS with IP:
         if (!empty($data['peers'])) {
             foreach ($data['peers'] as $peer) {
                 $conf[] = '';
-                $conf[] = '[Peer]';
+                $conf[] = $peer['# PublicKey'] ? '# [Peer]' : '[Peer]';
                 foreach ($peer as $k => $v) {
                     $conf[] = "$k = $v";
                 }
