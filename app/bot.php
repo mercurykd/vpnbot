@@ -1348,24 +1348,24 @@ DNS-over-HTTPS with IP:
         $text[] = "\nPeers:";
         if (!empty($conf['peers'])) {
             foreach ($conf['peers'] as $k => $v) {
-                foreach ($clients as $cl) {
-                    if ($cl['interface']['Address'] == $v['AllowedIPs']) {
-                        $allowed_ips = $cl['peers'][0]['AllowedIPs'];
-                    }
+                if (!empty($v['# PublicKey'])) {
+                    $conf['peers'][$k]['online'] = $this->i18n('off');
+                } else {
+                    $conf['peers'][$k]['status'] = $this->getStatusPeer($v['PublicKey'], $status['peers']);
+                    $conf['peers'][$k]['online'] = preg_match('~^(\d+ seconds|[12] minute)~', $conf['peers'][$k]['status']['latest handshake']) ? $conf['peers'][$k]['status']['endpoint'] : 'OFFLINE';
                 }
-                $conf['peers'][$k]['status'] = $this->getStatusPeer($v['PublicKey'], $status['peers']);
-                $conf['peers'][$k]['online'] = preg_match('~^(\d+ seconds|[12] minute)~', $conf['peers'][$k]['status']['latest handshake']) ? $conf['peers'][$k]['status']['endpoint'] : 'OFFLINE';
             }
             usort($conf['peers'], fn($a, $b) => ($a['online'] == 'OFFLINE') <=> ($b['online'] == 'OFFLINE'));
             foreach ($conf['peers'] as $k => $v) {
-                preg_match_all('~([0-9.]+\.?)\s(\w+)~', $v['status']['transfer'], $m);
-                $text[] = ($v['online'] == 'OFFLINE' ? '(OFFLINE) ' : '')
-                        . ($v['## time'] ? "({$v['## time']}) ": "")
-                        . "{$this->getName($v)} "
-                        . ($v['online'] != 'OFFLINE' ? "({$v['online']})" : '')
-                        . ($m[0] ? " {$m[1][0]}↑ {$m[2][0]} / {$m[1][1]}↓ {$m[2][1]}" : '')
-                        . "\n"
-                ;
+                $t = ($v['online'] == 'OFFLINE' ? '(OFFLINE) ' : '')
+                    . ($v['## time'] ? "({$v['## time']}) ": "")
+                    . "{$this->getName($v)} "
+                    . ($v['online'] != 'OFFLINE' ? "({$v['online']})" : '');
+                if (empty($v['# PublicKey'])) {
+                    preg_match_all('~([0-9.]+\.?)\s(\w+)~', $v['status']['transfer'], $m);
+                    $t .= ($m[0] ? " {$m[1][0]}↑ {$m[2][0]} / {$m[1][1]}↓ {$m[2][1]}" : '');
+                }
+                $text[] = "$t\n";
             }
         }
         $text = "Menu -> Wireguard\n\n<code>" . implode(PHP_EOL, $text) . '</code>';
