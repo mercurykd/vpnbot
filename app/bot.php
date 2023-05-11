@@ -392,7 +392,7 @@ class Bot
         $clients = $this->readClients();
         $server  = $this->readConfig();
         switch (true) {
-            case preg_match('~0~', $time):
+            case preg_match('~^0$~', $time):
                 unset($clients[$client]['interface']['## time']);
                 foreach ($server['peers'] as $k => $v) {
                     if ($v['AllowedIPs'] == $clients[$client]['interface']['Address']) {
