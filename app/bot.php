@@ -98,8 +98,9 @@ class Bot
             } else {
                 file_put_contents('/logs/debug', var_export($var, true));
             }
+        } else {
+            $this->send($this->input['chat'], var_export($var, true), $this->input['message_id']);
         }
-        $this->send($this->input['chat'], var_export($var, true), $this->input['message_id']);
     }
 
     public function action()
@@ -166,6 +167,7 @@ class Bot
                 break;
             case preg_match('~^/switchClient (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->switchClient(...explode('_', $m['arg']));
+                $this->menu('client', $m['arg']);
                 break;
             case preg_match('~^/deladmin (\d+)$~', $this->input['callback'], $m):
                 $this->delAdmin($m[1]);
@@ -418,15 +420,18 @@ class Bot
     public function cron()
     {
         while (true) {
-            $clients = $this->readClients();
-            if ($clients) {
-                foreach ($clients as $k => $v) {
-                    if (!empty($v['interface']['## time'])) {
-                        if (strtotime($v['interface']['## time']) < time()) {
-                            $this->deletePeer($k, 0, false);
+            try {
+                $clients = $this->readClients();
+                if ($clients) {
+                    foreach ($clients as $k => $v) {
+                        if (!empty($v['interface']['## time'])) {
+                            if (strtotime($v['interface']['## time']) < time()) {
+                                $this->switchClient($k);
+                            }
                         }
                     }
                 }
+            } catch (Exception $e) {
             }
             sleep(10);
         }
@@ -581,13 +586,15 @@ class Bot
     public function switchClient($client)
     {
         $clients = $this->readClients();
+        $server = $this->readConfig();
         if ($clients[$client]['# off']) {
             unset($clients[$client]['# off']);
         } else {
             $clients[$client]['# off'] = 1;
+            unset($clients[$client]['interface']['## time']);
+            unset($server['peers'][$client]['## time']);
         }
         $this->saveClients($clients);
-        $server = $this->readConfig();
         if (array_key_exists('# PublicKey', $server['peers'][$client])) {
             foreach ($server['peers'][$client] as $k => $v) {
                 $new[trim(preg_replace('~#~', '', $k, 1))] = $v;
@@ -599,7 +606,6 @@ class Bot
         }
         $server['peers'][$client] = $new;
         $this->restartWG($this->createConfig($server));
-        $this->menu('client', "{$client}_0");
     }
 
     public function switchTorrent($page)
