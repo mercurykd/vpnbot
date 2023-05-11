@@ -127,6 +127,8 @@ services:
             - ./config/wg0.conf:/etc/wireguard/wg0.conf
             - ./scripts/start_wg.sh:/start_wg.sh
             - ./scripts/reset_wg.sh:/reset_wg.sh
+            - ./scripts/block_torrent.sh:/block_torrent.sh
+            - ./scripts/unblock_torrent.sh:/unblock_torrent.sh
             - ./ssh:/ssh
         hostname: wireguard
         depends_on:

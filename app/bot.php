@@ -161,6 +161,9 @@ class Bot
             case preg_match('~^/download (\d+)$~', $this->input['callback'], $m):
                 $this->downloadPeer($m[1]);
                 break;
+            case preg_match('~^/switchTorrent (\d+)$~', $this->input['callback'], $m):
+                $this->switchTorrent($m[1]);
+                break;
             case preg_match('~^/switchClient (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->switchClient(...explode('_', $m['arg']));
                 break;
@@ -597,6 +600,19 @@ class Bot
         $server['peers'][$client] = $new;
         $this->restartWG($this->createConfig($server));
         $this->menu('client', "{$client}_0");
+    }
+
+    public function switchTorrent($page)
+    {
+        $c = $this->getPacConf();
+        $c['blocktorrent'] = $c['blocktorrent'] ? 0 : 1;
+        $this->setPacConf($c);
+        if ($c['blocktorrent']) {
+            $this->ssh('bash /block_torrent.sh');
+        } else {
+            $this->ssh('bash /unblock_torrent.sh');
+        }
+        $this->menu('wg', $page);
     }
 
     public function qrPeer($client)
@@ -1353,15 +1369,22 @@ DNS-over-HTTPS with IP:
             }
         }
         $text = "Menu -> Wireguard\n\n<code>" . implode(PHP_EOL, $text) . '</code>';
+        $bt = $this->getPacConf()['blocktorrent'];
         $data = [
-            [[
-                'text'          =>  $this->i18n('update status'),
-                'callback_data' => "/menu wg 0",
-            ]],
-            [[
+            [
+                [
+                    'text'          =>  $this->i18n('update status'),
+                    'callback_data' => "/menu wg 0",
+                ],
+                [
                     'text'          =>  $this->i18n('add peer'),
                     'callback_data' => "/menu addpeer $page",
-            ]],
+                ],
+                [
+                    'text'          =>  $this->i18n(($bt ? 'block' : 'unblock') . 'torrent'),
+                    'callback_data' => "/switchTorrent $page",
+                ],
+            ],
         ];
         if ($clients = $this->getClients($page)) {
             $data = array_merge($data, $clients);

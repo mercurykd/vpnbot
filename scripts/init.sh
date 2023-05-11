@@ -5,7 +5,10 @@ apt install -y \
     gnupg \
     lsb-release \
     make \
-    git
+    git \
+    iptables \
+    xtables-addons-common \
+    xtables-addons-dkms
 mkdir -p /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/$(lsb_release -is | tr '[:upper:]' '[:lower:]')/gpg | gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg
 echo \

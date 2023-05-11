@@ -189,8 +189,12 @@ $i = [
         'en' => 'on',
         'ru' => 'вкл',
     ],
-    'off'  => [
-        'en' => 'off',
-        'ru' => 'выкл',
+    'blocktorrent'  => [
+        'en' => 'torrent off',
+        'ru' => 'торренты выкл',
+    ],
+    'unblocktorrent'  => [
+        'en' => 'torrent on',
+        'ru' => 'торренты вкл',
     ],
 ];
