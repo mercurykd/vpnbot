@@ -3,9 +3,10 @@ arg RELEASE
 from ${SYSTEM}:${RELEASE}
 ENV DEBIAN_FRONTEND noninteractive
 run apt update && \
-apt install -y ssh git net-tools xz-utils wget
-run mkdir /root/.ssh && \
-mkdir /ssh && \
+apt install -y ssh git net-tools xz-utils wget && \
+apt clean autoclean && \
+apt autoremove -y && \
+mkdir /root/.ssh && \
 touch /root/.ssh/authorized_keys && \
 wget https://github.com/shadowsocks/shadowsocks-rust/releases/download/v1.15.2/shadowsocks-v1.15.2.x86_64-unknown-linux-gnu.tar.xz && \
 tar -xf shadowsocks-v1.15.2.x86_64-unknown-linux-gnu.tar.xz && \

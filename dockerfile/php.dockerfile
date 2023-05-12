@@ -1,5 +1,7 @@
-from nginx/unit:1.29.0-php8.1
+from nginx/unit:1.29.1-php8.1
 run apt update && apt install -y qrencode wget libssh2-1-dev ssh libicu-dev libyaml-dev certbot && \
+apt clean autoclean && \
+apt autoremove -y && \
 pecl install https://pecl.php.net/get/ssh2-1.3.1.tgz && \
 pecl install https://pecl.php.net/get/yaml-2.2.2.tgz && \
 docker-php-ext-install intl && \
