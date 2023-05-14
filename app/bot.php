@@ -500,6 +500,13 @@ class Bot
         if (empty($json) || !is_array($json)) {
             $this->answer($this->input['callback_id'], 'error', true);
         } else {
+            // certs
+            if (!empty($json['ssl'])) {
+                $out[] = 'update certificates';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                file_put_contents('/certs/cert_private', $json['ssl']['private']);
+                file_put_contents('/certs/cert_public', $json['ssl']['public']);
+            }
             // wg
             if (!empty($json['wg'])) {
                 $out[] = 'update wireguard';
@@ -536,13 +543,6 @@ class Bot
                 $this->ssh('pkill sslocal', 'proxy');
                 file_put_contents('/config/sslocal.json', json_encode($json['sl'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
                 $this->ssh('/sslocal -v -d -c /config.json', 'proxy');
-            }
-            // certs
-            if (!empty($json['ssl'])) {
-                $out[] = 'update certificates';
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                file_put_contents('/certs/cert_private', $json['ssl']['private']);
-                file_put_contents('/certs/cert_public', $json['ssl']['public']);
             }
             // nginx
             $out[] = 'reset nginx';
