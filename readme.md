@@ -43,7 +43,7 @@ environment: ubuntu 18.04/20.04/22.04, debian 11
 
 install:
 
-wget -O- https://raw.githubusercontent.com/mercurykd/vpnbot/master/scripts/init.sh | sh -s YOUR_TELEGRAM_BOT_KEY
+`wget -O- https://raw.githubusercontent.com/mercurykd/vpnbot/master/scripts/init.sh | sh -s YOUR_TELEGRAM_BOT_KEY`
 
 ---
 
