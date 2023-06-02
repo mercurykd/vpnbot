@@ -120,6 +120,18 @@ class Bot
             case preg_match('~^/id$~', $this->input['message'], $m):
                 $this->send($this->input['chat'], $this->input['from'], $this->input['message_id']);
                 break;
+            case preg_match('~^/subnet (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->subnet(...explode('_', $m['arg']));
+                break;
+            case preg_match('~^/subnetAdd (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->subnetAdd(...explode('_', $m['arg']));
+                break;
+            case preg_match('~^/subnetDelete (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->subnetDelete(...explode('_', $m['arg']));
+                break;
+            case preg_match('~^/addSubnets (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->addSubnets(...explode('_', $m['arg']));
+                break;
             case preg_match('~^/selfssl$~', $this->input['callback'], $m):
                 $this->selfssl();
                 break;
@@ -698,6 +710,11 @@ class Bot
     {
         $proxy = trim($this->ssh("getent hosts proxy | awk '{ print $1 }'"));
         $this->createPeer("$proxy/32", 'proxy');
+    }
+
+    public function addSubnets($page = 0)
+    {
+        $this->createPeer(implode(',', $this->getPacConf()['subnets']), 'subnets');
     }
 
     public function change_server_ip($ip)
@@ -1411,12 +1428,18 @@ DNS-over-HTTPS with IP:
                     'callback_data' => "/menu wg 0",
                 ],
                 [
+                    'text'          =>  $this->i18n(($bt ? 'block' : 'unblock') . 'torrent'),
+                    'callback_data' => "/switchTorrent $page",
+                ],
+            ],
+            [
+                [
                     'text'          =>  $this->i18n('add peer'),
                     'callback_data' => "/menu addpeer $page",
                 ],
                 [
-                    'text'          =>  $this->i18n(($bt ? 'block' : 'unblock') . 'torrent'),
-                    'callback_data' => "/switchTorrent $page",
+                    'text'          =>  $this->i18n('listSubnet'),
+                    'callback_data' => "/subnet $page",
                 ],
             ],
         ];
@@ -1431,6 +1454,91 @@ DNS-over-HTTPS with IP:
             'text' => $text,
             'data' => $data,
         ];
+    }
+
+    public function subnetAdd($page = 0)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter subnet separated by commas",
+            $this->input['message_id'],
+            reply: 'enter subnet separated by commas',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'subnetSave',
+            'args'           => [$page],
+        ];
+    }
+
+    public function subnetSave($text, $page = 0)
+    {
+        $c = $this->getPacConf();
+        $subnets = explode(',', $text);
+        if ($subnets) {
+            $c['subnets'] = array_merge($c['subnets'] ?: [], array_filter(array_map(fn ($e) => trim($e), $subnets)));
+            $this->setPacConf($c);
+        }
+        $this->subnet($page);
+    }
+
+    public function subnetDelete($k, $page = 0)
+    {
+        $c = $this->getPacConf();
+        unset($c['subnets'][$k]);
+        $this->setPacConf($c);
+        $this->subnet($page);
+    }
+
+    public function subnet($page = 0, $count = 5)
+    {
+        $text = "Menu -> Wireguard -> " . $this->i18n('listSubnet') . "\n";
+        $data[] = [
+            [
+                'text'          => $this->i18n('add'),
+                'callback_data' => "/subnetAdd $page",
+            ],
+        ];
+        $subnets = $this->getPacConf()['subnets'];
+        if (!empty($subnets)) {
+            $all     = (int) ceil(count($subnets) / $count);
+            $page    = min($page, $all - 1);
+            $page    = $page == -2 ? $all - 1 : $page;
+            $subnets = $page != -1 ? array_slice($subnets, $page * $count, $count, true) : $subnets;
+            foreach ($subnets as $k => $v) {
+                $data[] = [
+                    [
+                        'text'          => $this->i18n('delete') . " $v",
+                        'callback_data' => "/subnetDelete {$k}_$page",
+                    ],
+                ];
+            }
+            if ($page != -1 && $all > 1) {
+                $data[] = [
+                    [
+                        'text'          => '<<',
+                        'callback_data' => "/subnet $page " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
+                    ],
+                    [
+                        'text'          => '>>',
+                        'callback_data' => "/subnet $page " . ($page < $all - 1 ? $page + 1 : 0),
+                    ]
+                ];
+            }
+        }
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu wg $page",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            $text,
+            $data ?: false,
+        );
     }
 
     public function getClient($client, $page)
@@ -1884,27 +1992,7 @@ DNS-over-HTTPS with IP:
             ],
             'wg'      => $type == 'wg' ? $this->statusWg($arg) : false,
             'client'  => $type == 'client' ? $this->getClient(...explode('_', $arg)) : false,
-            'addpeer' => [
-                'text' => "Menu -> Wireguard -> Add peer\n\n",
-                'data' => [
-                    [[
-                        'text'          =>  $this->i18n('all traffic'),
-                        'callback_data' => "/add",
-                    ]],
-                    [[
-                        'text'          =>  $this->i18n('subnet'),
-                        'callback_data' => "/add_ips",
-                    ]],
-                    [[
-                        'text'          =>  $this->i18n('proxy ip'),
-                        'callback_data' => "/proxy",
-                    ]],
-                    [[
-                        'text'          => $this->i18n('back'),
-                        'callback_data' => "/menu wg $arg",
-                    ]],
-                ],
-            ],
+            'addpeer' => $type == 'addpeer' ? $this->addWg(...explode('_', $arg)) : false,
             'pac'          => $type == 'pac'          ? $this->pacMenu() : false,
             'adguard'      => $type == 'adguard'      ? $this->adguardMenu() : false,
             'includelist'  => $type == 'includelist'  ? $this->pacList($type, $arg) : false,
@@ -1938,6 +2026,47 @@ DNS-over-HTTPS with IP:
                 $data ?: false,
             );
         }
+    }
+
+    public function addWg($page)
+    {
+        $text = "Menu -> Wireguard -> Add peer\n\n";
+        $data[] = [
+            [
+                'text'          =>  $this->i18n('all traffic'),
+                'callback_data' => "/add",
+            ]
+        ];
+        $data[] = [
+            [
+                'text'          =>  $this->i18n('subnet'),
+                'callback_data' => "/add_ips",
+            ]
+        ];
+        if ($this->getPacConf()['subnets']) {
+            $data[] = [
+                [
+                    'text'          =>  $this->i18n('listSubnet'),
+                    'callback_data' => "/addSubnets $page",
+                ]
+            ];
+        }
+        $data[] = [
+            [
+                'text'          =>  $this->i18n('proxy ip'),
+                'callback_data' => "/proxy",
+            ]
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu wg $page",
+            ]
+        ];
+        return [
+            'text' => $text,
+            'data' => $data,
+        ];
     }
 
     public function adguardMenu()

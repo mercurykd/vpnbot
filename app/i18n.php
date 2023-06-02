@@ -209,4 +209,8 @@ $i = [
         'en' => 'blinkmenu off',
         'ru' => 'прыгающее меню выкл',
     ],
+    'listSubnet'  => [
+        'en' => 'listSubnet',
+        'ru' => 'список подсетей',
+    ],
 ];
