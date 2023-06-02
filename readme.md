@@ -51,4 +51,4 @@ additional options:
 
 install as service(autoload on start):
 
-bash scripts/install_as_service.sh
+`bash scripts/install_as_service.sh`
