@@ -36,7 +36,7 @@ telegram bot to manage servers (inside the bot)
 - import/export all settings
 - domain binding
 - obtain ssl for domain
-<img src="https://github.com/mercurykd/vpnbot/assets/30900414/82a61bab-ec78-46f9-b160-398ee5dbf8bd" width="200">
+<img src="https://github.com/mercurykd/vpnbot/assets/30900414/431ec09d-9c14-4c74-b8f6-e49c142132e8" width="200">
 
 ---
 environment: ubuntu 18.04/20.04/22.04, debian 11
