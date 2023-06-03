@@ -1518,11 +1518,11 @@ DNS-over-HTTPS with IP:
                 $data[] = [
                     [
                         'text'          => '<<',
-                        'callback_data' => "/subnet $page " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
+                        'callback_data' => "/subnet " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
                     ],
                     [
                         'text'          => '>>',
-                        'callback_data' => "/subnet $page " . ($page < $all - 1 ? $page + 1 : 0),
+                        'callback_data' => "/subnet " . ($page < $all - 1 ? $page + 1 : 0),
                     ]
                 ];
             }
