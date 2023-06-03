@@ -132,6 +132,12 @@ class Bot
             case preg_match('~^/addSubnets (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->addSubnets(...explode('_', $m['arg']));
                 break;
+            case preg_match('~^/changeAllowedIps (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->changeAllowedIps(...explode('_', $m['arg']));
+                break;
+            case preg_match('~^/changeIps (?P<arg>\w+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->changeIps(...explode('_', $m['arg']));
+                break;
             case preg_match('~^/selfssl$~', $this->input['callback'], $m):
                 $this->selfssl();
                 break;
@@ -1541,6 +1547,87 @@ DNS-over-HTTPS with IP:
         );
     }
 
+    public function changeAllowedIps($k, $page = 0)
+    {
+        $clients = $this->readClients();
+        $name    = $this->getName($clients[$k]['interface']);
+        $text    = "Menu -> Wireguard -> $name -> Change AllowedIPs\n\n";
+        $data[]  = [
+            [
+                'text'          =>  $this->i18n('all traffic'),
+                'callback_data' => "/changeIps all_{$k}_$page",
+            ]
+        ];
+        $data[] = [
+            [
+                'text'          =>  $this->i18n('subnet'),
+                'callback_data' => "/changeIps subnet_{$k}_$page",
+            ]
+        ];
+        if ($this->getPacConf()['subnets']) {
+            $data[] = [
+                [
+                    'text'          =>  $this->i18n('listSubnet'),
+                    'callback_data' => "/changeIps list_{$k}_$page",
+                ]
+            ];
+        }
+        $data[] = [
+            [
+                'text'          =>  $this->i18n('proxy ip'),
+                'callback_data' => "/changeIps proxy_{$k}_$page",
+            ]
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu client {$k}_$page",
+            ]
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            $text,
+            $data ?: false,
+        );
+    }
+
+    public function changeIps($type, $k, $page = 0)
+    {
+        switch ($type) {
+            case 'all':
+                $this->setIps('0.0.0.0/0', $k, $page);
+                break;
+            case 'subnet':
+                $r = $this->send(
+                    $this->input['chat'],
+                    "@{$this->input['username']} list subnets separated by commas",
+                    $this->input['message_id'],
+                    reply: 'list subnets separated by commas',
+                );
+                $_SESSION['reply'][$r['result']['message_id']] = [
+                    'start_message' => $this->input['message_id'],
+                    'callback'      => 'setIps',
+                    'args'          => [$k, $page],
+                ];
+                break;
+            case 'list':
+                $this->setIps(implode(',', $this->getPacConf()['subnets']), $k, $page);
+                break;
+            case 'proxy':
+                $this->setIps(trim($this->ssh("getent hosts proxy | awk '{ print $1 }'")) . '/32', $k, $page);
+                break;
+        }
+    }
+
+    public function setIps($ips, $k, $page = 0)
+    {
+        $clients = $this->readClients();
+        $clients[$k]['peers'][0]['AllowedIPs'] = $ips;
+        $this->saveClients($clients);
+        $this->menu('client', "{$k}_$page");
+    }
+
     public function getClient($client, $page)
     {
         $clients = $this->readClients();
@@ -1578,6 +1665,12 @@ DNS-over-HTTPS with IP:
                         [
                             'text'          => $this->i18n($clients[$client]['interface']['DNS'] ? 'delete internal dns' : 'set internal dns'),
                             'callback_data' => "/" . ($clients[$client]['interface']['DNS'] ? 'delete' : '') . "dns {$client}_$page",
+                        ],
+                    ],
+                    [
+                        [
+                            'text'          => $this->i18n('AllowedIPs'),
+                            'callback_data' => "/changeAllowedIps {$client}_$page",
                         ],
                     ],
                     [

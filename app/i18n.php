@@ -213,4 +213,8 @@ $i = [
         'en' => 'listSubnet',
         'ru' => 'список подсетей',
     ],
+    'AllowedIPs'  => [
+        'en' => 'AllowedIPs',
+        'ru' => 'AllowedIPs',
+    ],
 ];
