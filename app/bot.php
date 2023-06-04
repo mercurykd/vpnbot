@@ -135,6 +135,9 @@ class Bot
             case preg_match('~^/changeAllowedIps (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->changeAllowedIps(...explode('_', $m['arg']));
                 break;
+            case preg_match('~^/calc (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->calc(...explode('_', $m['arg']));
+                break;
             case preg_match('~^/changeIps (?P<arg>\w+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->changeIps(...explode('_', $m['arg']));
                 break;
@@ -1497,9 +1500,68 @@ DNS-over-HTTPS with IP:
         $this->subnet($page);
     }
 
+    public function calc($page)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter like '10.0.0.0/24, -10.0.0.5/32'",
+            $this->input['message_id'],
+            reply: 'enter like \'10.0.0.0/24, -10.0.0.5/32\'',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'calcSubnet',
+            'args'           => [$page],
+        ];
+    }
+
+    public function calcSubnet($text)
+    {
+        $text = explode(',', $text);
+        $text = array_map(fn ($e) => trim($e), $text);
+        if (!empty($text)) {
+            foreach ($text as $k => $v) {
+                if (preg_match('~^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}~', $v)) {
+                    $include[] = $v;
+                }
+                if (preg_match('~^-(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2})~', $v, $m)) {
+                    $exclude[] = $m[1];
+                }
+            }
+        }
+        if (!empty($include)) {
+            foreach ($include as $k => $v) {
+                $t = explode('/', $v);
+                $include[$k] = [ip2long($t[0]), ip2long($t[0]) + (1 << (32 - $t[1])) - 1];
+            }
+            if (!empty($exclude)) {
+                foreach ($exclude as $k => $v) {
+                    $t = explode('/', $v);
+                    $exclude[$k] = [ip2long($t[0]), ip2long($t[0]) + (1 << (32 - $t[1])) - 1];
+                }
+            }
+            $c = new Calc();
+            $r = $c->prepare($include, $exclude ?: []);
+            if (!empty($r)) {
+                $t = [];
+                foreach ($r as $k => $v) {
+                    $t = array_merge($t, $c->toCIDR($v[0], $v[1]));
+                }
+                $this->send($this->input['chat'], '<pre>' . implode(', ', $t) . '</pre>');
+            }
+        }
+    }
+
     public function subnet($page = 0, $count = 5)
     {
         $text = "Menu -> Wireguard -> " . $this->i18n('listSubnet') . "\n";
+        $data[] = [
+            [
+                'text'          => $this->i18n('calc'),
+                'callback_data' => "/calc $page",
+            ],
+        ];
         $data[] = [
             [
                 'text'          => $this->i18n('add'),

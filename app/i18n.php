@@ -217,4 +217,8 @@ $i = [
         'en' => 'AllowedIPs',
         'ru' => 'AllowedIPs',
     ],
+    'calc'  => [
+        'en' => 'calc CIDR',
+        'ru' => 'calc CIDR',
+    ],
 ];
