@@ -269,9 +269,11 @@ function start()
 function endScript($text)
 {
     global $bot;
-    update($text);
-    sleep(2);
-    $bot->menu('pac');
+    if (empty($_SERVER['argv'][5])) {
+        update($text);
+        sleep(2);
+        $bot->menu('pac');
+    }
     die();
 }
 

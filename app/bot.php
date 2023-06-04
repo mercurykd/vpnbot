@@ -637,6 +637,7 @@ class Bot
                 $out[] = 'update pac';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->setPacConf($json['pac']);
+                $this->pacUpdate('1');
             }
             // ad
             if (!empty($json['ad'])) {
@@ -2130,9 +2131,9 @@ DNS-over-HTTPS with IP:
         $this->menu('pac');
     }
 
-    public function pacUpdate()
+    public function pacUpdate($import = '')
     {
-        exec("php updatepac.php start {$this->input['chat']} {$this->input['message_id']} {$this->input['callback_id']} > /dev/null &");
+        exec("php updatepac.php start {$this->input['chat']} {$this->input['message_id']} {$this->input['callback_id']} $import > /dev/null &");
     }
 
     public function getSSConfig()
