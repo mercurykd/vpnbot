@@ -30,6 +30,10 @@ telegram bot to manage servers (inside the bot)
 - the ability to create your own PAC available by url with the ability to substitute the final ip and port
 <img src="https://github.com/mercurykd/vpnbot/assets/30900414/5343e009-1b21-450f-918d-b811b98a0549" width="200">
 
+### MTProto
+- change secret
+<img src="https://github.com/mercurykd/vpnbot/assets/30900414/411696d8-172a-4dac-b6b7-4a6da3adfab2" width="200">
+
 ### Settings
 - add/change admin
 - change language (en/ru)
