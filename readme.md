@@ -1,6 +1,6 @@
 telegram bot to manage servers (inside the bot)
 
-<img src="https://github.com/mercurykd/vpnbot/assets/30900414/8442039d-6b54-4cb1-8826-22a87d9e6748" width="200">
+<img src="https://github.com/mercurykd/vpnbot/assets/30900414/408f43a5-51eb-4d45-a950-cd795fdc7858" width="200">
 
 ### Wireguard
 - create
