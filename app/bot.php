@@ -309,13 +309,13 @@ class Bot
 
     public function secretSet($secret)
     {
-        file_put_contents('/config/mtprotosecret', $secret ?: '');
         $this->restartTG($secret);
         $this->mtproto();
     }
 
     public function restartTG($secret)
     {
+        file_put_contents('/config/mtprotosecret', $secret ?: '');
         $this->ssh('pkill mtproto-proxy', 'tg');
         if (preg_match('~^\w{32}$~', $secret)) {
             $p = getenv('TGPORT');
