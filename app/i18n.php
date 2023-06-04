@@ -221,4 +221,16 @@ $i = [
         'en' => 'calc CIDR',
         'ru' => 'calc CIDR',
     ],
+    'mtproto'  => [
+        'en' => 'MTProto',
+        'ru' => 'MTProto',
+    ],
+    'generateSecret'  => [
+        'en' => 'generateSecret',
+        'ru' => 'сгенерировать ключ',
+    ],
+    'setSecret'  => [
+        'en' => 'setSecret',
+        'ru' => 'установить ключ',
+    ],
 ];

@@ -7,6 +7,7 @@ apt install -y \
     make \
     git \
     iptables \
+    iproute2 \
     xtables-addons-common \
     xtables-addons-dkms
 mkdir -p /etc/apt/keyrings

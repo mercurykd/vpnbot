@@ -62,6 +62,7 @@ services:
             - ./config/nginx_default.conf:/config/nginx_default.conf
             - ./config/ssserver.json:/config/ssserver.json
             - ./config/sslocal.json:/config/sslocal.json
+            - ./config/mtprotosecret:/config/mtprotosecret
             - ./certs/:/certs/
             - type: volume
               target: /config/adguard
@@ -73,9 +74,11 @@ services:
             - ./scripts/check_file.sh:/check_file.sh
         environment:
             TZ: ${TZ}
+            IP: ${IP}
             ADDRESS: ${WGADDRESS}
             WGPORT: ${WGPORT}
             SSPORT: ${SSPORT}
+            TGPORT: ${TGPORT}
         hostname: unit
         restart: unless-stopped
         stop_grace_period: 1s
@@ -203,4 +206,31 @@ services:
         networks:
             default:
                 ipv4_address: 10.10.0.6
+        logging: *default-logging
+    tg:
+        build:
+            dockerfile: dockerfile/telegram.dockerfile
+            args:
+                RELEASE: ${RELEASE}
+                SYSTEM: ${SYSTEM}
+        volumes:
+            - ./config/.profile:/root/.bashrc:ro
+            - ./ssh:/ssh
+            - ./scripts/start_tg.sh:/start_tg.sh
+            - ./config/mtprotosecret:/mtprotosecret
+        hostname: telegram
+        depends_on:
+            unit:
+                condition: service_healthy
+        ports:
+            - ${TGPORT}:${TGPORT}
+        environment:
+            TZ: ${TZ}
+            IP: ${IP}
+            TGPORT: ${TGPORT}
+        stop_grace_period: 1s
+        command: ["/bin/sh", "/start_tg.sh"]
+        networks:
+            default:
+                ipv4_address: 10.10.0.8
         logging: *default-logging

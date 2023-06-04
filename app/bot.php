@@ -120,6 +120,15 @@ class Bot
             case preg_match('~^/id$~', $this->input['message'], $m):
                 $this->send($this->input['chat'], $this->input['from'], $this->input['message_id']);
                 break;
+            case preg_match('~^/mtproto$~', $this->input['callback'], $m):
+                $this->mtproto();
+                break;
+            case preg_match('~^/generateSecret$~', $this->input['callback'], $m):
+                $this->generateSecret();
+                break;
+            case preg_match('~^/setSecret$~', $this->input['callback'], $m):
+                $this->setSecret();
+                break;
             case preg_match('~^/subnet (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->subnet(...explode('_', $m['arg']));
                 break;
@@ -275,6 +284,90 @@ class Bot
                 $this->reply();
                 break;
         }
+    }
+
+    public function generateSecret()
+    {
+        $this->send($this->input['chat'], trim($this->ssh('head -c 16 /dev/urandom | xxd -ps', 'tg')));
+    }
+
+    public function setSecret()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter url",
+            $this->input['message_id'],
+            reply: 'enter url',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'secretSet',
+            'args'           => [],
+        ];
+    }
+
+    public function secretSet($secret)
+    {
+        file_put_contents('/config/mtprotosecret', $secret ?: '');
+        $this->restartTG($secret);
+        $this->mtproto();
+    }
+
+    public function restartTG($secret)
+    {
+        $this->ssh('pkill mtproto-proxy', 'tg');
+        if (preg_match('~^\w{32}$~', $secret)) {
+            $p = getenv('TGPORT');
+            $this->ssh("/MTProxy/objs/bin/mtproto-proxy -u nobody -H $p --nat-info 10.10.0.8:{$this->ip} -S $secret --aes-pwd /proxy-secret /proxy-multi.conf -M 1 >/dev/null 2>&1 &", 'tg');
+        }
+    }
+
+    public function mtproto()
+    {
+        $s      = file_get_contents('/config/mtprotosecret');
+        $p      = getenv('TGPORT');
+        $ip     = $this->getPacConf()['domain'] ?: $this->ip;
+        $st     = $this->ssh('pgrep mtproto-proxy', 'tg') ? 'on' : 'off';
+        $text[] = "Menu -> MTProto\n";
+        $text[] = "status: $st\n";
+        if ($st == 'on') {
+            $text[] = "<code>https://t.me/proxy?server=$ip&port=$p&secret=$s</code>\n\n<code>tg://proxy?server=$ip&port=$p&secret=$s</code>";
+            $data[] = [
+                [
+                    'text' => "https://t.me/proxy",
+                    'url'  => "https://t.me/proxy?server=$ip&port=$p&secret=$s",
+                ],
+                [
+                    'text' => "tg://proxy",
+                    'url'  => "tg://proxy?server=$ip&port=$p&secret=$s",
+                ],
+            ];
+        }
+        $data[] = [
+            [
+                'text'          => $this->i18n('generateSecret'),
+                'callback_data' => "/generateSecret",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('setSecret') . ($s ? ": $s" : ''),
+                'callback_data' => "/setSecret",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
     }
 
     public function setLang($lang)
@@ -496,6 +589,7 @@ class Bot
                 'private' => file_exists('/certs/cert_private') ? file_get_contents('/certs/cert_private') : false,
                 'public'  => file_exists('/certs/cert_public') ? file_get_contents('/certs/cert_public') : false,
             ],
+            'mtproto' => file_get_contents('/config/mtprotosecret'),
 
         ];
         $this->upload('vpnbot_export_' . date('d_m_Y_H_i') . '.json', json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
@@ -567,6 +661,12 @@ class Bot
                 $this->ssh('pkill sslocal', 'proxy');
                 file_put_contents('/config/sslocal.json', json_encode($json['sl'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
                 $this->ssh('/sslocal -v -d -c /config.json', 'proxy');
+            }
+            // mtproto
+            if (!empty($json['mtproto'])) {
+                $out[] = 'update mtproto';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->restartTG($json['mtproto']);
             }
             // nginx
             $out[] = 'reset nginx';
@@ -2098,7 +2198,7 @@ DNS-over-HTTPS with IP:
 
     public function i18n(string $menu): string
     {
-        return $this->i18n[$menu][$this->language] ?: 'no translate';
+        return $this->i18n[$menu][$this->language] ?: $menu;
     }
 
     public function menu($type = false, $arg = false, $return = false)
@@ -2126,6 +2226,12 @@ DNS-over-HTTPS with IP:
                             'text'          => $this->i18n('pac'),
                             'callback_data' => "/menu pac",
                         ],
+                    ],
+                    [
+                        [
+                            'text'          => $this->i18n('mtproto'),
+                            'callback_data' => "/mtproto",
+                        ]
                     ],
                     [
                         [
