@@ -1,2 +1,7 @@
+05.06.2023 пофиксил "автозагрузку":
+<code>service vpnbot stop</code>
+<code>git pull</code>
+<code>bash scripts/install_as_service.sh</code>
+<code>service vpnbot start</code>
 05.06.2023 уведомление о старте бота
 05.06.2023 версионирование

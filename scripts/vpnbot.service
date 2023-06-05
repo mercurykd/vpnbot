@@ -4,7 +4,7 @@ Requires=docker.service
 After=docker.service
 [Service]
 WorkingDirectory=/root/vpnbot
-ExecStart=/bin/sh -c "RELEASE=$(lsb_release -rs) SYSTEM=$(lsb_release -is | tr '[:upper:]' '[:lower:]') docker compose up --build --force-recreate"
+ExecStart=/bin/sh -c "IP=$(ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$$|\1|p' | awk '{print $1}' | head -1) RELEASE=$(lsb_release -rs) SYSTEM=$(lsb_release -is | tr '[:upper:]' '[:lower:]') docker compose up --build --force-recreate"
 ExecStop=/usr/bin/docker compose down
 TimeoutStartSec=0
 Restart=on-failure
