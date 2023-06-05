@@ -14,6 +14,7 @@ class Bot
         $this->ip       = getenv('IP');
         $this->i18n     = $i18n;
         $this->language = $this->getPacConf()['language'] ?: 'en';
+        $this->dns      = '1.1.1.1, 8.8.8.8';
     }
 
     public function input()
@@ -128,6 +129,9 @@ class Bot
                 break;
             case preg_match('~^/setSecret$~', $this->input['callback'], $m):
                 $this->setSecret();
+                break;
+            case preg_match('~^/defaultDNS (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->defaultDNS(...explode('_', $m['arg']));
                 break;
             case preg_match('~^/subnet (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->subnet(...explode('_', $m['arg']));
@@ -1530,7 +1534,8 @@ DNS-over-HTTPS with IP:
             }
         }
         $text = "Menu -> Wireguard\n\n<code>" . implode(PHP_EOL, $text) . '</code>';
-        $bt = $this->getPacConf()['blocktorrent'];
+        $bt   = $this->getPacConf()['blocktorrent'];
+        $dns  = $this->getPacConf()['dns'];
         $data = [
             [
                 [
@@ -1552,6 +1557,12 @@ DNS-over-HTTPS with IP:
                     'callback_data' => "/subnet $page",
                 ],
             ],
+            [
+                [
+                    'text'          =>  $this->i18n('defaultDNS') . ': ' . ($dns ?: $this->dns),
+                    'callback_data' => "/defaultDNS $page",
+                ],
+            ],
         ];
         if ($clients = $this->getClients($page)) {
             $data = array_merge($data, $clients);
@@ -1564,6 +1575,34 @@ DNS-over-HTTPS with IP:
             'text' => $text,
             'data' => $data,
         ];
+    }
+
+    public function defaultDNS($page = 0)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter dns separated by commas",
+            $this->input['message_id'],
+            reply: 'enter dns separated by commas',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'setDNS',
+            'args'           => [$page],
+        ];
+    }
+
+    public function setDNS($text, $page = 0)
+    {
+        $c = $this->getPacConf();
+        if ($text) {
+            $c['dns'] = $text;
+        } else {
+            unset($c['dns']);
+        }
+        $this->setPacConf($c);
+        $this->menu('wg', $page);
     }
 
     public function subnetAdd($page = 0)
@@ -2623,6 +2662,9 @@ DNS-over-HTTPS with IP:
     public function createConfig($data)
     {
         $conf[] = "[Interface]";
+        if (empty($data['interface']['DNS'])) {
+            $data['interface']['DNS'] = $this->getPacConf()['dns'] ?: $this->dns;
+        }
         foreach ($data['interface'] as $k => $v) {
             $conf[] = "$k = $v";
         }
@@ -2673,7 +2715,6 @@ DNS-over-HTTPS with IP:
                 'PrivateKey' => $private_peer_key,
                 'Address'    => "$client_ip/32",
                 'MTU'        => 1350,
-                'DNS'        => '10.10.0.5',
             ],
             'peers' => [
                 [
