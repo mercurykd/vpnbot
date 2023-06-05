@@ -72,6 +72,7 @@ services:
             - ./logs/:/logs/
             - ./scripts/start_unit.sh:/start_unit.sh
             - ./scripts/check_file.sh:/check_file.sh
+            - ./version:/version
         environment:
             TZ: ${TZ}
             IP: ${IP}

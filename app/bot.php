@@ -541,20 +541,45 @@ class Bot
     public function cron()
     {
         while (true) {
-            try {
-                $clients = $this->readClients();
-                if ($clients) {
-                    foreach ($clients as $k => $v) {
-                        if (!empty($v['interface']['## time'])) {
-                            if (strtotime($v['interface']['## time']) < time()) {
-                                $this->switchClient($k);
-                            }
+            $this->shutdownClient();
+            $this->checkVersion();
+            sleep(10);
+        }
+    }
+
+    public function checkVersion()
+    {
+        try {
+            require __DIR__ . '/config.php';
+            if (!empty($c['admin'])) {
+                $current = file_get_contents('/version');
+                $last    = file_get_contents('https://raw.githubusercontent.com/mercurykd/vpnbot/master/version');
+                if (!empty($last) && $last != $this->last && $last != $current) {
+                    $this->last = $last;
+                    $diff = implode("\n", array_diff(explode("\n", $last), explode("\n", $current)));
+                    foreach ($c['admin'] as $k => $v) {
+                        $this->send($v, "update:\n$diff");
+                    }
+                }
+            }
+        } catch (Exception $e) {
+        }
+    }
+
+    public function shutdownClient()
+    {
+        try {
+            $clients = $this->readClients();
+            if ($clients) {
+                foreach ($clients as $k => $v) {
+                    if (!empty($v['interface']['## time'])) {
+                        if (strtotime($v['interface']['## time']) < time()) {
+                            $this->switchClient($k);
                         }
                     }
                 }
-            } catch (Exception $e) {
             }
-            sleep(10);
+        } catch (Exception $e) {
         }
     }
 
