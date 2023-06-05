@@ -551,9 +551,10 @@ class Bot
     {
         try {
             require __DIR__ . '/config.php';
-            if (!empty($c['admin'])) {
-                $current = file_get_contents('/version');
-                $last    = file_get_contents('https://raw.githubusercontent.com/mercurykd/vpnbot/master/version');
+            if (!empty($c['admin']) && (empty($this->time) || ((time() - $this->time) > 3600))) {
+                $this->time = time();
+                $current    = file_get_contents('/version');
+                $last       = file_get_contents('https://raw.githubusercontent.com/mercurykd/vpnbot/master/version');
                 if (!empty($last) && $last != $this->last && $last != $current) {
                     $this->last = $last;
                     $diff = implode("\n", array_diff(explode("\n", $last), explode("\n", $current)));
