@@ -513,6 +513,10 @@ class Bot
     public function timerClient(string $time, int $client)
     {
         $clients = $this->readClients();
+        if ($clients[$client]['# off']) {
+            $this->switchClient($client);
+            $clients = $this->readClients();
+        }
         $server  = $this->readConfig();
         switch (true) {
             case preg_match('~^0$~', $time):
@@ -571,7 +575,7 @@ class Bot
 
     public function getTime(int $seconds)
     {
-        $seconds = $seconds - time();
+        $seconds = ($seconds - time()) > 0 ? $seconds - time() : 0;
         $items   = [
             'Y' => [
                 'diff' => 1970,
@@ -786,7 +790,7 @@ class Bot
     public function switchClient($client)
     {
         $clients = $this->readClients();
-        $server = $this->readConfig();
+        $server  = $this->readConfig();
         if ($clients[$client]['# off']) {
             unset($clients[$client]['# off']);
         } else {
