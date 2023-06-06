@@ -569,6 +569,43 @@ class Bot
         }
     }
 
+    public function getTime(int $seconds)
+    {
+        $seconds = $seconds - time();
+        $items   = [
+            'Y' => [
+                'diff' => 1970,
+                'sign' => 'years',
+            ],
+            'm' => [
+                'diff' => 1,
+                'sign' => 'months',
+            ],
+            'd' => [
+                'diff' => 1,
+                'sign' => 'days',
+            ],
+            'H' => [
+                'diff' => 0,
+                'sign' => 'hours',
+            ],
+            'i' => [
+                'diff' => 0,
+                'sign' => 'minute',
+            ],
+            's' => [
+                'diff' => 0,
+                'sign' => 'seconds',
+            ],
+        ];
+        foreach ($items as $k => $v) {
+            if (($t = gmdate($k, $seconds) - $v['diff']) > 0) {
+                $text .= " $t {$v['sign']}";
+            }
+        }
+        return trim($text) ?: '';
+    }
+
     public function shutdownClient()
     {
         try {
@@ -1551,7 +1588,7 @@ DNS-over-HTTPS with IP:
             usort($conf['peers'], fn($a, $b) => ($a['online'] == 'OFFLINE') <=> ($b['online'] == 'OFFLINE'));
             foreach ($conf['peers'] as $k => $v) {
                 $t = ($v['online'] == 'OFFLINE' ? '(OFFLINE) ' : '')
-                    . ($v['## time'] ? "({$v['## time']}) ": "")
+                    . ($v['## time'] ? "({$this->getTime(strtotime($v['## time']))}) ": "")
                     . "{$this->getName($v)} "
                     . ($v['online'] != 'OFFLINE' ? "({$v['online']})" : '');
                 if (empty($v['# PublicKey'])) {
@@ -2690,8 +2727,13 @@ DNS-over-HTTPS with IP:
     public function createConfig($data)
     {
         $conf[] = "[Interface]";
-        if (empty($data['interface']['ListenPort']) && empty($data['interface']['DNS'])) {
-            $data['interface']['DNS'] = $this->getPacConf()['dns'] ?: $this->dns;
+        if (empty($data['interface']['ListenPort'])) {
+            if (empty($data['interface']['DNS'])) {
+                $data['interface']['DNS'] = $this->getPacConf()['dns'] ?: $this->dns;
+            }
+            if (!empty($data['interface']['## time'])) {
+                $data['interface']['## time'] = $this->getTime(strtotime($data['interface']['## time']));
+            }
         }
         foreach ($data['interface'] as $k => $v) {
             $conf[] = "$k = $v";
