@@ -2738,10 +2738,14 @@ DNS-over-HTTPS with IP:
         foreach ($data['interface'] as $k => $v) {
             $conf[] = "$k = $v";
         }
+        $domain = ($this->getPacConf()['domain'] ?: $this->ip) . ":" . getenv('WGPORT');
         if (!empty($data['peers'])) {
             foreach ($data['peers'] as $peer) {
                 $conf[] = '';
                 $conf[] = $peer['# PublicKey'] ? '# [Peer]' : '[Peer]';
+                if (!empty($peer['Endpoint'])) {
+                    $peer['Endpoint'] = $domain;
+                }
                 foreach ($peer as $k => $v) {
                     $conf[] = "$k = $v";
                 }
@@ -2828,6 +2832,10 @@ DNS-over-HTTPS with IP:
 
     public function saveClients(array $clients)
     {
+        $domain = ($this->getPacConf()['domain'] ?: $this->ip) . ":" . getenv('WGPORT');
+        foreach ($clients as $k => $v) {
+            $clients[$k]['peers'][0]['Endpoint'] = $domain;
+        }
         file_put_contents($this->clients, json_encode($clients, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
