@@ -557,9 +557,11 @@ class Bot
                 $last       = file_get_contents('https://raw.githubusercontent.com/mercurykd/vpnbot/master/version');
                 if (!empty($last) && $last != $this->last && $last != $current) {
                     $this->last = $last;
-                    $diff = implode("\n", array_diff(explode("\n", $last), explode("\n", $current)));
-                    foreach ($c['admin'] as $k => $v) {
-                        $this->send($v, "update:\n$diff");
+                    $diff = implode("\n", array_slice(explode("\n", $last), 0, count(explode("\n", $last)) - count(explode("\n", $current))));
+                    if (!empty($diff)) {
+                        foreach ($c['admin'] as $k => $v) {
+                            $this->send($v, "update:\n$diff");
+                        }
                     }
                 }
             }
