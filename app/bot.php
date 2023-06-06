@@ -292,7 +292,7 @@ class Bot
 
     public function generateSecret()
     {
-        $this->send($this->input['chat'], trim($this->ssh('head -c 16 /dev/urandom | xxd -ps', 'tg')));
+        $this->secretSet(trim($this->ssh('head -c 16 /dev/urandom | xxd -ps', 'tg')));
     }
 
     public function setSecret()
