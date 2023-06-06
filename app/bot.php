@@ -2688,7 +2688,7 @@ DNS-over-HTTPS with IP:
     public function createConfig($data)
     {
         $conf[] = "[Interface]";
-        if (empty($data['interface']['DNS'])) {
+        if (empty($data['interface']['ListenPort']) && empty($data['interface']['DNS'])) {
             $data['interface']['DNS'] = $this->getPacConf()['dns'] ?: $this->dns;
         }
         foreach ($data['interface'] as $k => $v) {

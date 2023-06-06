@@ -1,3 +1,7 @@
+06.06.2023 фикс зависания wireguard после ребута
+<code>git pull</code>
+в файле <pre>config/wg0.conf</pre> удалите строчку с DNS, если она там есть
+перезапустите <code>make r</code>
 05.06.2023 пофиксил "автозагрузку":
 <code>service vpnbot stop</code>
 <code>git pull</code>
