@@ -439,11 +439,15 @@ class Bot
 
     public function sspwdch($pass)
     {
+        $this->ssh('pkill sslocal', 'proxy');
         $this->ssh('pkill ssserver', 'ss');
         $c = $this->getSSConfig();
-        $c['password'] = $pass;
+        $l = $this->getSSLocalConfig();
+        $c['password'] = $l['password'] = $pass;
         file_put_contents('/config/ssserver.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        file_put_contents('/config/sslocal.json', json_encode($l, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         $this->ssh('/ssserver -v -d -c /config.json', 'ss');
+        $this->ssh('/sslocal -v -d -c /config.json', 'proxy');
         $this->menu('ss');
     }
 
