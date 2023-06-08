@@ -55,4 +55,7 @@ additional options:
 
 install as service(autoload on start):
 
-`bash scripts/install_as_service.sh`
+```
+cd /root/vpnbot
+bash scripts/install_as_service.sh
+```
