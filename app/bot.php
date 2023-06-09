@@ -133,13 +133,13 @@ class Bot
             case preg_match('~^/defaultDNS (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->defaultDNS(...explode('_', $m['arg']));
                 break;
-            case preg_match('~^/subnet (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+            case preg_match('~^/subnet (?P<arg>-?\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->subnet(...explode('_', $m['arg']));
                 break;
-            case preg_match('~^/subnetAdd (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+            case preg_match('~^/subnetAdd (?P<arg>-?\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->subnetAdd(...explode('_', $m['arg']));
                 break;
-            case preg_match('~^/subnetDelete (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+            case preg_match('~^/subnetDelete (?P<arg>-?\d+(?:_-?\d+)?(?:_-?\d+)?)$~', $this->input['callback'], $m):
                 $this->subnetDelete(...explode('_', $m['arg']));
                 break;
             case preg_match('~^/addSubnets (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
@@ -148,8 +148,8 @@ class Bot
             case preg_match('~^/changeAllowedIps (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->changeAllowedIps(...explode('_', $m['arg']));
                 break;
-            case preg_match('~^/calc (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
-                $this->calc(...explode('_', $m['arg']));
+            case preg_match('~^/calc$~', $this->input['callback'], $m):
+                $this->calc();
                 break;
             case preg_match('~^/changeIps (?P<arg>\w+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->changeIps(...explode('_', $m['arg']));
@@ -1678,7 +1678,7 @@ DNS-over-HTTPS with IP:
         $this->menu('wg', $page);
     }
 
-    public function subnetAdd($page = 0)
+    public function subnetAdd($wgpage, $page)
     {
         $r = $this->send(
             $this->input['chat'],
@@ -1690,30 +1690,31 @@ DNS-over-HTTPS with IP:
             'start_message'  => $this->input['message_id'],
             'start_callback' => $this->input['callback_id'],
             'callback'       => 'subnetSave',
-            'args'           => [$page],
+            'args'           => [$wgpage, $page],
         ];
     }
 
-    public function subnetSave($text, $page = 0)
+    public function subnetSave($text, $wgpage, $page)
     {
         $c = $this->getPacConf();
         $subnets = explode(',', $text);
         if ($subnets) {
             $c['subnets'] = array_merge($c['subnets'] ?: [], array_filter(array_map(fn ($e) => trim($e), $subnets)));
             $this->setPacConf($c);
+            $page = floor(count($c['subnets']) / 5);
         }
-        $this->subnet($page);
+        $this->subnet($wgpage, $page);
     }
 
-    public function subnetDelete($k, $page = 0)
+    public function subnetDelete($wgpage, $k, $page = 0)
     {
         $c = $this->getPacConf();
         unset($c['subnets'][$k]);
         $this->setPacConf($c);
-        $this->subnet($page);
+        $this->subnet($wgpage, $page);
     }
 
-    public function calc($page)
+    public function calc()
     {
         $r = $this->send(
             $this->input['chat'],
@@ -1725,7 +1726,7 @@ DNS-over-HTTPS with IP:
             'start_message'  => $this->input['message_id'],
             'start_callback' => $this->input['callback_id'],
             'callback'       => 'calcSubnet',
-            'args'           => [$page],
+            'args'           => [],
         ];
     }
 
@@ -1766,19 +1767,19 @@ DNS-over-HTTPS with IP:
         }
     }
 
-    public function subnet($page = 0, $count = 5)
+    public function subnet($wgpage = 0, $page = 0, $count = 5)
     {
         $text = "Menu -> Wireguard -> " . $this->i18n('listSubnet') . "\n";
         $data[] = [
             [
                 'text'          => $this->i18n('calc'),
-                'callback_data' => "/calc $page",
+                'callback_data' => "/calc",
             ],
         ];
         $data[] = [
             [
                 'text'          => $this->i18n('add'),
-                'callback_data' => "/subnetAdd $page",
+                'callback_data' => "/subnetAdd {$wgpage}_$page",
             ],
         ];
         $subnets = $this->getPacConf()['subnets'];
@@ -1791,7 +1792,7 @@ DNS-over-HTTPS with IP:
                 $data[] = [
                     [
                         'text'          => $this->i18n('delete') . " $v",
-                        'callback_data' => "/subnetDelete {$k}_$page",
+                        'callback_data' => "/subnetDelete {$wgpage}_{$k}_$page",
                     ],
                 ];
             }
@@ -1799,11 +1800,11 @@ DNS-over-HTTPS with IP:
                 $data[] = [
                     [
                         'text'          => '<<',
-                        'callback_data' => "/subnet " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
+                        'callback_data' => "/subnet {$wgpage}_" . ($page - 1 >= 0 ? $page - 1 : $all - 1),
                     ],
                     [
                         'text'          => '>>',
-                        'callback_data' => "/subnet " . ($page < $all - 1 ? $page + 1 : 0),
+                        'callback_data' => "/subnet {$wgpage}_" . ($page < $all - 1 ? $page + 1 : 0),
                     ]
                 ];
             }
@@ -1811,7 +1812,7 @@ DNS-over-HTTPS with IP:
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
-                'callback_data' => "/menu wg $page",
+                'callback_data' => "/menu wg $wgpage",
             ],
         ];
         $this->update(
