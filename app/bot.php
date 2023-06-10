@@ -145,7 +145,7 @@ class Bot
             case preg_match('~^/subnetDelete (?P<arg>-?\d+(?:_-?\d+)?(?:_-?\d+)?)$~', $this->input['callback'], $m):
                 $this->subnetDelete(...explode('_', $m['arg']));
                 break;
-            case preg_match('~^/addSubnets (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+            case preg_match('~^/addSubnets (?P<arg>-?\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->addSubnets(...explode('_', $m['arg']));
                 break;
             case preg_match('~^/changeAllowedIps (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
