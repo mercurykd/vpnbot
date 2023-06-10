@@ -124,6 +124,9 @@ class Bot
             case preg_match('~^/mtproto$~', $this->input['callback'], $m):
                 $this->mtproto();
                 break;
+            case preg_match('~^/debug$~', $this->input['callback'], $m):
+                $this->debug();
+                break;
             case preg_match('~^/generateSecret$~', $this->input['callback'], $m):
                 $this->generateSecret();
                 break;
@@ -2634,6 +2637,12 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
+                'text'          => $this->i18n('debug') . ': ' . $this->i18n($c['debug'] ? 'on' : 'off'),
+                'callback_data' => "/debug",
+            ],
+        ];
+        $data[] = [
+            [
                 'text'          => $this->i18n('back'),
                 'callback_data' => "/menu",
             ],
@@ -2642,6 +2651,15 @@ DNS-over-HTTPS with IP:
             'text' => $text,
             'data' => $data,
         ];
+    }
+
+    public function debug()
+    {
+        $file = __DIR__ . '/config.php';
+        require $file;
+        $c['debug'] = !$c['debug'];
+        file_put_contents($file, "<?php\n\n\$c = " . var_export($c, true) . ";\n");
+        $this->menu('config');
     }
 
     public function getStatusPeer(string $publickey, array $peers)
