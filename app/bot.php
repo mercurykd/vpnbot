@@ -2819,7 +2819,7 @@ DNS-over-HTTPS with IP:
         $bitmask   = $ipnet[1];
         if (!empty($conf['peers'])) {
             foreach ($conf['peers'] as $k => $v) {
-                $ips[] = ip2long(explode('/', $v['AllowedIPs'])[0]);
+                $ips[] = ip2long(explode('/', $v['AllowedIPs'] ?: $v['# AllowedIPs'])[0]);
             }
         }
         $ip_count = (1 << (32 - $bitmask)) - count($ips) - 1;
