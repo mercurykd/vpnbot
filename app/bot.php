@@ -2864,7 +2864,7 @@ DNS-over-HTTPS with IP:
     {
         $clients = $this->readClients();
         unset($clients[$client]);
-        $this->saveClients($clients);
+        $this->saveClients(array_values($clients));
     }
 
     public function saveClient(array $client)
