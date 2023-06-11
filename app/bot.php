@@ -904,7 +904,7 @@ class Bot
 
     public function addSubnets($page = 0)
     {
-        $this->createPeer(implode(',', $this->getPacConf()['subnets']), 'subnets');
+        $this->createPeer(implode(',', $this->getPacConf()['subnets']), 'list');
     }
 
     public function change_server_ip($ip)
@@ -1529,7 +1529,7 @@ DNS-over-HTTPS with IP:
 
     public function addPeer()
     {
-        $this->createPeer(name: 'all traffic');
+        $this->createPeer(name: 'all');
     }
 
     public function config()
@@ -2022,10 +2022,10 @@ DNS-over-HTTPS with IP:
                         'text'          => '<<',
                         'callback_data' => "/menu wg " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
                     ],
-                    [
-                        'text'          => 'all',
-                        'callback_data' => "/menu wg -1",
-                    ],
+                    // [
+                    //     'text'          => 'all',
+                    //     'callback_data' => "/menu wg -1",
+                    // ],
                     [
                         'text'          => '>>',
                         'callback_data' => "/menu wg " . ($page < $all - 1 ? $page + 1 : 0),
