@@ -524,7 +524,7 @@ class Bot
             $this->switchClient($client);
             $clients = $this->readClients();
         }
-        $server  = $this->readConfig();
+        $server = $this->readConfig();
         switch (true) {
             case preg_match('~^0$~', $time):
                 unset($clients[$client]['interface']['## time']);
@@ -1578,41 +1578,23 @@ DNS-over-HTTPS with IP:
         $this->menu('client', "{$client}_$page");
     }
 
+    public function pad($text, $length, $symbol = ' ')
+    {
+        for ($i = 0; $i < $length; $i++) {
+            $text .= $symbol;
+        }
+        return $text;
+    }
+
     public function statusWg(int $page = 0)
     {
-        $conf   = $this->readConfig();
-        $status = $this->readStatus();
-        $text[] = 'Server:';
-        $text[] = "  address: {$conf['interface']['Address']}";
-        $text[] = "  port: {$status['interface']['listening port']}";
-        $text[] = "  publickey: {$status['interface']['public key']}";
-        $text[] = "\nPeers:";
-        if (!empty($conf['peers'])) {
-            foreach ($conf['peers'] as $k => $v) {
-                if (!empty($v['# PublicKey'])) {
-                    $conf['peers'][$k]['online'] = $this->i18n('off');
-                } else {
-                    $conf['peers'][$k]['status'] = $this->getStatusPeer($v['PublicKey'], $status['peers']);
-                    $conf['peers'][$k]['online'] = preg_match('~^(\d+ seconds|[12] minute)~', $conf['peers'][$k]['status']['latest handshake']) ? $conf['peers'][$k]['status']['endpoint'] : 'OFFLINE';
-                }
-            }
-            usort($conf['peers'], fn($a, $b) => ($a['online'] == 'OFFLINE') <=> ($b['online'] == 'OFFLINE'));
-            foreach ($conf['peers'] as $k => $v) {
-                $t = ($v['online'] == 'OFFLINE' ? '(OFFLINE) ' : '')
-                    . ($v['## time'] ? "({$this->getTime(strtotime($v['## time']))}) ": "")
-                    . "{$this->getName($v)} "
-                    . ($v['online'] != 'OFFLINE' ? "({$v['online']})" : '');
-                if (empty($v['# PublicKey'])) {
-                    preg_match_all('~([0-9.]+\.?)\s(\w+)~', $v['status']['transfer'], $m);
-                    $t .= ($m[0] ? " {$m[1][0]}↑ {$m[2][0]} / {$m[1][1]}↓ {$m[2][1]}" : '');
-                }
-                $text[] = "$t\n";
-            }
-        }
-        $text = "Menu -> Wireguard\n\n<code>" . implode(PHP_EOL, $text) . '</code>';
-        $bt   = $this->getPacConf()['blocktorrent'];
-        $dns  = $this->getPacConf()['dns'];
-        $data = [
+        $conf    = $this->readConfig();
+        // $this->sd($conf);
+        $status  = $this->readStatus();
+        $clients = $this->getClients($page);
+        $bt      = $this->getPacConf()['blocktorrent'];
+        $dns     = $this->getPacConf()['dns'];
+        $data    = [
             [
                 [
                     'text'          =>  $this->i18n('update status'),
@@ -1640,9 +1622,56 @@ DNS-over-HTTPS with IP:
                 ],
             ],
         ];
-        if ($clients = $this->getClients($page)) {
+        if ($clients) {
             $data = array_merge($data, $clients);
         }
+        $text[]  = 'Server:';
+        $text[]  = "  address: {$conf['interface']['Address']}";
+        $text[]  = "  port: {$status['interface']['listening port']}";
+        $text[]  = "  publickey: {$status['interface']['public key']}";
+        $text[]  = "\nPeers:";
+        if (!empty($conf['peers'])) {
+            $all     = (int) ceil(count($conf['peers']) / 5);
+            $page    = min($page, $all - 1);
+            $page    = $page == -2 ? $all - 1 : $page;
+            $conf['peers'] = array_slice($conf['peers'], $page * 5, 5, true);
+            foreach ($conf['peers'] as $k => $v) {
+                if (!empty($v['# PublicKey'])) {
+                    $conf['peers'][$k]['online'] = $this->i18n('off');
+                } else {
+                    $conf['peers'][$k]['status'] = $this->getStatusPeer($v['PublicKey'], $status['peers']);
+                    $conf['peers'][$k]['online'] = preg_match('~^(\d+ seconds|[12] minute)~', $conf['peers'][$k]['status']['latest handshake']) ? $conf['peers'][$k]['status']['endpoint'] : 'offline';
+                }
+            }
+            foreach ($conf['peers'] as $k => $v) {
+                if (empty($v['# PublicKey'])) {
+                    preg_match_all('~([0-9.]+\.?)\s(\w+)~', $v['status']['transfer'], $m);
+                    $tr = $m[0] ? " {$m[1][0]}↑{$m[2][0]} {$m[1][1]}↓{$m[2][1]}" : '';
+                }
+                $t = [
+                    'name'  => $this->getName($v),
+                    'time'  => $this->getTime(strtotime($v['## time'])),
+                    'ip'    => $v['online'] != 'offline' ? explode(':', $v['online'])[0] : 'offline',
+                    'traff' => $tr,
+                ];
+                $pad = [
+                    'name'  => max(mb_strlen($t['name']), $pad['name']),
+                    'time'  => max(mb_strlen($t['time']), $pad['time']),
+                    'ip'    => max(mb_strlen($t['ip']), $pad['ip']),
+                    'traff' => max(mb_strlen($t['traff']), $pad['traff']),
+                ];
+                $peers[] = $t;
+            }
+            foreach ($peers as $k => $v) {
+                $text[] = implode(' ', [
+                    $this->pad($v['name'], $pad['name'] - mb_strlen($v['name'])),
+                    $this->pad($v['time'], $pad['time'] - mb_strlen($v['time'])),
+                    $this->pad($v['ip'], $pad['ip'] - mb_strlen($v['ip'])),
+                    $this->pad($v['traff'], $pad['traff'] - mb_strlen($v['traff'])),
+                ]);
+            }
+        }
+        $text = "Menu -> Wireguard\n\n<code>" . implode(PHP_EOL, $text) . '</code>';
         $data[] = [[
             'text'          => $this->i18n('back'),
             'callback_data' => "/menu",
