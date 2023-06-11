@@ -1599,7 +1599,7 @@ DNS-over-HTTPS with IP:
             [
                 [
                     'text'          =>  $this->i18n('update status'),
-                    'callback_data' => "/menu wg 0",
+                    'callback_data' => "/menu wg $page",
                 ],
                 [
                     'text'          =>  $this->i18n(($bt ? 'block' : 'unblock') . 'torrent'),
