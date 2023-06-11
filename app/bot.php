@@ -797,15 +797,15 @@ class Bot
     public function switchClient($client)
     {
         $clients = $this->readClients();
-        $server  = $this->readConfig();
         if ($clients[$client]['# off']) {
             unset($clients[$client]['# off']);
         } else {
             $clients[$client]['# off'] = 1;
-            unset($clients[$client]['interface']['## time']);
-            unset($server['peers'][$client]['## time']);
         }
+        unset($clients[$client]['interface']['## time']);
         $this->saveClients($clients);
+
+        $server = $this->readConfig();
         if (array_key_exists('# PublicKey', $server['peers'][$client])) {
             foreach ($server['peers'][$client] as $k => $v) {
                 $new[trim(preg_replace('~#~', '', $k, 1))] = $v;
@@ -815,6 +815,8 @@ class Bot
                 $new["# $k"] = $v;
             }
         }
+        unset($new['## time']);
+        unset($new['# ## time']);
         $server['peers'][$client] = $new;
         $this->restartWG($this->createConfig($server));
     }
@@ -1589,7 +1591,6 @@ DNS-over-HTTPS with IP:
     public function statusWg(int $page = 0)
     {
         $conf    = $this->readConfig();
-        // $this->sd($conf);
         $status  = $this->readStatus();
         $clients = $this->getClients($page);
         $bt      = $this->getPacConf()['blocktorrent'];
