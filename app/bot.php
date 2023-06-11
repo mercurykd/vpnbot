@@ -1647,7 +1647,7 @@ DNS-over-HTTPS with IP:
             foreach ($conf['peers'] as $k => $v) {
                 if (empty($v['# PublicKey'])) {
                     preg_match_all('~([0-9.]+\.?)\s(\w+)~', $v['status']['transfer'], $m);
-                    $tr = $m[0] ? " {$m[1][0]}↑{$m[2][0]} {$m[1][1]}↓{$m[2][1]}" : '';
+                    $tr = $m[0] ? "{$m[1][1]}↓{$m[2][1]} {$m[1][0]}↑{$m[2][0]}" : '';
                 }
                 $t = [
                     'name'  => $this->getName($v),
