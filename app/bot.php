@@ -586,35 +586,36 @@ class Bot
         $items   = [
             'Y' => [
                 'diff' => 1970,
-                'sign' => 'years',
+                'sign' => 'y',
             ],
             'm' => [
                 'diff' => 1,
-                'sign' => 'months',
+                'sign' => 'mon',
             ],
             'd' => [
                 'diff' => 1,
-                'sign' => 'days',
+                'sign' => 'd',
             ],
             'H' => [
                 'diff' => 0,
-                'sign' => 'hours',
+                'sign' => 'h',
             ],
             'i' => [
                 'diff' => 0,
-                'sign' => 'minute',
+                'sign' => 'min',
             ],
             's' => [
                 'diff' => 0,
-                'sign' => 'seconds',
+                'sign' => 's',
             ],
         ];
         foreach ($items as $k => $v) {
             if (($t = gmdate($k, $seconds) - $v['diff']) > 0) {
-                $text .= " $t {$v['sign']}";
+                $text .= " $t{$v['sign']}";
+                break;
             }
         }
-        return trim($text) ?: '';
+        return trim($text) ?: '♾';
     }
 
     public function shutdownClient()
@@ -1638,28 +1639,26 @@ DNS-over-HTTPS with IP:
             $conf['peers'] = array_slice($conf['peers'], $page * 5, 5, true);
             foreach ($conf['peers'] as $k => $v) {
                 if (!empty($v['# PublicKey'])) {
-                    $conf['peers'][$k]['online'] = $this->i18n('off');
+                    $conf['peers'][$k]['online'] = 'off';
                 } else {
                     $conf['peers'][$k]['status'] = $this->getStatusPeer($v['PublicKey'], $status['peers']);
-                    $conf['peers'][$k]['online'] = preg_match('~^(\d+ seconds|[12] minute)~', $conf['peers'][$k]['status']['latest handshake']) ? $conf['peers'][$k]['status']['endpoint'] : 'offline';
+                    $conf['peers'][$k]['online'] = preg_match('~^(\d+ seconds|[12] minute)~', $conf['peers'][$k]['status']['latest handshake']) ? 'online' : '';
                 }
             }
             foreach ($conf['peers'] as $k => $v) {
                 if (empty($v['# PublicKey'])) {
                     preg_match_all('~([0-9.]+\.?)\s(\w+)~', $v['status']['transfer'], $m);
-                    $tr = $m[0] ? "{$m[1][1]}↓{$m[2][1]} {$m[1][0]}↑{$m[2][0]}" : '';
+                    $tr = $m[0] ? ceil($m[1][1]) . '↓' . substr($m[2][1], 0, 1) . '/' . ceil($m[1][0]) . '↑' . substr($m[2][0], 0, 1) : '';
                 }
                 $t = [
-                    'name'  => $this->getName($v),
-                    'time'  => $this->getTime(strtotime($v['## time'])),
-                    'ip'    => $v['online'] != 'offline' ? explode(':', $v['online'])[0] : 'offline',
-                    'traff' => $tr,
+                    'name'   => $this->getName($v),
+                    'time'   => $this->getTime(strtotime($v['## time'])),
+                    'status' => $v['online'] == 'off' ? '🚷' : ($v['online'] ? $tr : '🔌'),
                 ];
                 $pad = [
-                    'name'  => max(mb_strlen($t['name']), $pad['name']),
-                    'time'  => max(mb_strlen($t['time']), $pad['time']),
-                    'ip'    => max(mb_strlen($t['ip']), $pad['ip']),
-                    'traff' => max(mb_strlen($t['traff']), $pad['traff']),
+                    'name'   => max(mb_strlen($t['name']), $pad['name']),
+                    'time'   => max(mb_strlen($t['time']), $pad['time']),
+                    'status' => max(mb_strlen($t['status']), $pad['status']),
                 ];
                 $peers[] = $t;
             }
@@ -1667,8 +1666,7 @@ DNS-over-HTTPS with IP:
                 $text[] = implode(' ', [
                     $this->pad($v['name'], $pad['name'] - mb_strlen($v['name'])),
                     $this->pad($v['time'], $pad['time'] - mb_strlen($v['time'])),
-                    $this->pad($v['ip'], $pad['ip'] - mb_strlen($v['ip'])),
-                    $this->pad($v['traff'], $pad['traff'] - mb_strlen($v['traff'])),
+                    $this->pad($v['status'], $pad['status'] - mb_strlen($v['status'])),
                 ]);
             }
         }
