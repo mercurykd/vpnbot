@@ -1657,7 +1657,7 @@ DNS-over-HTTPS with IP:
                 ];
                 $pad = [
                     'name'   => max(mb_strlen($t['name']), $pad['name']),
-                    'time'   => max(mb_strlen($t['time']), $pad['time']),
+                    'time'   => max($t['time'] == '♾' ? 4 : mb_strlen($t['time']), $pad['time']),
                     'status' => max(mb_strlen($t['status']), $pad['status']),
                 ];
                 $peers[] = $t;
@@ -1665,7 +1665,7 @@ DNS-over-HTTPS with IP:
             foreach ($peers as $k => $v) {
                 $text[] = implode(' ', [
                     $this->pad($v['name'], $pad['name'] - mb_strlen($v['name'])),
-                    $this->pad($v['time'], $pad['time'] - mb_strlen($v['time'])),
+                    $this->pad(" {$v['time']}", $pad['time'] - mb_strlen($v['time'])),
                     $this->pad($v['status'], $pad['status'] - mb_strlen($v['status'])),
                 ]);
             }
