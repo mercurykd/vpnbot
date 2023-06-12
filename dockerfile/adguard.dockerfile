@@ -6,7 +6,7 @@ run apt update && \
 apt install -y git net-tools lsof ssh wget && \
 apt clean autoclean && \
 apt autoremove -y && \
-wget https://github.com/AdguardTeam/AdGuardHome/releases/download/v0.107.29/AdGuardHome_linux_amd64.tar.gz && \
+wget https://github.com/AdguardTeam/AdGuardHome/releases/download/v0.107.31/AdGuardHome_linux_amd64.tar.gz && \
 tar -xf AdGuardHome_linux_amd64.tar.gz && \
 mkdir -p /opt/adguardhome && \
 mkdir /root/.ssh && \
