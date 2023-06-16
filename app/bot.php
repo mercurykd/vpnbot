@@ -1649,24 +1649,29 @@ DNS-over-HTTPS with IP:
                 if (empty($v['# PublicKey'])) {
                     preg_match_all('~([0-9.]+\.?)\s(\w+)~', $v['status']['transfer'], $m);
                     $tr = $m[0] ? ceil($m[1][1]) . '↓' . substr($m[2][1], 0, 1) . '/' . ceil($m[1][0]) . '↑' . substr($m[2][0], 0, 1) : '';
+                } else {
+                    $tr = '';
                 }
                 $t = [
-                    'name'   => $this->getName($v),
-                    'time'   => $this->getTime(strtotime($v['## time'])),
-                    'status' => $v['online'] == 'off' ? '🚷' : ($v['online'] ? $tr : '🔌'),
+                    'name'    => $this->getName($v),
+                    'time'    => $this->getTime(strtotime($v['## time'])),
+                    'status'  => $v['online'] == 'off' ? '🚷' : ($v['online'] ? '🟢' : '🔴'),
+                    'traffic' => $tr,
                 ];
                 $pad = [
-                    'name'   => max(mb_strlen($t['name']), $pad['name']),
-                    'time'   => max($t['time'] == '♾' ? 4 : mb_strlen($t['time']), $pad['time']),
-                    'status' => max(mb_strlen($t['status']), $pad['status']),
+                    'name'    => max(mb_strlen($t['name']), $pad['name']),
+                    'time'    => max($t['time'] == '♾' ? 4 : mb_strlen($t['time']), $pad['time']),
+                    'status'  => max(mb_strlen($t['status']), $pad['status']),
+                    'traffic' => max(mb_strlen($t['traffic']), $pad['traffic']),
                 ];
                 $peers[] = $t;
             }
             foreach ($peers as $k => $v) {
-                $text[] = implode(' ', [
+                $text[] = implode('', [
                     $this->pad($v['name'], $pad['name'] - mb_strlen($v['name'])),
                     $this->pad(" {$v['time']}", $pad['time'] - mb_strlen($v['time'])),
                     $this->pad($v['status'], $pad['status'] - mb_strlen($v['status'])),
+                    $this->pad(" {$v['traffic']}", $pad['traffic'] - mb_strlen($v['traffic'])),
                 ]);
             }
         }
@@ -2833,14 +2838,16 @@ DNS-over-HTTPS with IP:
         $private_peer_key  = trim($this->ssh("wg genkey"));
         $public_peer_key   = trim($this->ssh("echo $private_peer_key | wg pubkey"));
 
+        $name = ($name ? "$name" : '') . time();
+
         $conf['peers'][] = [
-            '## name'    => $client_ip . ($name ? " ($name)" : ''),
+            '## name'    => $name,
             'PublicKey'  => $public_peer_key,
             'AllowedIPs' => "$client_ip/32",
         ];
         $client_conf = [
             'interface' => [
-                '## name'    => $client_ip . ($name ? " ($name)" : ''),
+                '## name'    => $name,
                 'PrivateKey' => $private_peer_key,
                 'Address'    => "$client_ip/32",
                 'MTU'        => 1350,
