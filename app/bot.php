@@ -2791,9 +2791,6 @@ DNS-over-HTTPS with IP:
             if (empty($data['interface']['DNS'])) {
                 $data['interface']['DNS'] = $this->getPacConf()['dns'] ?: $this->dns;
             }
-            if (!empty($data['interface']['## time'])) {
-                $data['interface']['## time'] = $this->getTime(strtotime($data['interface']['## time']));
-            }
         }
         foreach ($data['interface'] as $k => $v) {
             $conf[] = "$k = $v";
