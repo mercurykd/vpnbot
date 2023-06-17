@@ -359,7 +359,7 @@ class Bot
         ];
         $data[] = [
             [
-                'text'          => $this->i18n('setSecret') . ($s ? ": $s" : ''),
+                'text'          => $this->i18n('setSecret'),
                 'callback_data' => "/setSecret",
             ],
         ];

@@ -231,7 +231,7 @@ $i = [
     ],
     'setSecret'  => [
         'en' => 'setSecret',
-        'ru' => 'установить ключ',
+        'ru' => 'установить свой ключ',
     ],
     'defaultDNS'  => [
         'en' => 'defaultDNS',
