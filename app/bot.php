@@ -2733,7 +2733,7 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
-                'text'          => $this->i18n('backup') . ': ' . (implode(' / ', explode('/', $conf['backup'])) ?: 'off'),
+                'text'          => $this->i18n('backup') . ': ' . (implode(' / ', explode('/', $conf['backup'])) ?: $this->i18n('off')),
                 'callback_data' => "/backup",
             ],
         ];
