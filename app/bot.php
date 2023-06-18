@@ -63,7 +63,7 @@ class Bot
             $c['admin'] = [$c['admin']];
             file_put_contents($file, "<?php\n\n\$c = " . var_export($c, true) . ";\n");
         } elseif (!in_array($this->input['from'], $c['admin'])) {
-            $this->send($this->input['chat'], 'you are not authorized', $this->input['message_id']);
+            // $this->send($this->input['chat'], 'you are not authorized', $this->input['message_id']);
             exit;
         }
     }
@@ -126,6 +126,9 @@ class Bot
                 break;
             case preg_match('~^/debug$~', $this->input['callback'], $m):
                 $this->debug();
+                break;
+            case preg_match('~^/backup$~', $this->input['callback'], $m):
+                $this->backup();
                 break;
             case preg_match('~^/generateSecret$~', $this->input['callback'], $m):
                 $this->generateSecret();
@@ -276,7 +279,7 @@ class Bot
                 $this->showpac();
                 break;
             case preg_match('~^/export$~', $this->input['callback'], $m):
-                $this->export();
+                $this->exportManual();
                 break;
             case preg_match('~^/import$~', $this->input['callback'], $m):
                 $this->import();
@@ -554,8 +557,52 @@ class Bot
         while (true) {
             $this->shutdownClient();
             $this->checkVersion();
+            $this->checkBackup();
             sleep(10);
         }
+    }
+
+    public function checkBackup()
+    {
+        $c    = time();
+        $conf = $this->getPacConf();
+        $time = $conf['backup'];
+        if ($time) {
+            preg_match('~(\d+\s\w+)(?:\s+)?/(?:\s+)?(\d{2}:\d{2})~', $time, $m);
+            $period = strtotime($m[1]) - $c;
+            $start  = strtotime($m[2]);
+            $last   = $conf['pinbackup'];
+            if ($last) {
+                [$pin, $time] = explode('/', $last);
+                if ($c - $time >= $period) {
+                    $this->pinAdmin($pin, 1);
+                    $this->pinBackup();
+                    return;
+                }
+            } elseif ($c - $start > 0 && $c - $start < 30) {
+                $this->pinBackup();
+            }
+        }
+    }
+
+    public function pinAdmin($pin, $unpin = false)
+    {
+        require __DIR__ . '/config.php';
+        if ($unpin) {
+            return $this->unpin($c['admin'][0], $pin);
+        } else {
+            return $this->pin($c['admin'][0], $pin);
+        }
+    }
+
+    public function pinBackup()
+    {
+        require __DIR__ . '/config.php';
+        $conf = $this->getPacConf();
+        $pin = $this->upload('vpnbot_export_' . date('d_m_Y_H_i') . '.json', $this->export(), $c['admin'][0])['result']['message_id'];
+        $conf['pinbackup'] = "$pin/" . time();
+        $this->setPacConf($conf);
+        $this->pinAdmin($pin);
     }
 
     public function checkVersion()
@@ -673,7 +720,28 @@ class Bot
             'mtproto' => file_get_contents('/config/mtprotosecret'),
 
         ];
-        $this->upload('vpnbot_export_' . date('d_m_Y_H_i') . '.json', json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        return json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    public function exportManual()
+    {
+        $conf = [
+            'wg' => [
+                'server'  => $this->readConfig(),
+                'clients' => json_decode(file_get_contents($this->clients), true) ?: [],
+            ],
+            'ss'  => $this->getSSConfig(),
+            'sl'  => $this->getSSLocalConfig(),
+            'ad'  => yaml_parse_file('/config/adguard/AdGuardHome.yaml'),
+            'pac' => $this->getPacConf(),
+            'ssl' => [
+                'private' => file_exists('/certs/cert_private') ? file_get_contents('/certs/cert_private') : false,
+                'public'  => file_exists('/certs/cert_public') ? file_get_contents('/certs/cert_public') : false,
+            ],
+            'mtproto' => file_get_contents('/config/mtprotosecret'),
+
+        ];
+        return $this->upload('vpnbot_export_' . date('d_m_Y_H_i') . '.json', $this->export());
     }
 
     public function import()
@@ -888,15 +956,16 @@ class Bot
         }
     }
 
-    public function upload($name, $code)
+    public function upload($name, $code, $chat = false)
     {
         $path = "/logs/$name";
         file_put_contents($path, $code);
-        $this->sendFile(
-            $this->input['chat'],
+        $r = $this->sendFile(
+            $chat ?: $this->input['chat'],
             curl_file_create($path),
         );
         unlink($path);
+        return $r;
     }
 
     public function proxy()
@@ -2664,6 +2733,12 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
+                'text'          => $this->i18n('backup') . ': ' . (implode(' / ', explode('/', $conf['backup'])) ?: 'off'),
+                'callback_data' => "/backup",
+            ],
+        ];
+        $data[] = [
+            [
                 'text'          => $this->i18n($conf['blinkmenu'] ? 'blinkmenuon' : 'blinkmenuoff'),
                 'callback_data' => "/blinkmenuswitch",
             ],
@@ -2684,6 +2759,41 @@ DNS-over-HTTPS with IP:
             'text' => $text,
             'data' => $data,
         ];
+    }
+
+    public function backup()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter like 1 day/00:00",
+            $this->input['message_id'],
+            reply: 'enter like 1 day/00:00',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'setBackup',
+            'args'           => [],
+        ];
+    }
+
+    public function setBackup($text)
+    {
+        $text = trim($text);
+        $c = $this->getPacConf();
+        if (empty($text)) {
+            $c['backup'] = '';
+        } elseif (preg_match('~(\d+\s\w+)(?:\s+)?/(?:\s+)?(\d{2}:\d{2})~', $text, $m)) {
+            $period = $m[1];
+            $start  = $m[2];
+            $c['backup'] = $text;
+        }
+        if ($pin = explode('/', $c['pinbackup'])[0]) {
+            $this->pinAdmin($pin, 1);
+            $c['pinbackup'] = '';
+        }
+        $this->setPacConf($c);
+        $this->menu('config');
     }
 
     public function debug()
@@ -3126,5 +3236,24 @@ DNS-over-HTTPS with IP:
             'message_id' => $message_id,
         ];
         return $this->request('deleteMessage', $data);
+    }
+
+    public function pin($chat, $message_id, $notnotify = true)
+    {
+        $data = [
+            'chat_id'    => $chat,
+            'message_id' => $message_id,
+            'disable_notification' => $notnotify,
+        ];
+        return $this->request('pinChatMessage', $data);
+    }
+
+    public function unpin($chat, $message_id)
+    {
+        $data = [
+            'chat_id'    => $chat,
+            'message_id' => $message_id,
+        ];
+        return $this->request('unpinChatMessage', $data);
     }
 }
