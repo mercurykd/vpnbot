@@ -1696,11 +1696,6 @@ DNS-over-HTTPS with IP:
         if ($clients) {
             $data = array_merge($data, $clients);
         }
-        $text[]  = 'Server:';
-        $text[]  = "  address: {$conf['interface']['Address']}";
-        $text[]  = "  port: {$status['interface']['listening port']}";
-        $text[]  = "  publickey: {$status['interface']['public key']}";
-        $text[]  = "\nPeers:";
         if (!empty($conf['peers'])) {
             $all     = (int) ceil(count($conf['peers']) / 5);
             $page    = min($page, $all - 1);
