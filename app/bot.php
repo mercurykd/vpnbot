@@ -1739,7 +1739,7 @@ DNS-over-HTTPS with IP:
                 ]);
             }
         }
-        $text = "Menu -> Wireguard\n\n<code>" . implode(PHP_EOL, $text) . '</code>';
+        $text = "Menu -> Wireguard\n\n<code>" . implode(PHP_EOL, $text ?: []) . '</code>';
         $data[] = [[
             'text'          => $this->i18n('back'),
             'callback_data' => "/menu",
