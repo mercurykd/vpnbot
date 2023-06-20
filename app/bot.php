@@ -124,6 +124,15 @@ class Bot
             case preg_match('~^/mtproto$~', $this->input['callback'], $m):
                 $this->mtproto();
                 break;
+            case preg_match('~^/logs$~', $this->input['callback'], $m):
+                $this->logs();
+                break;
+            case preg_match('~^/getLog (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->getLog(...explode('_', $m['arg']));
+                break;
+            case preg_match('~^/clearLog (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->clearLog(...explode('_', $m['arg']));
+                break;
             case preg_match('~^/debug$~', $this->input['callback'], $m):
                 $this->debug();
                 break;
@@ -2685,12 +2694,12 @@ DNS-over-HTTPS with IP:
                 ];
             }
         }
-        $data[] = [
+        /*$data[] = [
             [
                 'text'          => $this->i18n('reset nginx'),
                 'callback_data' => "/resetnginx",
             ],
-        ];
+        ];*/
         $data[] = [
             [
                 'text'          => "{$this->i18n('add')} {$this->i18n('admin')}",
@@ -2713,11 +2722,9 @@ DNS-over-HTTPS with IP:
                 'text'          => $this->i18n('lang'),
                 'callback_data' => "/menu lang",
             ],
-        ];
-        $data[] = [
             [
-                'text'          => $this->i18n('import'),
-                'callback_data' => "/import",
+                'text'          => $this->i18n($conf['blinkmenu'] ? 'blinkmenuon' : 'blinkmenuoff'),
+                'callback_data' => "/blinkmenuswitch",
             ],
         ];
         $data[] = [
@@ -2725,20 +2732,20 @@ DNS-over-HTTPS with IP:
                 'text'          => $this->i18n('export'),
                 'callback_data' => "/export",
             ],
-        ];
-        $data[] = [
             [
                 'text'          => $this->i18n('backup') . ': ' . (implode(' / ', explode('/', $conf['backup'])) ?: $this->i18n('off')),
                 'callback_data' => "/backup",
             ],
-        ];
-        $data[] = [
             [
-                'text'          => $this->i18n($conf['blinkmenu'] ? 'blinkmenuon' : 'blinkmenuoff'),
-                'callback_data' => "/blinkmenuswitch",
+                'text'          => $this->i18n('import'),
+                'callback_data' => "/import",
             ],
         ];
         $data[] = [
+            [
+                'text'          => $this->i18n('logs'),
+                'callback_data' => "/logs",
+            ],
             [
                 'text'          => $this->i18n('debug') . ': ' . $this->i18n($c['debug'] ? 'on' : 'off'),
                 'callback_data' => "/debug",
@@ -2754,6 +2761,61 @@ DNS-over-HTTPS with IP:
             'text' => $text,
             'data' => $data,
         ];
+    }
+
+    public function logs()
+    {
+        foreach (scandir('/logs/') as $k => $v) {
+            if (!preg_match('~^\.~', $v)) {
+                $size   = filesize("/logs/$v");
+                $data[] = [
+                    [
+                        'text'          => "$v ($size)",
+                        'callback_data' => "/getLog $k",
+                    ],
+                    [
+                        'text'          => $this->i18n('clear'),
+                        'callback_data' => "/clearLog $k",
+                    ],
+                ];
+            }
+        }
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu config",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
+    public function getLog($i)
+    {
+        foreach (scandir('/logs/') as $k => $v) {
+            if (!preg_match('~^\.~', $v)) {
+                $logs[$k] = $v;
+            }
+        }
+        $this->sendFile(
+            $this->input['chat'],
+            curl_file_create("/logs/{$logs[$i]}"),
+        );
+    }
+
+    public function clearLog($i)
+    {
+        foreach (scandir('/logs/') as $k => $v) {
+            if ($i == $k) {
+                file_put_contents("/logs/$v", '');
+                break;
+            }
+        }
+        $this->logs();
     }
 
     public function backup()
