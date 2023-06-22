@@ -4,12 +4,10 @@ run apk add --no-cache --virtual .build-deps alpine-sdk linux-headers openssl-de
     && mkdir /mtproxy/patches && wget -P /mtproxy/patches https://raw.githubusercontent.com/alexdoesh/mtproxy/master/patches/randr_compat.patch \
     && cd /mtproxy/sources && patch -p0 -i /mtproxy/patches/randr_compat.patch \
     && make \
-    && mkdir /MTProxy \
     && mkdir /root/.ssh \
-    && cp /mtproxy/sources/objs/bin/mtproto-proxy /MTProxy \
+    && cp /mtproxy/sources/objs/bin/mtproto-proxy /usr/bin \
     && rm -rf /mtproxy \
     && apk del .build-deps\
     && apk add --no-cache --update curl openssh \
     && ln -s /usr/lib/libcrypto.so.41 /usr/lib/libcrypto.so.1.0.0
-env PATH="$PATH:/MTProxy"
 env ENV="/root/.ashrc"

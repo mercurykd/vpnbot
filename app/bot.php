@@ -338,7 +338,7 @@ class Bot
         $this->ssh('pkill mtproto-proxy', 'tg');
         if (preg_match('~^\w{32}$~', $secret)) {
             $p = getenv('TGPORT');
-            $this->ssh("/MTProxy/mtproto-proxy -u nobody -H $p --nat-info 10.10.0.8:{$this->ip} -S $secret --aes-pwd /proxy-secret /proxy-multi.conf -M 1 >/dev/null 2>&1 &", 'tg');
+            $this->ssh("mtproto-proxy -u nobody -H $p --nat-info 10.10.0.8:{$this->ip} -S $secret --aes-pwd /proxy-secret /proxy-multi.conf -M 1 >/dev/null 2>&1 &", 'tg');
         }
     }
 
@@ -461,8 +461,8 @@ class Bot
         $c['password'] = $l['password'] = $pass;
         file_put_contents('/config/ssserver.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         file_put_contents('/config/sslocal.json', json_encode($l, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        $this->ssh('/ss/ssserver -v -d -c /config.json', 'ss');
-        $this->ssh('/ss/sslocal -v -d -c /config.json', 'proxy');
+        $this->ssh('ssserver -v -d -c /config.json', 'ss');
+        $this->ssh('sslocal -v -d -c /config.json', 'proxy');
         $this->menu('ss');
     }
 
@@ -492,8 +492,8 @@ class Bot
         }
         file_put_contents('/config/ssserver.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         file_put_contents('/config/sslocal.json', json_encode($l, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        $this->ssh('/ss/ssserver -v -d -c /config.json', 'ss');
-        $this->ssh('/ss/sslocal -v -d -c /config.json', 'proxy');
+        $this->ssh('ssserver -v -d -c /config.json', 'ss');
+        $this->ssh('sslocal -v -d -c /config.json', 'proxy');
         $this->menu('ss');
     }
 
@@ -811,7 +811,7 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->ssh('pkill ssserver', 'ss');
                 file_put_contents('/config/ssserver.json', json_encode($json['ss'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-                $this->ssh('/ss/ssserver -v -d -c /config.json', 'ss');
+                $this->ssh('ssserver -v -d -c /config.json', 'ss');
             }
             // sl
             if (!empty($json['sl'])) {
@@ -819,7 +819,7 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->ssh('pkill sslocal', 'proxy');
                 file_put_contents('/config/sslocal.json', json_encode($json['sl'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-                $this->ssh('/ss/sslocal -v -d -c /config.json', 'proxy');
+                $this->ssh('sslocal -v -d -c /config.json', 'proxy');
             }
             // mtproto
             if (!empty($json['mtproto'])) {

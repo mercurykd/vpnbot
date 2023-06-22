@@ -16,9 +16,10 @@ run apk add --no-cache --update php82 \
     libqrencode \
     openssh \
     curl \
-    && wget https://github.com/ameshkov/dnslookup/releases/download/v1.8.1/dnslookup-linux-amd64-v1.8.1.tar.gz \
-    && tar -xf dnslookup-linux-amd64-v1.8.1.tar.gz \
-    && rm dnslookup-linux-amd64-v1.8.1.tar.gz \
+    && wget https://github.com/ameshkov/dnslookup/releases/download/v1.9.1/dnslookup-linux-amd64-v1.9.1.tar.gz \
+    && tar -xf dnslookup-linux-amd64-v1.9.1.tar.gz \
+    && mv linux-amd64/dnslookup /usr/bin \
+    && rm dnslookup-linux-amd64-v1.9.1.tar.gz \
+    && rm -rf /linux-amd64 \
     && ln -s /usr/bin/php82 /usr/bin/php
-env PATH="$PATH:/linux-amd64"
 env ENV="/root/.ashrc"
