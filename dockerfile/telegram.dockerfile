@@ -1,14 +1,15 @@
-arg SYSTEM
-arg RELEASE
-from ${SYSTEM}:${RELEASE}
-ENV DEBIAN_FRONTEND noninteractive
-run apt update && \
-apt install -y git curl build-essential libssl-dev zlib1g-dev xxd ssh && \
-apt clean autoclean && \
-apt autoremove -y && \
-mkdir /root/.ssh
-run git clone https://github.com/TelegramMessenger/MTProxy
-copy config/Makefile /MTProxy/Makefile
-run cd /MTProxy && make
-env PATH="$PATH:/MTProxy/objs/bin"
-
+from alpine:3.6
+run apk add --no-cache --virtual .build-deps alpine-sdk linux-headers openssl-dev \
+    && git clone --single-branch --depth 1 https://github.com/TelegramMessenger/MTProxy.git /mtproxy/sources \
+    && mkdir /mtproxy/patches && wget -P /mtproxy/patches https://raw.githubusercontent.com/alexdoesh/mtproxy/master/patches/randr_compat.patch \
+    && cd /mtproxy/sources && patch -p0 -i /mtproxy/patches/randr_compat.patch \
+    && make \
+    && mkdir /MTProxy \
+    && mkdir /root/.ssh \
+    && cp /mtproxy/sources/objs/bin/mtproto-proxy /MTProxy \
+    && rm -rf /mtproxy \
+    && apk del .build-deps\
+    && apk add --no-cache --update curl openssh \
+    && ln -s /usr/lib/libcrypto.so.41 /usr/lib/libcrypto.so.1.0.0
+env PATH="$PATH:/MTProxy"
+env ENV="/root/.ashrc"

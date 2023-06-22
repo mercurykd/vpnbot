@@ -307,7 +307,7 @@ class Bot
 
     public function generateSecret()
     {
-        $this->secretSet(trim($this->ssh('head -c 16 /dev/urandom | xxd -ps', 'tg')));
+        $this->secretSet(exec('head -c 16 /dev/urandom | xxd -ps'));
     }
 
     public function setSecret()
@@ -338,7 +338,7 @@ class Bot
         $this->ssh('pkill mtproto-proxy', 'tg');
         if (preg_match('~^\w{32}$~', $secret)) {
             $p = getenv('TGPORT');
-            $this->ssh("/MTProxy/objs/bin/mtproto-proxy -u nobody -H $p --nat-info 10.10.0.8:{$this->ip} -S $secret --aes-pwd /proxy-secret /proxy-multi.conf -M 1 >/dev/null 2>&1 &", 'tg');
+            $this->ssh("/MTProxy/mtproto-proxy -u nobody -H $p --nat-info 10.10.0.8:{$this->ip} -S $secret --aes-pwd /proxy-secret /proxy-multi.conf -M 1 >/dev/null 2>&1 &", 'tg');
         }
     }
 
@@ -461,8 +461,8 @@ class Bot
         $c['password'] = $l['password'] = $pass;
         file_put_contents('/config/ssserver.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         file_put_contents('/config/sslocal.json', json_encode($l, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        $this->ssh('/ssserver -v -d -c /config.json', 'ss');
-        $this->ssh('/sslocal -v -d -c /config.json', 'proxy');
+        $this->ssh('/ss/ssserver -v -d -c /config.json', 'ss');
+        $this->ssh('/ss/sslocal -v -d -c /config.json', 'proxy');
         $this->menu('ss');
     }
 
@@ -492,8 +492,8 @@ class Bot
         }
         file_put_contents('/config/ssserver.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         file_put_contents('/config/sslocal.json', json_encode($l, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        $this->ssh('/ssserver -v -d -c /config.json', 'ss');
-        $this->ssh('/sslocal -v -d -c /config.json', 'proxy');
+        $this->ssh('/ss/ssserver -v -d -c /config.json', 'ss');
+        $this->ssh('/ss/sslocal -v -d -c /config.json', 'proxy');
         $this->menu('ss');
     }
 
@@ -801,9 +801,9 @@ class Bot
             if (!empty($json['ad'])) {
                 $out[] = 'update adguard';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
+                $this->stopAd();
                 yaml_emit_file('/config/adguard/AdGuardHome.yaml', $json['ad']);
-                $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
+                $this->startAd();
             }
             // ss
             if (!empty($json['ss'])) {
@@ -811,7 +811,7 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->ssh('pkill ssserver', 'ss');
                 file_put_contents('/config/ssserver.json', json_encode($json['ss'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-                $this->ssh('/ssserver -v -d -c /config.json', 'ss');
+                $this->ssh('/ss/ssserver -v -d -c /config.json', 'ss');
             }
             // sl
             if (!empty($json['sl'])) {
@@ -819,7 +819,7 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->ssh('pkill sslocal', 'proxy');
                 file_put_contents('/config/sslocal.json', json_encode($json['sl'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-                $this->ssh('/sslocal -v -d -c /config.json', 'proxy');
+                $this->ssh('/ss/sslocal -v -d -c /config.json', 'proxy');
             }
             // mtproto
             if (!empty($json['mtproto'])) {
@@ -1076,13 +1076,13 @@ class Bot
         if (preg_match('~test is successful~', $u)) {
             $u .= $this->ssh("nginx -s reload 2>&1", 'ng');
             $this->update($this->input['chat'], $this->input['message_id'], $u);
-            $u .= $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
+            $u .= $this->stopAd();
             $this->update($this->input['chat'], $this->input['message_id'], $u);
             $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
             $c['tls']['enabled'] = false;
             $c['tls']['server_name'] = '';
             yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
-            $u .= $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
+            $u .= $this->startAd();
             $this->update($this->input['chat'], $this->input['message_id'], $u);
             unlink('/certs/cert_private');
             unlink('/certs/cert_public');
@@ -1142,13 +1142,13 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $out[] = 'Restart Adguard Home';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
+                $out[] = $this->stopAd();
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
                 $c['tls']['enabled'] = true;
                 $c['tls']['server_name'] = $conf['domain'];
                 yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
-                $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
+                $out[] = $this->startAd();
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
             } else {
                 file_put_contents('/config/nginx.conf', $nginx);
@@ -1334,7 +1334,7 @@ class Bot
     {
         $out[] = 'Restart Adguard Home';
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
+        $out[] = $this->stopAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
         $c['users'][0]['password'] = password_hash($pass, PASSWORD_DEFAULT);
@@ -1342,7 +1342,7 @@ class Bot
         $p = $this->getPacConf();
         $p['adpswd'] = $pass;
         $this->setPacConf($p);
-        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
+        $out[] = $this->startAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         sleep(3);
         $this->menu('adguard');
@@ -1352,11 +1352,11 @@ class Bot
     {
         $out[] = 'Restart Adguard Home';
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
+        $out[] = $this->stopAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         $c = yaml_parse_file('/config/AdGuardHome.yaml');
         yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
-        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
+        $out[] = $this->startAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         sleep(3);
         $this->menu('adguard');
@@ -1420,12 +1420,12 @@ DNS-over-HTTPS with IP:
     {
         $out[] = 'Restart Adguard Home';
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
+        $out[] = $this->stopAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
         $c['dns']['upstream_dns'][] = $url;
         yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
-        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
+        $out[] = $this->startAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         sleep(3);
         $this->menu('adguard');
@@ -1435,15 +1435,22 @@ DNS-over-HTTPS with IP:
     {
         $out[] = 'Restart Adguard Home';
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s stop 2>&1", 'ad');
-        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        $this->stopAd();
         $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
         unset($c['dns']['upstream_dns'][$k]);
         yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
-        $out[] = $this->ssh("/AdGuardHome/AdGuardHome -s start 2>&1", 'ad');
-        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-        sleep(3);
+        $this->startAd();
         $this->menu('adguard');
+    }
+
+    public function startAd()
+    {
+        return $this->ssh('/AdGuardHome/AdGuardHome --pidfile /AdGuardHome/pid -c /opt/adguardhome/AdGuardHome.yaml -h 0.0.0.0 -w /opt/adguardhome/ > /dev/null 2>&1 &', 'ad', false);
+    }
+
+    public function stopAd()
+    {
+        return $this->ssh('kill -15 $(cat /AdGuardHome/pid)', 'ad');
     }
 
     public function selfsslInstall()
@@ -3077,7 +3084,7 @@ DNS-over-HTTPS with IP:
         $this->send($this->input['chat'], "disconnect: \n" . var_export($args, true) . "\n", $this->input['message_id']);
     }
 
-    public function ssh($cmd, $service = 'wg')
+    public function ssh($cmd, $service = 'wg', $wait = true)
     {
         try {
             $c = ssh2_connect($service, 22);
@@ -3092,7 +3099,7 @@ DNS-over-HTTPS with IP:
             if (empty($s)) {
                 throw new Exception("exec fail: \n$cmd\n" . var_export($s, true));
             }
-            stream_set_blocking($s, true);
+            stream_set_blocking($s, $wait);
             $data = "";
             while ($buf = fread($s, 4096)) {
                 $data .= $buf;

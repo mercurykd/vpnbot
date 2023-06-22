@@ -19,21 +19,22 @@ services:
     ng:
         build:
             context: dockerfile
-            dockerfile: doh.dockerfile
+            dockerfile: nginx.dockerfile
         volumes:
-            - ./config/.profile:/root/.bashrc:ro
+            - ./config/.profile:/root/.ashrc:ro
             - ./config/nginx.conf:/etc/nginx/nginx.conf
             - ./config/nginx_default.conf:/nginx_default.conf
             - ./scripts/start_ng.sh:/start_ng.sh
             - ./certs/:/certs/
-            - ./ssh/:/ssh/
+            - ./ssh:/ssh
+            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./logs/:/logs/
         ports:
             - 80:80
             - 443:443
         hostname: nginx
         depends_on:
-            unit:
+            php:
                 condition: service_healthy
             ad:
                 condition: service_started
@@ -48,12 +49,12 @@ services:
             default:
                 ipv4_address: 10.10.0.2
         logging: *default-logging
-    unit:
+    php:
         build:
             dockerfile: dockerfile/php.dockerfile
         volumes:
-            - ./config/.profile:/root/.bashrc:ro
-            - ./config/php.ini:/usr/local/etc/php/php.ini
+            - ./config/.profile:/root/.ashrc:ro
+            - ./config/php.ini:/etc/php82/php.ini
             - ./config/clients.json:/config/clients.json
             - ./config/pac.json:/config/pac.json
             - ./config/unit.json:/config/unit.json
@@ -67,10 +68,10 @@ services:
             - type: volume
               target: /config/adguard
               source: adguard
-            - ./ssh/:/ssh/
+            - ./ssh:/ssh
             - ./app:/app
             - ./logs/:/logs/
-            - ./scripts/start_unit.sh:/start_unit.sh
+            - ./scripts/start_php.sh:/start_php.sh
             - ./scripts/check_file.sh:/check_file.sh
             - ./version:/version
         environment:
@@ -80,10 +81,10 @@ services:
             WGPORT: ${WGPORT}
             SSPORT: ${SSPORT}
             TGPORT: ${TGPORT}
-        hostname: unit
+        hostname: php
         restart: unless-stopped
         stop_grace_period: 1s
-        command: ["/bin/sh", "/start_unit.sh"]
+        command: ["/bin/sh", "/start_php.sh"]
         working_dir: /app
         networks:
             default:
@@ -92,24 +93,22 @@ services:
             - "host.docker.internal:host-gateway"
         logging: *default-logging
         healthcheck:
-            test: ["CMD", "bash", "/check_file.sh"]
+            test: ["CMD", "/bin/sh", "/check_file.sh"]
             interval: 5s
             timeout: 5s
             retries: 5
     proxy:
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
-            args:
-                RELEASE: ${RELEASE}
-                SYSTEM: ${SYSTEM}
         volumes:
-            - ./config/.profile:/root/.bashrc:ro
+            - ./config/.profile:/root/.ashrc:ro
             - ./config/sslocal.json:/config.json
             - ./ssh:/ssh
+            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./scripts/start_proxy.sh:/start_proxy.sh
         hostname: proxy
         depends_on:
-            unit:
+            php:
                 condition: service_healthy
         networks:
             default:
@@ -123,20 +122,18 @@ services:
     wg:
         build:
             dockerfile: dockerfile/wireguard.dockerfile
-            args:
-                RELEASE: ${RELEASE}
-                SYSTEM: ${SYSTEM}
         volumes:
-            - ./config/.profile:/root/.bashrc:ro
+            - ./config/.profile:/root/.ashrc:ro
             - ./config/wg0.conf:/etc/wireguard/wg0.conf
             - ./scripts/start_wg.sh:/start_wg.sh
             - ./scripts/reset_wg.sh:/reset_wg.sh
             - ./scripts/block_torrent.sh:/block_torrent.sh
             - ./scripts/unblock_torrent.sh:/unblock_torrent.sh
             - ./ssh:/ssh
+            - ./config/sshd_config:/etc/ssh/sshd_config
         hostname: wireguard
         depends_on:
-            unit:
+            php:
                 condition: service_healthy
         ports:
             - ${WGPORT}:${WGPORT}/udp
@@ -155,23 +152,21 @@ services:
     ad:
         build:
             dockerfile: dockerfile/adguard.dockerfile
-            args:
-                RELEASE: ${RELEASE}
-                SYSTEM: ${SYSTEM}
         ports:
             - 853:853
         volumes:
-            - ./config/.profile:/root/.bashrc:ro
+            - ./config/.profile:/root/.ashrc:ro
             - type: volume
               target: /opt/adguardhome
               source: adguard
             - ./ssh:/ssh
+            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./certs/:/certs/
             - ./logs/:/logs/
             - ./scripts/start_ad.sh:/start_ad.sh
         hostname: adguard
         depends_on:
-            unit:
+            php:
                 condition: service_healthy
         environment:
             TZ: ${TZ}
@@ -184,17 +179,15 @@ services:
     ss:
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
-            args:
-                RELEASE: ${RELEASE}
-                SYSTEM: ${SYSTEM}
         volumes:
-            - ./config/.profile:/root/.bashrc:ro
+            - ./config/.profile:/root/.ashrc:ro
             - ./config/ssserver.json:/config.json
             - ./ssh:/ssh
+            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./scripts/start_ss.sh:/start_ss.sh
         hostname: shadowsocks
         depends_on:
-            unit:
+            php:
                 condition: service_healthy
         ports:
             - ${SSPORT}:${SSPORT}/tcp
@@ -211,17 +204,15 @@ services:
     tg:
         build:
             dockerfile: dockerfile/telegram.dockerfile
-            args:
-                RELEASE: ${RELEASE}
-                SYSTEM: ${SYSTEM}
         volumes:
-            - ./config/.profile:/root/.bashrc:ro
+            - ./config/.profile:/root/.ashrc:ro
             - ./ssh:/ssh
+            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./scripts/start_tg.sh:/start_tg.sh
             - ./config/mtprotosecret:/mtprotosecret
         hostname: telegram
         depends_on:
-            unit:
+            php:
                 condition: service_healthy
         ports:
             - ${TGPORT}:${TGPORT}
