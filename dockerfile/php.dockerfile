@@ -15,6 +15,7 @@ run apk add --no-cache --update php82 \
     certbot \
     libqrencode \
     openssh \
+    openssl \
     curl \
     && wget https://github.com/ameshkov/dnslookup/releases/download/v1.9.1/dnslookup-linux-amd64-v1.9.1.tar.gz \
     && tar -xf dnslookup-linux-amd64-v1.9.1.tar.gz \
