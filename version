@@ -1,7 +1,7 @@
 23.06.2023 миграция на alpine образы
 <b>ЭКСПОРТ!!!</b>
 <code>make d</code>
-<code>git reset —hard</code>
+<code>git reset --hard</code>
 <code>git pull</code>
 <code>make cleanall</code> (два раза подтверждаем Y)
 <code>make u</code>
