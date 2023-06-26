@@ -722,7 +722,7 @@ class Bot
             'sl'  => $this->getSSLocalConfig(),
             'ad'  => yaml_parse_file('/config/adguard/AdGuardHome.yaml'),
             'pac' => $this->getPacConf(),
-            'ssl' => file_exists('/certs/cert_private') ? [
+            'ssl' => file_exists('/certs/cert_private') && preg_match('~BEGIN PRIVATE KEY~', file_get_contents('/certs/cert_private')) ? [
                 'private' => file_get_contents('/certs/cert_private'),
                 'public'  => file_get_contents('/certs/cert_public'),
             ] : false,
@@ -734,22 +734,6 @@ class Bot
 
     public function exportManual()
     {
-        $conf = [
-            'wg' => [
-                'server'  => $this->readConfig(),
-                'clients' => json_decode(file_get_contents($this->clients), true) ?: [],
-            ],
-            'ss'  => $this->getSSConfig(),
-            'sl'  => $this->getSSLocalConfig(),
-            'ad'  => yaml_parse_file('/config/adguard/AdGuardHome.yaml'),
-            'pac' => $this->getPacConf(),
-            'ssl' => [
-                'private' => file_exists('/certs/cert_private') ? file_get_contents('/certs/cert_private') : false,
-                'public'  => file_exists('/certs/cert_public') ? file_get_contents('/certs/cert_public') : false,
-            ],
-            'mtproto' => file_get_contents('/config/mtprotosecret'),
-
-        ];
         return $this->upload('vpnbot_export_' . date('d_m_Y_H_i') . '.json', $this->export());
     }
 
