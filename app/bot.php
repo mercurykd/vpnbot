@@ -722,10 +722,10 @@ class Bot
             'sl'  => $this->getSSLocalConfig(),
             'ad'  => yaml_parse_file('/config/adguard/AdGuardHome.yaml'),
             'pac' => $this->getPacConf(),
-            'ssl' => [
-                'private' => file_exists('/certs/cert_private') ? file_get_contents('/certs/cert_private') : false,
-                'public'  => file_exists('/certs/cert_public') ? file_get_contents('/certs/cert_public') : false,
-            ],
+            'ssl' => file_exists('/certs/cert_private') ? [
+                'private' => file_get_contents('/certs/cert_private'),
+                'public'  => file_get_contents('/certs/cert_public'),
+            ] : false,
             'mtproto' => file_get_contents('/config/mtprotosecret'),
 
         ];
