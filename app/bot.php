@@ -263,6 +263,12 @@ class Bot
             case preg_match('~^/domain$~', $this->input['callback'], $m):
                 $this->domain();
                 break;
+            case preg_match('~^/xray$~', $this->input['callback'], $m):
+                $this->xray();
+                break;
+            case preg_match('~^/generateSecretXray$~', $this->input['callback'], $m):
+                $this->generateSecretXray();
+                break;
             case preg_match('~^/include (\d+)$~', $this->input['callback'], $m):
                 $this->include($m[1]);
                 break;
@@ -340,6 +346,13 @@ class Bot
             $p = getenv('TGPORT');
             $this->ssh("mtproto-proxy -u nobody -H $p --nat-info 10.10.0.8:{$this->ip} -S $secret --aes-pwd /proxy-secret /proxy-multi.conf -M 1 >/dev/null 2>&1 &", 'tg');
         }
+    }
+
+    public function restartXray($c)
+    {
+        $this->ssh('pkill xray', 'xr');
+        file_put_contents('/config/xray.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $this->ssh('xray run -config /xray.json > /dev/null 2>&1 &', 'xr');
     }
 
     public function mtproto()
@@ -727,6 +740,7 @@ class Bot
                 'public'  => file_get_contents('/certs/cert_public'),
             ] : false,
             'mtproto' => file_get_contents('/config/mtprotosecret'),
+            'xray'    => file_get_contents('/config/xray.json'),
 
         ];
         return json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -810,6 +824,12 @@ class Bot
                 $out[] = 'update mtproto';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->restartTG($json['mtproto']);
+            }
+            // xray
+            if (!empty($json['xray'])) {
+                $out[] = 'update xray';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->restartXray($json['xray']);
             }
             // nginx
             $out[] = 'reset nginx';
@@ -2445,7 +2465,11 @@ DNS-over-HTTPS with IP:
                         [
                             'text'          => $this->i18n('mtproto'),
                             'callback_data' => "/mtproto",
-                        ]
+                        ],
+                        [
+                            'text'          => $this->i18n('xray'),
+                            'callback_data' => "/xray",
+                        ],
                     ],
                     [
                         [
@@ -2501,6 +2525,57 @@ DNS-over-HTTPS with IP:
                 $data ?: false,
             );
         }
+    }
+
+    public function xray()
+    {
+        $c      = json_decode(file_get_contents('/config/xray.json'), true);
+        $pac    = $this->getPacConf();
+        $st     = $this->ssh('pgrep xray', 'xr') ? 'on' : 'off';
+        $text[] = "Menu -> " . $this->i18n('xray') . "\n";
+        $text[] = "uuid: <code>{$c['inbounds'][0]['settings']['clients'][0]['id']}</code>";
+        $text[] = "shortId: <code>{$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}</code>";
+        $text[] = "pubkey: <code>{$pac['xray']}</code>";
+        $text[] = "\nstatus: $st";
+
+        $data[] = [
+            [
+                'text'          => $this->i18n('generateSecret'),
+                'callback_data' => "/generateSecretXray",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
+    public function generateSecretXray()
+    {
+        $c       = json_decode(file_get_contents('/config/xray.json'), true);
+        $uuid    = trim($this->ssh('xray uuid', 'xr'));
+        $shortId = trim($this->ssh('openssl rand -hex 8', 'xr'));
+        $keys    = $this->ssh('xray x25519', 'xr');
+        preg_match('~^Private key:\s([^\s]+)~m', $keys, $m);
+        $private = trim($m[1]);
+        preg_match('~^Public key:\s([^\s]+)~m', $keys, $m);
+        $public = trim($m[1]);
+        $c['inbounds'][0]['settings']['clients'][0]['id'] = $uuid;
+        $c['inbounds'][0]['streamSettings']['realitySettings']['privateKey'] = $private;
+        $c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0] = $shortId;
+        $pac         = $this->getPacConf();
+        $pac['xray'] = $public;
+        $this->setPacConf($pac);
+        $this->restartXray($c);
+        $this->xray();
     }
 
     public function addWg($page)

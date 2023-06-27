@@ -253,4 +253,8 @@ $i = [
         'en' => 'clear',
         'ru' => 'очистить',
     ],
+    'xray'  => [
+        'en' => 'XTLS-Reality',
+        'ru' => 'XTLS-Reality',
+    ],
 ];
