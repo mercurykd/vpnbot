@@ -2603,7 +2603,9 @@ DNS-over-HTTPS with IP:
         $text[] = "shortId: <code>{$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}</code>";
         $text[] = "pubkey: <code>{$pac['xray']}</code>";
         $text[] = "fake domain: <code>{$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}</code>";
-        $text[] = "\n<code>{$this->linkXray()}</code>";
+        if ($c['inbounds'][0]['settings']['clients'][0]['id']) {
+            $text[] = "\n<code>{$this->linkXray()}</code>";
+        }
         $text[] = "\nstatus: $st";
 
         $data[] = [
@@ -2618,12 +2620,14 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/changeFakeDomain",
             ],
         ];
-        $data[] = [
-            [
-                'text'          => $this->i18n('show QR'),
-                'callback_data' => "/qrXray",
-            ],
-        ];
+        if ($c['inbounds'][0]['settings']['clients'][0]['id']) {
+            $data[] = [
+                [
+                    'text'          => $this->i18n('show QR'),
+                    'callback_data' => "/qrXray",
+                ],
+            ];
+        }
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
