@@ -1,6 +1,12 @@
 telegram bot to manage servers (inside the bot)
 
-<img src="https://github.com/mercurykd/vpnbot/assets/30900414/408f43a5-51eb-4d45-a950-cd795fdc7858" width="200">
+<img src="https://github.com/mercurykd/vpnbot/assets/30900414/85296f50-7286-4210-847f-8a2aca7cbed7" width="200">
+
+### XTLS-Reality
+- change secret
+- qr/config
+- change fake domain
+<img src="https://github.com/mercurykd/vpnbot/assets/30900414/39bdf4e0-96a6-4257-b61e-30a14122e236" width="200">
 
 ### Wireguard
 - create
@@ -32,6 +38,7 @@ telegram bot to manage servers (inside the bot)
 
 ### MTProto
 - change secret
+- qr/config
 <img src="https://github.com/mercurykd/vpnbot/assets/30900414/411696d8-172a-4dac-b6b7-4a6da3adfab2" width="200">
 
 ### Settings
