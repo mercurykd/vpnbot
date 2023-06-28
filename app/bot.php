@@ -740,7 +740,7 @@ class Bot
                 'public'  => file_get_contents('/certs/cert_public'),
             ] : false,
             'mtproto' => file_get_contents('/config/mtprotosecret'),
-            'xray'    => file_get_contents('/config/xray.json'),
+            'xray'    => json_decode(file_get_contents('/config/xray.json'), true),
 
         ];
         return json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
