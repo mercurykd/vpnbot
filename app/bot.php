@@ -633,8 +633,9 @@ class Bot
     public function pinBackup()
     {
         require __DIR__ . '/config.php';
-        $conf = $this->getPacConf();
-        $pin = $this->upload('vpnbot_export_' . date('d_m_Y_H_i') . '.json', $this->export(), $c['admin'][0])['result']['message_id'];
+        $conf              = $this->getPacConf();
+        $bot               = $this->request('getMyName', [])['result']['name'];
+        $pin               = $this->upload("{$bot}_export_" . date('d_m_Y_H_i') . '.json', $this->export(), $c['admin'][0])['result']['message_id'];
         $conf['pinbackup'] = "$pin/" . time();
         $this->setPacConf($conf);
         $this->pinAdmin($pin);
@@ -761,7 +762,8 @@ class Bot
 
     public function exportManual()
     {
-        return $this->upload('vpnbot_export_' . date('d_m_Y_H_i') . '.json', $this->export());
+        $bot = $this->request('getMyName', [])['result']['name'];
+        return $this->upload("{$bot}_export_" . date('d_m_Y_H_i') . '.json', $this->export());
     }
 
     public function import()
