@@ -257,4 +257,8 @@ $i = [
         'en' => 'XTLS-Reality',
         'ru' => 'XTLS-Reality',
     ],
+    'geodb'  => [
+        'en' => 'GeoIp/GeoSite',
+        'ru' => 'GeoIp/GeoSite',
+    ],
 ];

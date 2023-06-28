@@ -16,6 +16,35 @@ volumes:
     adguard:
 
 services:
+    up:
+        build:
+            context: dockerfile
+            dockerfile: nginx.dockerfile
+        volumes:
+            - ./config/.profile:/root/.ashrc:ro
+            - ./config/upstream.conf:/etc/nginx/nginx.conf
+            - ./scripts/start_upstream.sh:/start_upstream.sh
+            - ./ssh:/ssh
+            - ./config/sshd_config:/etc/ssh/sshd_config
+            - ./logs/:/logs/
+        ports:
+            - 443:443
+        hostname: upstream
+        depends_on:
+            php:
+                condition: service_healthy
+            ad:
+                condition: service_started
+            ss:
+                condition: service_started
+        environment:
+            TZ: ${TZ}
+        stop_grace_period: 1s
+        command: ["/bin/sh", "/start_upstream.sh"]
+        networks:
+            default:
+                ipv4_address: 10.10.0.10
+        logging: *default-logging
     ng:
         build:
             context: dockerfile
@@ -31,14 +60,9 @@ services:
             - ./logs/:/logs/
         ports:
             - 80:80
-            - 443:443
         hostname: nginx
         depends_on:
-            php:
-                condition: service_healthy
-            ad:
-                condition: service_started
-            ss:
+            up:
                 condition: service_started
         environment:
             TZ: ${TZ}

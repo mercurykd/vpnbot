@@ -2447,14 +2447,14 @@ DNS-over-HTTPS with IP:
                             'callback_data' => "/menu wg 0",
                         ],
                         [
-                            'text'          => $this->i18n('sh_title'),
-                            'callback_data' => "/menu ss",
+                            'text'          => $this->i18n('ad_title'),
+                            'callback_data' => "/menu adguard",
                         ],
                     ],
                     [
                         [
-                            'text'          => $this->i18n('ad_title'),
-                            'callback_data' => "/menu adguard",
+                            'text'          => $this->i18n('sh_title'),
+                            'callback_data' => "/menu ss",
                         ],
                         [
                             'text'          => $this->i18n('pac'),
@@ -2463,12 +2463,18 @@ DNS-over-HTTPS with IP:
                     ],
                     [
                         [
-                            'text'          => $this->i18n('mtproto'),
-                            'callback_data' => "/mtproto",
-                        ],
-                        [
                             'text'          => $this->i18n('xray'),
                             'callback_data' => "/xray",
+                        ],
+                        [
+                            'text'          => $this->i18n('geodb'),
+                            'callback_data' => "/geodb",
+                        ],
+                    ],
+                    [
+                        [
+                            'text'          => $this->i18n('mtproto'),
+                            'callback_data' => "/mtproto",
                         ],
                     ],
                     [
