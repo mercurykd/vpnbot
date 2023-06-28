@@ -269,6 +269,9 @@ class Bot
             case preg_match('~^/generateSecretXray$~', $this->input['callback'], $m):
                 $this->generateSecretXray();
                 break;
+            case preg_match('~^/changeFakeDomain$~', $this->input['callback'], $m):
+                $this->changeFakeDomain();
+                break;
             case preg_match('~^/include (\d+)$~', $this->input['callback'], $m):
                 $this->include($m[1]);
                 break;
@@ -830,6 +833,7 @@ class Bot
                 $out[] = 'update xray';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->restartXray($json['xray']);
+                $this->setUpstreamDomain($json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]);
             }
             // nginx
             $out[] = 'reset nginx';
@@ -2535,19 +2539,26 @@ DNS-over-HTTPS with IP:
 
     public function xray()
     {
-        $c      = json_decode(file_get_contents('/config/xray.json'), true);
+        $c      = $this->getXray();
         $pac    = $this->getPacConf();
         $st     = $this->ssh('pgrep xray', 'xr') ? 'on' : 'off';
         $text[] = "Menu -> " . $this->i18n('xray') . "\n";
         $text[] = "uuid: <code>{$c['inbounds'][0]['settings']['clients'][0]['id']}</code>";
         $text[] = "shortId: <code>{$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}</code>";
         $text[] = "pubkey: <code>{$pac['xray']}</code>";
+        $text[] = "fake domain: <code>{$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}</code>";
         $text[] = "\nstatus: $st";
 
         $data[] = [
             [
                 'text'          => $this->i18n('generateSecret'),
                 'callback_data' => "/generateSecretXray",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('changeFakeDomain'),
+                'callback_data' => "/changeFakeDomain",
             ],
         ];
         $data[] = [
@@ -2564,9 +2575,14 @@ DNS-over-HTTPS with IP:
         );
     }
 
+    public function getXray()
+    {
+        return json_decode(file_get_contents('/config/xray.json'), true);
+    }
+
     public function generateSecretXray()
     {
-        $c       = json_decode(file_get_contents('/config/xray.json'), true);
+        $c       = $this->getXray();
         $uuid    = trim($this->ssh('xray uuid', 'xr'));
         $shortId = trim($this->ssh('openssl rand -hex 8', 'xr'));
         $keys    = $this->ssh('xray x25519', 'xr');
@@ -2582,6 +2598,14 @@ DNS-over-HTTPS with IP:
         $this->setPacConf($pac);
         $this->restartXray($c);
         $this->xray();
+    }
+
+    public function setUpstreamDomain($domain)
+    {
+        $nginx = file_get_contents('/config/upstream.conf');
+        $t = preg_replace('~#domain.+#domain~s', "#domain\n$domain reality;\n#domain", $nginx);
+        file_put_contents('/config/upstream.conf', $t);
+        $this->ssh("nginx -s reload 2>&1", 'up');
     }
 
     public function addWg($page)
@@ -2904,6 +2928,32 @@ DNS-over-HTTPS with IP:
             'callback'       => 'setBackup',
             'args'           => [],
         ];
+    }
+
+    public function changeFakeDomain()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter domain",
+            $this->input['message_id'],
+            reply: 'enter domain',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'setFakeDomain',
+            'args'           => [],
+        ];
+    }
+
+    public function setFakeDomain($domain)
+    {
+        $c = $this->getXray();
+        $c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0] = $domain;
+        $c['inbounds'][0]['streamSettings']['realitySettings']['dest'] = "$domain:443";
+        $this->restartXray($c);
+        $this->setUpstreamDomain($domain);
+        $this->xray();
     }
 
     public function setBackup($text)

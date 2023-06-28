@@ -84,6 +84,7 @@ services:
             - ./config/unit.json:/config/unit.json
             - ./config/AdGuardHome.yaml:/config/AdGuardHome.yaml
             - ./config/nginx.conf:/config/nginx.conf
+            - ./config/upstream.conf:/config/upstream.conf
             - ./config/nginx_default.conf:/config/nginx_default.conf
             - ./config/ssserver.json:/config/ssserver.json
             - ./config/sslocal.json:/config/sslocal.json

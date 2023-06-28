@@ -261,4 +261,8 @@ $i = [
         'en' => 'GeoIp/GeoSite',
         'ru' => 'GeoIp/GeoSite',
     ],
+    'changeFakeDomain'  => [
+        'en' => 'changeFakeDomain',
+        'ru' => 'установить фейковый домен',
+    ],
 ];
