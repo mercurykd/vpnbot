@@ -1,4 +1,4 @@
-from alpine:latest
+from alpine:3.18.2
 run apk add --no-cache --update php82 \
     php82-mbstring \
     php82-session \

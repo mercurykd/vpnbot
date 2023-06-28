@@ -1,4 +1,4 @@
-from alpine:latest
+from alpine:3.18.2
 run apk add openssh git xz \
     && mkdir /root/.ssh \
     && wget https://github.com/shadowsocks/shadowsocks-rust/releases/download/v1.15.3/shadowsocks-v1.15.3.x86_64-unknown-linux-musl.tar.xz \

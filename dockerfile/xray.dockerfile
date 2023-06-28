@@ -1,4 +1,4 @@
-from alpine:latest
+from alpine:3.18.2
 run apk add openssh openssl jq \
     && mkdir /root/.ssh \
     && wget https://github.com/XTLS/Xray-core/releases/download/v1.8.3/Xray-linux-64.zip \
