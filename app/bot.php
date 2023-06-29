@@ -384,7 +384,7 @@ class Bot
         $text[] = "Menu -> MTProto\n";
         $text[] = "status: $st\n";
         if ($st == 'on') {
-            $text[] = "<code>{$this->linkMtproto()}</code>";
+            $text[] = $this->linkMtproto();
         }
         $data[] = [
             [
