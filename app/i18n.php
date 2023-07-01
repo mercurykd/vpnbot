@@ -147,7 +147,7 @@ $i = [
     ],
     'blacklist exclude'    => [
         'en' => 'blacklist exclude',
-        'ru' => 'язык',
+        'ru' => 'исключения из списка ркн',
     ],
     'lang'                 => [
         'en' => 'language',

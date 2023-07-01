@@ -2199,7 +2199,7 @@ DNS-over-HTTPS with IP:
         $mpac     = stat(__DIR__ . '/zapretlists/mpac');
         $pac      = stat(__DIR__ . '/zapretlists/pac');
         $conf     = $this->getPacConf();
-        $zapret   = $conf['zapret'] ? 'ON' : 'OFF';
+        $zapret   = $conf['zapret'] ? $this->i18n('on') : $this->i18n('off');
         $ip       = $conf['domain'] ?: $this->ip;
         $hash     = substr(md5($this->key), 0, 8);
         $scheme   = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
