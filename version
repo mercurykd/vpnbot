@@ -1,3 +1,11 @@
+16.07.2023
+- настройка кол-ва итемов пагинации
+- добавлен config/include.conf для подключения доп конфигов nginx
+- добавлена команда обновления make update для обхода конфликтов при слиянии конфигов
+<code>git stash</code>
+<code>git pull</code>
+<code>git stash pop stash@{0}</code>
+<code>make r</code>
 08.07.2023 update AdGuard Home v0.107.33
 <code>git pull</code>
 <code>make r</code>
