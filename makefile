@@ -33,3 +33,8 @@ clean:
 cleanall:
 	docker image prune -a
 	docker builder prune -a
+p:
+	git stash
+	git pull
+	git stash pop stash@{0}
+update: p r
