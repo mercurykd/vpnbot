@@ -2918,7 +2918,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/menu lang",
             ],
             [
-                'text'          => "{$this->i18n('page')}: {$conf['limitpage']}",
+                'text'          => "{$this->i18n('page')}: " . ($conf['limitpage'] ?: 5),
                 'callback_data' => "/enterPage",
             ],
             [
