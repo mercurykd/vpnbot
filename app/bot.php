@@ -15,6 +15,7 @@ class Bot
         $this->i18n     = $i18n;
         $this->language = $this->getPacConf()['language'] ?: 'en';
         $this->dns      = '1.1.1.1, 8.8.8.8';
+        $this->limit    = $this->getPacConf()['limitpage'] ?: 5;
     }
 
     public function input()
@@ -189,6 +190,9 @@ class Bot
                 break;
             case preg_match('~^/addadmin$~', $this->input['callback'], $m):
                 $this->enterAdmin();
+                break;
+            case preg_match('~^/enterPage$~', $this->input['callback'], $m):
+                $this->enterPage();
                 break;
             case preg_match('~^/geodb$~', $this->input['callback'], $m):
                 $this->geodb();
@@ -1371,6 +1375,27 @@ class Bot
             'args'          => [],
         ];
     }
+    public function enterPage()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter limit on page",
+            $this->input['message_id'],
+            reply: 'enter limit on page',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'setPage',
+            'args'          => [],
+        ];
+    }
+
+    public function setPage($text) {
+        $c = $this->getPacConf();
+        $c['limitpage'] = (int) $text;
+        $this->setPacConf($c);
+        $this->menu('config');
+    }
 
     public function addAdmin($id)
     {
@@ -1773,10 +1798,10 @@ DNS-over-HTTPS with IP:
             $data = array_merge($data, $clients);
         }
         if (!empty($conf['peers'])) {
-            $all     = (int) ceil(count($conf['peers']) / 5);
+            $all     = (int) ceil(count($conf['peers']) / $this->limit);
             $page    = min($page, $all - 1);
             $page    = $page == -2 ? $all - 1 : $page;
-            $conf['peers'] = array_slice($conf['peers'], $page * 5, 5, true);
+            $conf['peers'] = array_slice($conf['peers'], $page * $this->limit, $this->limit, true);
             foreach ($conf['peers'] as $k => $v) {
                 if (!empty($v['# PublicKey'])) {
                     $conf['peers'][$k]['online'] = 'off';
@@ -1877,7 +1902,7 @@ DNS-over-HTTPS with IP:
         if ($subnets) {
             $c['subnets'] = array_merge($c['subnets'] ?: [], array_filter(array_map(fn ($e) => trim($e), $subnets)));
             $this->setPacConf($c);
-            $page = floor(count($c['subnets']) / 5);
+            $page = floor(count($c['subnets']) / $this->limit);
         }
         $this->subnet($wgpage, $page);
     }
@@ -1945,7 +1970,8 @@ DNS-over-HTTPS with IP:
 
     public function subnet($wgpage = 0, $page = 0, $count = 5)
     {
-        $text = "Menu -> Wireguard -> " . $this->i18n('listSubnet') . "\n";
+        $count  = $this->limit;
+        $text   = "Menu -> Wireguard -> " . $this->i18n('listSubnet') . "\n";
         $data[] = [
             [
                 'text'          => $this->i18n('calc'),
@@ -2148,6 +2174,7 @@ DNS-over-HTTPS with IP:
 
     public function getClients(int $page, int $count = 5)
     {
+        $count   = $this->limit;
         $clients = $this->readClients();
         if (!empty($clients)) {
             $all     = (int) ceil(count($clients) / $count);
@@ -2338,8 +2365,9 @@ DNS-over-HTTPS with IP:
 
     public function pacList($type, int $page, int $count = 5)
     {
-        $name = str_replace('list', '', $type);
-        $text = "Menu -> pac -> {$name}list\n\n";
+        $count  = $this->limit;
+        $name   = str_replace('list', '', $type);
+        $text   = "Menu -> pac -> {$name}list\n\n";
         $data[] = [
             [
                 'text'          => $this->i18n('add'),
@@ -2888,6 +2916,10 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('lang'),
                 'callback_data' => "/menu lang",
+            ],
+            [
+                'text'          => "{$this->i18n('page')}: {$conf['limitpage']}",
+                'callback_data' => "/enterPage",
             ],
             [
                 'text'          => $this->i18n($conf['blinkmenu'] ? 'blinkmenuon' : 'blinkmenuoff'),
