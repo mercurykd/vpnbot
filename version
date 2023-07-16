@@ -1,3 +1,6 @@
+16.07.2023 AdGuardHome v0.107.34
+<code>git pull</code>
+<code>make r</code>
 16.07.2023
 - настройка кол-ва итемов пагинации
 - добавлен config/include.conf для подключения доп конфигов nginx
