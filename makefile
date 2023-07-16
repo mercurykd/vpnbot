@@ -38,3 +38,5 @@ p:
 	git pull
 	git stash pop stash@{0}
 update: p r
+cn:
+	docker compose exec ng nginx -t
