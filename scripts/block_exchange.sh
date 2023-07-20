@@ -1,1 +1,1 @@
-iptables -I FORWARD -i %i -o %i -j REJECT
+iptables -I FORWARD -i wg0 -o wg0 -j REJECT
