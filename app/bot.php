@@ -221,6 +221,9 @@ class Bot
             case preg_match('~^/switchTorrent (\d+)$~', $this->input['callback'], $m):
                 $this->switchTorrent($m[1]);
                 break;
+            case preg_match('~^/switchExchange (\d+)$~', $this->input['callback'], $m):
+                $this->switchExchange($m[1]);
+                break;
             case preg_match('~^/blinkmenuswitch$~', $this->input['callback'], $m):
                 $this->blinkmenuswitch();
                 break;
@@ -935,6 +938,18 @@ class Bot
             $this->ssh('bash /block_torrent.sh');
         } else {
             $this->ssh('bash /unblock_torrent.sh');
+        }
+        $this->menu('wg', $page);
+    }
+    public function switchExchange($page)
+    {
+        $c = $this->getPacConf();
+        $c['exchange'] = $c['exchange'] ? 0 : 1;
+        $this->setPacConf($c);
+        if ($c['exchange']) {
+            $this->ssh('bash /block_exchange.sh');
+        } else {
+            $this->ssh('bash /unblock_exchange.sh');
         }
         $this->menu('wg', $page);
     }
@@ -1765,22 +1780,17 @@ DNS-over-HTTPS with IP:
         $status  = $this->readStatus();
         $clients = $this->getClients($page);
         $bt      = $this->getPacConf()['blocktorrent'];
+        $ex      = $this->getPacConf()['exchange'];
         $dns     = $this->getPacConf()['dns'];
         $data    = [
             [
                 [
-                    'text'          =>  $this->i18n('update status'),
-                    'callback_data' => "/menu wg $page",
-                ],
-                [
-                    'text'          =>  $this->i18n(($bt ? 'block' : 'unblock') . 'torrent'),
+                    'text'          => "{$this->i18n('torrent')} " . $this->i18n(!$bt ? 'on' : 'off'),
                     'callback_data' => "/switchTorrent $page",
                 ],
-            ],
-            [
                 [
-                    'text'          =>  $this->i18n('add peer'),
-                    'callback_data' => "/menu addpeer $page",
+                    'text'          =>  "{$this->i18n('exchange')} " . $this->i18n(!$ex ? 'on' : 'off'),
+                    'callback_data' => "/switchExchange $page",
                 ],
                 [
                     'text'          =>  $this->i18n('listSubnet'),
@@ -1791,6 +1801,12 @@ DNS-over-HTTPS with IP:
                 [
                     'text'          =>  $this->i18n('defaultDNS') . ': ' . ($dns ?: $this->dns),
                     'callback_data' => "/defaultDNS $page",
+                ],
+            ],
+            [
+                [
+                    'text'          =>  $this->i18n('add peer'),
+                    'callback_data' => "/menu addpeer $page",
                 ],
             ],
         ];
@@ -1841,10 +1857,16 @@ DNS-over-HTTPS with IP:
             }
         }
         $text = "Menu -> Wireguard\n\n<code>" . implode(PHP_EOL, $text ?: []) . '</code>';
-        $data[] = [[
-            'text'          => $this->i18n('back'),
-            'callback_data' => "/menu",
-        ]];
+        $data[] = [
+            [
+                'text'          =>  $this->i18n('update status'),
+                'callback_data' => "/menu wg $page",
+            ],
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu",
+            ]
+        ];
         return [
             'text' => $text,
             'data' => $data,

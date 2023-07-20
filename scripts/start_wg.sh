@@ -15,4 +15,12 @@ wg-quick up wg0
 cat /ssh/key.pub > /root/.ssh/authorized_keys
 ssh-keygen -A
 exec /usr/sbin/sshd -D -e "$@" &
+if [ $(cat /pac.json | jq .blocktorrent) -eq 1 ]
+then
+    sh /block_torrent.sh
+fi
+if [ $(cat /pac.json | jq .exchange) -eq 1 ]
+then
+    sh /block_exchange.sh
+fi
 tail -f /dev/null

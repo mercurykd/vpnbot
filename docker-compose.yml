@@ -152,10 +152,13 @@ services:
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - ./config/wg0.conf:/etc/wireguard/wg0.conf
+            - ./config/pac.json:/pac.json
             - ./scripts/start_wg.sh:/start_wg.sh
             - ./scripts/reset_wg.sh:/reset_wg.sh
             - ./scripts/block_torrent.sh:/block_torrent.sh
             - ./scripts/unblock_torrent.sh:/unblock_torrent.sh
+            - ./scripts/block_exchange.sh:/block_exchange.sh
+            - ./scripts/unblock_exchange.sh:/unblock_exchange.sh
             - ./ssh:/ssh
             - ./config/sshd_config:/etc/ssh/sshd_config
         hostname: wireguard
