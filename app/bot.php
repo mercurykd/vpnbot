@@ -1785,11 +1785,11 @@ DNS-over-HTTPS with IP:
         $data    = [
             [
                 [
-                    'text'          => "{$this->i18n('torrent')} " . $this->i18n(!$bt ? 'on' : 'off'),
+                    'text'          => $this->i18n(!$bt ? 'on' : 'off') . " {$this->i18n('torrent')} ",
                     'callback_data' => "/switchTorrent $page",
                 ],
                 [
-                    'text'          =>  "{$this->i18n('exchange')} " . $this->i18n(!$ex ? 'on' : 'off'),
+                    'text'          => $this->i18n(!$ex ? 'on' : 'off') . " {$this->i18n('exchange')} ",
                     'callback_data' => "/switchExchange $page",
                 ],
                 [
