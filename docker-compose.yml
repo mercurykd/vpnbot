@@ -204,6 +204,8 @@ services:
         networks:
             default:
                 ipv4_address: 10.10.0.5
+        cap_add:
+            - NET_ADMIN
         command: ["/bin/sh", "/start_ad.sh"]
         logging: *default-logging
     ss:
