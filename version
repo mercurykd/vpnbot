@@ -1,3 +1,8 @@
+19.08.2023 фикс xtls
+<code>git stash</code>
+<code>git pull</code>
+<code>git stash pop</code>
+<code>make r</code>
 19.08.2023 показывает в логах и в адгварде реальные айпи пользователей
 <b>сделать бэкап</b>
 <code>git reset --hard</code>
