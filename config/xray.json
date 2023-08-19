@@ -35,6 +35,12 @@
                     "show": false,
                     "xver": 0
                 },
+                "tcpSettings": {
+                    "acceptProxyProtocol": true
+                },
+                "sockopt": {
+                    "acceptProxyProtocol": true
+                },
                 "security": "reality"
             },
             "tag": "vless_tls"
