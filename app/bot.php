@@ -521,7 +521,7 @@ class Bot
         } else {
             $c['plugin']      = 'v2ray-plugin';
             $c['plugin_opts'] = 'server;loglevel=none';
-            $l['server']      = 'ng';
+            $l['server']      = 'up';
             $l['server_port'] = $ssl ? 443 : 80;
             $l['plugin']      = 'v2ray-plugin';
             $l['plugin_opts'] = ($ssl ? 'tls;' : '') . "fast-open;path=/v2ray;host=$domain";

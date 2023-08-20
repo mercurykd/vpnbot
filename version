@@ -1,3 +1,7 @@
+21.08.2023 фикс прокси через 10.10.0.3
+<code>git pull</code>
+<code>make r</code>
+<b>щелкнуть кнопку v2ray 2 раза</b>
 19.08.2023 фикс xtls
 <code>git stash</code>
 <code>git pull</code>
