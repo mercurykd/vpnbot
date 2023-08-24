@@ -2507,6 +2507,7 @@ DNS-over-HTTPS with IP:
         ];
         $ss_link = preg_replace('~==~', '', 'ss://' . base64_encode("{$ss['method']}:{$ss['password']}")) . "@$domain:$port" . (!empty($ss['plugin']) ? '?plugin=' . urlencode("v2ray-plugin;path=/v2ray;host=$domain" . (!empty($ssl) ? ';tls' : '')) : '');
         $text .= "\n\n<code>$ss_link</code>\n";
+        $text .= "\n\npassword: <span class='tg-spoiler'>{$ss['password']}</span>";
         $text .= "\n\nserver: <code>$domain:$port</code>";
         $text .= "\n\nmethod: <code>{$ss['method']}</code>";
         $text .= "\n\nnameserver: <code>10.10.0.5</code>";
