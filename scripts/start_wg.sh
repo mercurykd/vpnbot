@@ -6,15 +6,12 @@ then
     echo "PrivateKey = $PRIVATEKEY" >> /etc/wireguard/wg0.conf
     echo "Address = $ADDRESS" >> /etc/wireguard/wg0.conf
     echo "ListenPort = $WGPORT" >> /etc/wireguard/wg0.conf
-    echo "PostUp = iptables -t nat -A POSTROUTING --destination 10.10.0.5 -j ACCEPT;iptables -t nat -A POSTROUTING -o $INTERFACE -j MASQUERADE" >> /etc/wireguard/wg0.conf
-    echo "PostDown = iptables -t nat -D POSTROUTING --destination 10.10.0.5 -j ACCEPT;iptables -t nat -D POSTROUTING -o $INTERFACE -j MASQUERADE" >> /etc/wireguard/wg0.conf
 else
-    sed "s/PostUp.*/PostUp = iptables -t nat -A POSTROUTING --destination 10.10.0.5 -j ACCEPT;iptables -t nat -A POSTROUTING -o $INTERFACE -j MASQUERADE/" /etc/wireguard/wg0.conf > result
-    sed -i "s/PostDown.*/PostDown = iptables -t nat -D POSTROUTING --destination 10.10.0.5 -j ACCEPT;iptables -t nat -D POSTROUTING -o $INTERFACE -j MASQUERADE/" result
-    cat result > /etc/wireguard/wg0.conf
     sed "s/ListenPort = [0-9]\+/ListenPort = $WGPORT/" /etc/wireguard/wg0.conf > change_port
     cat change_port > /etc/wireguard/wg0.conf
 fi
+iptables -t nat -A POSTROUTING --destination 10.10.0.5 -j ACCEPT
+iptables -t nat -A POSTROUTING -o $INTERFACE -j MASQUERADE
 wg-quick up wg0
 cat /ssh/key.pub > /root/.ssh/authorized_keys
 ssh-keygen -A
