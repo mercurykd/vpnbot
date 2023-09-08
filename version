@@ -1,3 +1,6 @@
+09.09.2023 AdGuardHome v0.107.37
+<code>git pull</code>
+<code>make r</code>
 24.08.2023 показ пароля в меню Shadowsocks
 <code>git pull</code>
 21.08.2023 фикс прокси через 10.10.0.3
