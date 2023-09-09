@@ -1,16 +1,16 @@
-from alpine:3.18.2
-run apk add --no-cache --update php82 \
-    php82-mbstring \
-    php82-session \
-    php82-curl \
-    php82-opcache \
-    php82-openssl \
-    php82-iconv \
-    php82-intl \
-    php82-pecl-ssh2 \
-    php82-pecl-yaml \
+FROM alpine:3.17
+RUN apk add --no-cache --update php81 \
+    php81-mbstring \
+    php81-session \
+    php81-curl \
+    php81-opcache \
+    php81-openssl \
+    php81-iconv \
+    php81-intl \
+    php81-pecl-ssh2 \
+    php81-pecl-yaml \
     unit \
-    unit-php82 \
+    unit-php81 \
     xxd \
     certbot \
     libqrencode \
@@ -21,6 +21,5 @@ run apk add --no-cache --update php82 \
     && tar -xf dnslookup-linux-amd64-v1.9.1.tar.gz \
     && mv linux-amd64/dnslookup /usr/bin \
     && rm dnslookup-linux-amd64-v1.9.1.tar.gz \
-    && rm -rf /linux-amd64 \
-    && ln -s /usr/bin/php82 /usr/bin/php
-env ENV="/root/.ashrc"
+    && rm -rf /linux-amd64
+ENV ENV="/root/.ashrc"
