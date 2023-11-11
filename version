@@ -1,3 +1,7 @@
+12.11.2023 AdGuardHome latest docker image
+<code>git pull</code>
+<code>make r</code>
+настройки адгварда сбросятcя, можно воспользоваться бэкапом
 16.10.2023 AdGuardHome v0.107.39
 <code>git pull</code>
 <code>make r</code>
