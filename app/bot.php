@@ -3,6 +3,7 @@
 class Bot
 {
     public $input;
+    public $adguard;
 
     public function __construct($key, $i18n)
     {
@@ -16,6 +17,7 @@ class Bot
         $this->language = $this->getPacConf()['language'] ?: 'en';
         $this->dns      = '1.1.1.1, 8.8.8.8';
         $this->limit    = $this->getPacConf()['limitpage'] ?: 5;
+        $this->adguard  = '/config/AdGuardHome.yaml';
     }
 
     public function input()
@@ -757,7 +759,7 @@ class Bot
             ],
             'ss'  => $this->getSSConfig(),
             'sl'  => $this->getSSLocalConfig(),
-            'ad'  => yaml_parse_file('/config/adguard/AdGuardHome.yaml'),
+            'ad'  => yaml_parse_file($this->adguard),
             'pac' => $this->getPacConf(),
             'ssl' => file_exists('/certs/cert_private') && preg_match('~BEGIN PRIVATE KEY~', file_get_contents('/certs/cert_private')) ? [
                 'private' => file_get_contents('/certs/cert_private'),
@@ -825,7 +827,7 @@ class Bot
                 $out[] = 'update adguard';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->stopAd();
-                yaml_emit_file('/config/adguard/AdGuardHome.yaml', $json['ad']);
+                yaml_emit_file($this->adguard, $json['ad']);
                 $this->startAd();
             }
             // ss
@@ -1159,10 +1161,10 @@ class Bot
             $this->update($this->input['chat'], $this->input['message_id'], $u);
             $u .= $this->stopAd();
             $this->update($this->input['chat'], $this->input['message_id'], $u);
-            $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
+            $c = yaml_parse_file($this->adguard);
             $c['tls']['enabled'] = false;
             $c['tls']['server_name'] = '';
-            yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
+            yaml_emit_file($this->adguard, $c);
             $u .= $this->startAd();
             $this->update($this->input['chat'], $this->input['message_id'], $u);
             unlink('/certs/cert_private');
@@ -1225,10 +1227,10 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $out[] = $this->stopAd();
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
+                $c = yaml_parse_file($this->adguard);
                 $c['tls']['enabled'] = true;
                 $c['tls']['server_name'] = $conf['domain'];
-                yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
+                yaml_emit_file($this->adguard, $c);
                 $out[] = $this->startAd();
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
             } else {
@@ -1438,9 +1440,9 @@ class Bot
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         $out[] = $this->stopAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-        $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
+        $c = yaml_parse_file($this->adguard);
         $c['users'][0]['password'] = password_hash($pass, PASSWORD_DEFAULT);
-        yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
+        yaml_emit_file($this->adguard, $c);
         $p = $this->getPacConf();
         $p['adpswd'] = $pass;
         $this->setPacConf($p);
@@ -1456,8 +1458,8 @@ class Bot
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         $out[] = $this->stopAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-        $c = yaml_parse_file('/config/AdGuardHome.yaml');
-        yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
+        $c = yaml_parse_file($this->adguard);
+        yaml_emit_file($this->adguard, $c);
         $out[] = $this->startAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         sleep(3);
@@ -1524,9 +1526,9 @@ DNS-over-HTTPS with IP:
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         $out[] = $this->stopAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-        $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
+        $c = yaml_parse_file($this->adguard);
         $c['dns']['upstream_dns'][] = $url;
-        yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
+        yaml_emit_file($this->adguard, $c);
         $out[] = $this->startAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         sleep(3);
@@ -1538,21 +1540,21 @@ DNS-over-HTTPS with IP:
         $out[] = 'Restart Adguard Home';
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         $this->stopAd();
-        $c = yaml_parse_file('/config/adguard/AdGuardHome.yaml');
+        $c = yaml_parse_file($this->adguard);
         unset($c['dns']['upstream_dns'][$k]);
-        yaml_emit_file('/config/adguard/AdGuardHome.yaml', $c);
+        yaml_emit_file($this->adguard, $c);
         $this->startAd();
         $this->menu('adguard');
     }
 
     public function startAd()
     {
-        return $this->ssh('/AdGuardHome/AdGuardHome --pidfile /AdGuardHome/pid -c /opt/adguardhome/AdGuardHome.yaml -h 0.0.0.0 -w /opt/adguardhome/ > /dev/null 2>&1 &', 'ad', false);
+        return $this->ssh('/opt/adguardhome/AdGuardHome --no-check-update --pidfile /opt/adguardhome/pid -c /config/AdGuardHome.yaml -h 0.0.0.0 -w /opt/adguardhome/work > /dev/null 2>&1 &', 'ad', false);
     }
 
     public function stopAd()
     {
-        return $this->ssh('kill -15 $(cat /AdGuardHome/pid)', 'ad');
+        return $this->ssh('kill -15 $(cat /opt/adguardhome/pid)', 'ad');
     }
 
     public function selfsslInstall()
@@ -2802,7 +2804,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/addupstream",
             ],
         ];
-        $upstreams = yaml_parse_file('/config/adguard/AdGuardHome.yaml')['dns']['upstream_dns'];
+        $upstreams = yaml_parse_file($this->adguard)['dns']['upstream_dns'];
         if (!empty($upstreams)) {
             foreach ($upstreams as $k => $v) {
                 $data[] = [

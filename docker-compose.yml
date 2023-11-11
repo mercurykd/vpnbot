@@ -80,21 +80,8 @@ services:
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - ./config/php.ini:/etc/php82/php.ini
-            - ./config/clients.json:/config/clients.json
-            - ./config/pac.json:/config/pac.json
-            - ./config/unit.json:/config/unit.json
-            - ./config/AdGuardHome.yaml:/config/AdGuardHome.yaml
-            - ./config/nginx.conf:/config/nginx.conf
-            - ./config/upstream.conf:/config/upstream.conf
-            - ./config/nginx_default.conf:/config/nginx_default.conf
-            - ./config/ssserver.json:/config/ssserver.json
-            - ./config/sslocal.json:/config/sslocal.json
-            - ./config/mtprotosecret:/config/mtprotosecret
-            - ./config/xray.json:/config/xray.json
+            - ./config/:/config/
             - ./certs/:/certs/
-            - type: volume
-              target: /config/adguard
-              source: adguard
             - ./ssh:/ssh
             - ./app:/app
             - ./logs/:/logs/
@@ -187,10 +174,11 @@ services:
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - type: volume
-              target: /opt/adguardhome
+              target: /opt/adguardhome/work
               source: adguard
             - ./ssh:/ssh
             - ./config/sshd_config:/etc/ssh/sshd_config
+            - ./config/:/config/
             - ./certs/:/certs/
             - ./logs/:/logs/
             - ./scripts/start_ad.sh:/start_ad.sh
@@ -206,7 +194,7 @@ services:
                 ipv4_address: 10.10.0.5
         cap_add:
             - NET_ADMIN
-        command: ["/bin/sh", "/start_ad.sh"]
+        entrypoint: ["/bin/sh", "/start_ad.sh"]
         logging: *default-logging
     ss:
         build:

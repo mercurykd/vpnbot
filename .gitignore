@@ -13,4 +13,5 @@
 /todo.todo
 /app/zapretlists/*
 !/app/zapretlists/.gitkeep
-.vscode/sftp.json
+.vscode/
+.idea/
