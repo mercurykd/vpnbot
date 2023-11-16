@@ -605,6 +605,7 @@ class Bot
             $this->shutdownClient();
             $this->checkVersion();
             $this->checkBackup();
+            $this->checkCert();
             sleep(10);
         }
     }
@@ -668,6 +669,23 @@ class Bot
                         foreach ($c['admin'] as $k => $v) {
                             $this->send($v, "update:\n$diff");
                         }
+                    }
+                }
+            }
+        } catch (Exception $e) {
+        }
+    }
+
+    public function checkCert()
+    {
+        try {
+            require __DIR__ . '/config.php';
+            if (!empty($c['admin']) && (empty($this->time2) || ((time() - $this->time2) > 3600))) {
+                $this->time2 = time();
+                $cert = $this->expireCert();
+                if (!empty($cert) && $cert - 60 * 60 * 24 * 14 < time()) {
+                    foreach ($c['admin'] as $k => $v) {
+                        $this->send($v, "certificate expire: " . date('Y-m-d H:i:s', $cert));
                     }
                 }
             }
@@ -2867,6 +2885,12 @@ DNS-over-HTTPS with IP:
         ];
     }
 
+    public function expireCert()
+    {
+        $c = openssl_x509_read(file_get_contents("/certs/cert_public"));
+        return openssl_x509_parse($c)["validTo_time_t"] ?: false;
+    }
+
     public function configMenu()
     {
         $conf = $this->getPacConf();
@@ -2885,7 +2909,7 @@ DNS-over-HTTPS with IP:
                     case 'letsencrypt':
                         $data[] = [
                             [
-                                'text'          => $this->i18n('renew SSL'),
+                                'text'          => $this->i18n('renew SSL') . ': ' . date('Y-m-d H:i:s', $this->expireCert()),
                                 'callback_data' => "/setSSL letsencrypt",
                             ],
                             [
