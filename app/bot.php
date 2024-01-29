@@ -117,7 +117,7 @@ class Bot
             case preg_match('~^/menu (?P<type>addpeer) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>wg) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>client) (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
-            case preg_match('~^/menu (?P<type>pac|adguard|config|ss|lang)$~', $this->input['callback'], $m):
+            case preg_match('~^/menu (?P<type>pac|adguard|config|ss|lang|oc)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>subzoneslist|reverselist|includelist|excludelist) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
                 $this->menu(type: $m['type'] ?? false, arg: $m['arg'] ?? false);
                 break;
@@ -178,6 +178,18 @@ class Bot
             case preg_match('~^/sspswd$~', $this->input['callback'], $m):
                 $this->sspswd();
                 break;
+            case preg_match('~^/changeCamouflage$~', $this->input['callback'], $m):
+                $this->changeCamouflage();
+                break;
+            case preg_match('~^/changeOcPass$~', $this->input['callback'], $m):
+                $this->changeOcPass();
+                break;
+            case preg_match('~^/changeOcDns$~', $this->input['callback'], $m):
+                $this->changeOcDns();
+                break;
+            case preg_match('~^/addOcUser$~', $this->input['callback'], $m):
+                $this->addOcUser();
+                break;
             case preg_match('~^/v2ray$~', $this->input['callback'], $m):
                 $this->v2ray();
                 break;
@@ -219,6 +231,9 @@ class Bot
                 break;
             case preg_match('~^/download (\d+)$~', $this->input['callback'], $m):
                 $this->downloadPeer($m[1]);
+                break;
+            case preg_match('~^/deloc (\d+)$~', $this->input['callback'], $m):
+                $this->deloc($m[1]);
                 break;
             case preg_match('~^/switchTorrent (\d+)$~', $this->input['callback'], $m):
                 $this->switchTorrent($m[1]);
@@ -488,6 +503,105 @@ class Bot
             'callback'       => 'sspwdch',
             'args'           => [],
         ];
+    }
+
+    public function changeCamouflage()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter camouflage key",
+            $this->input['message_id'],
+            reply: 'enter password',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'chockey',
+            'args'           => [],
+        ];
+    }
+
+    public function changeOcDns()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter dns",
+            $this->input['message_id'],
+            reply: 'enter password',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'chocdns',
+            'args'           => [],
+        ];
+    }
+
+    public function changeOcPass()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter pass",
+            $this->input['message_id'],
+            reply: 'enter password',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'chocpass',
+            'args'           => [],
+        ];
+    }
+
+    public function addOcUser()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter name",
+            $this->input['message_id'],
+            reply: 'enter password',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'addocus',
+            'args'           => [],
+        ];
+    }
+
+    public function restartOcserv($conf)
+    {
+        file_put_contents('/config/ocserv.conf', $conf);
+        $this->ssh('pkill ocserv', 'oc');
+        $this->ssh('ocserv -c /etc/ocserv/ocserv.conf', 'oc');
+    }
+
+    public function chocdns($dns)
+    {
+        $c = file_get_contents('/config/ocserv.conf');
+        $t = preg_replace('~^dns[^\n]+~sm', "dns = $dns", $c);
+        $this->restartOcserv($t);
+        $this->menu('oc');
+    }
+
+    public function chockey($pass)
+    {
+        $c = file_get_contents('/config/ocserv.conf');
+        $t = preg_replace('~^camouflage_secret[^\n]+~sm', "camouflage_secret = \"$pass\"", $c);
+        $this->restartOcserv($t);
+        $this->menu('oc');
+    }
+
+    public function chocpass($pass)
+    {
+        $pac = $this->getPacConf();
+        $pac['ocserv'] = $pass;
+        $this->setPacConf($pac);
+        $clients = $this->getClientsOc();
+        foreach ($clients as $k => $v) {
+            $this->ssh("echo '$pass' | ocpasswd -c /etc/ocserv/ocserv.passwd $v", 'oc');
+        }
+        $this->menu('oc');
     }
 
     public function sspwdch($pass)
@@ -785,6 +899,7 @@ class Bot
             ] : false,
             'mtproto' => file_get_contents('/config/mtprotosecret'),
             'xray'    => json_decode(file_get_contents('/config/xray.json'), true),
+            'oc'      => file_get_contents('/config/ocserv.conf'),
 
         ];
         return json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -876,6 +991,13 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->restartXray($json['xray']);
                 $this->setUpstreamDomain($json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]);
+            }
+            // ocserv
+            if (!empty($json['oc'])) {
+                $out[] = 'update ocserv';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->restartOcserv($json['oc']);
+                $this->setUpstreamDomainOcserv($json['pac']['domain']);
             }
             // nginx
             $out[] = 'reset nginx';
@@ -1129,6 +1251,7 @@ class Bot
                 $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->setPacConf($conf);
+                $this->setUpstreamDomainOcserv($domain);
             } else {
                 file_put_contents('/config/nginx.conf', $nginx);
             }
@@ -1301,6 +1424,7 @@ class Bot
             $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
             $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
             $this->setPacConf($conf);
+            $this->setUpstreamDomainOcserv('');
         } else {
             file_put_contents('/config/nginx.conf', $nginx);
         }
@@ -2586,8 +2710,8 @@ DNS-over-HTTPS with IP:
                             'callback_data' => "/menu ss",
                         ],
                         [
-                            'text'          => $this->i18n('pac'),
-                            'callback_data' => "/menu pac",
+                            'text'          => $this->i18n('ocserv'),
+                            'callback_data' => "/menu oc",
                         ],
                     ],
                     [
@@ -2604,7 +2728,11 @@ DNS-over-HTTPS with IP:
                         [
                             'text'          => $this->i18n('config'),
                             'callback_data' => "/menu config",
-                        ]
+                        ],
+                        [
+                            'text'          => $this->i18n('pac'),
+                            'callback_data' => "/menu pac",
+                        ],
                     ],
                     [
                         [
@@ -2618,9 +2746,9 @@ DNS-over-HTTPS with IP:
                     ]
                 ],
             ],
-            'wg'      => $type == 'wg' ? $this->statusWg($arg) : false,
-            'client'  => $type == 'client' ? $this->getClient(...explode('_', $arg)) : false,
-            'addpeer' => $type == 'addpeer' ? $this->addWg(...explode('_', $arg)) : false,
+            'wg'           => $type == 'wg'           ? $this->statusWg($arg) : false,
+            'client'       => $type == 'client'       ? $this->getClient(...explode('_', $arg)) : false,
+            'addpeer'      => $type == 'addpeer'      ? $this->addWg(...explode('_', $arg)) : false,
             'pac'          => $type == 'pac'          ? $this->pacMenu() : false,
             'adguard'      => $type == 'adguard'      ? $this->adguardMenu() : false,
             'includelist'  => $type == 'includelist'  ? $this->pacList($type, $arg) : false,
@@ -2630,6 +2758,7 @@ DNS-over-HTTPS with IP:
             'config'       => $type == 'config'       ? $this->configMenu() : false,
             'ss'           => $type == 'ss'           ? $this->menuSS() : false,
             'lang'         => $type == 'lang'         ? $this->menuLang() : false,
+            'oc'           => $type == 'oc'           ? $this->ocMenu() : false,
         ];
 
         $text = $menu[$type ?: 'main' ]['text'];
@@ -2667,6 +2796,81 @@ DNS-over-HTTPS with IP:
         $pac    = $this->getPacConf();
         $domain = $pac['domain'] ?: $this->ip;
         return "vless://{$c['inbounds'][0]['settings']['clients'][0]['id']}@$domain:443?security=reality&sni={$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}&fp=chrome&pbk={$pac['xray']}&sid={$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}&type=tcp&flow=xtls-rprx-vision#vpnbot";
+    }
+
+    public function ocMenu()
+    {
+        $pac = $this->getPacConf();
+        preg_match('~^camouflage_secret[^\n]+?"([^"]+)*"~sm', file_get_contents('/config/ocserv.conf'), $m);
+        $text[] = "Menu -> OpenConnect";
+        if (!empty($m[1])) {
+            $text[] = "<code>https://oc.{$pac['domain']}/?{$m[1]}</code>";
+        }
+        $text[] = "password: <span class='tg-spoiler'>{$pac['ocserv']}</span>";
+        $data[] = [
+            [
+                'text'          => $this->i18n('change secret'),
+                'callback_data' => "/changeCamouflage",
+            ],
+            [
+                'text'          => $this->i18n('change password'),
+                'callback_data' => "/changeOcPass",
+            ],
+            [
+                'text'          => $this->i18n('dns'),
+                'callback_data' => "/changeOcDns",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('add peer'),
+                'callback_data' => "/addOcUser",
+            ],
+        ];
+        $clients = $this->getClientsOc();
+        foreach ($clients as $k => $v) {
+            $data[] = [
+                [
+                    'text'          => $this->i18n('delete') . " $v",
+                    'callback_data' => "/deloc $k",
+                ],
+            ];
+        }
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu",
+            ],
+        ];
+        return [
+            'text' => implode("\n", $text),
+            'data' => $data,
+        ];
+    }
+
+    public function deloc($i)
+    {
+        $clients = $this->getClientsOc();
+        foreach ($clients as $k => $v) {
+            if ($i == $k) {
+                $this->ssh("ocpasswd -c /etc/ocserv/ocserv.passwd -d $v", 'oc');
+                break;
+            }
+        }
+        $this->menu('oc');
+    }
+
+    public function getClientsOc()
+    {
+        $users = array_filter(explode("\n", file_get_contents('/config/ocserv.passwd')), fn ($e) => !empty($e));
+        return array_map(fn($e) => explode(':', $e)[0], $users);
+    }
+
+    public function addocus($user)
+    {
+        $pac = $this->getPacConf();
+        $this->ssh("echo '{$pac['ocserv']}' | ocpasswd -c /etc/ocserv/ocserv.passwd $user", 'oc');
+        $this->menu('oc');
     }
 
     public function xray()
@@ -2748,6 +2952,13 @@ DNS-over-HTTPS with IP:
     {
         $nginx = file_get_contents('/config/upstream.conf');
         $t = preg_replace('~#domain.+#domain~s', "#domain\n$domain reality;\n#domain", $nginx);
+        file_put_contents('/config/upstream.conf', $t);
+        $this->ssh("nginx -s reload 2>&1", 'up');
+    }
+    public function setUpstreamDomainOcserv($domain)
+    {
+        $nginx = file_get_contents('/config/upstream.conf');
+        $t = preg_replace('~#ocserv.+#ocserv~s', $domain ? "#ocserv\noc.$domain ocserv;\n#ocserv" : "#ocserv\n#oc.\$domain ocserv;\n#ocserv", $nginx);
         file_put_contents('/config/upstream.conf', $t);
         $this->ssh("nginx -s reload 2>&1", 'up');
     }

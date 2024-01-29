@@ -20,6 +20,8 @@ services:
         build:
             context: dockerfile
             dockerfile: nginx.dockerfile
+            args:
+                image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - ./config/upstream.conf:/etc/nginx/nginx.conf
@@ -49,6 +51,8 @@ services:
         build:
             context: dockerfile
             dockerfile: nginx.dockerfile
+            args:
+                image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - ./config/nginx.conf:/etc/nginx/nginx.conf
@@ -77,6 +81,8 @@ services:
     php:
         build:
             dockerfile: dockerfile/php.dockerfile
+            args:
+                image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - ./config/php.ini:/etc/php82/php.ini
@@ -114,6 +120,8 @@ services:
     proxy:
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
+            args:
+                image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - ./config/sslocal.json:/config.json
@@ -136,6 +144,8 @@ services:
     wg:
         build:
             dockerfile: dockerfile/wireguard.dockerfile
+            args:
+                image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - ./config/wg0.conf:/etc/wireguard/wg0.conf
@@ -169,6 +179,8 @@ services:
     ad:
         build:
             dockerfile: dockerfile/adguard.dockerfile
+            args:
+                image: ${IMAGE}
         ports:
             - 853:853
         volumes:
@@ -199,6 +211,8 @@ services:
     ss:
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
+            args:
+                image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - ./config/ssserver.json:/config.json
@@ -249,6 +263,8 @@ services:
     xr:
         build:
             dockerfile: dockerfile/xray.dockerfile
+            args:
+                image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - ./ssh:/ssh
@@ -266,4 +282,31 @@ services:
         networks:
             default:
                 ipv4_address: 10.10.0.9
+        logging: *default-logging
+    oc:
+        build:
+            dockerfile: dockerfile/ocserv.dockerfile
+            args:
+                image: ${IMAGE}
+        volumes:
+            - ./config/.profile:/root/.ashrc:ro
+            - ./ssh:/ssh
+            - ./config/sshd_config:/etc/ssh/sshd_config
+            - ./config:/etc/ocserv
+            - ./certs:/certs
+            - ./scripts/start_oc.sh:/start_oc.sh
+        hostname: ocserv
+        depends_on:
+            php:
+                condition: service_healthy
+        environment:
+            TZ: ${TZ}
+            ENV: /root/.ashrc
+        stop_grace_period: 1s
+        command: ["/bin/sh", "/start_oc.sh"]
+        cap_add:
+            - NET_ADMIN
+        networks:
+            default:
+                ipv4_address: 10.10.0.11
         logging: *default-logging

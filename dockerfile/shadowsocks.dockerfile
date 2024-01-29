@@ -1,5 +1,6 @@
-from alpine:3.18.2
-run apk add openssh git xz \
+ARG image
+FROM $image
+RUN apk add openssh git xz \
     && mkdir /root/.ssh \
     && wget https://github.com/shadowsocks/shadowsocks-rust/releases/download/v1.15.3/shadowsocks-v1.15.3.x86_64-unknown-linux-musl.tar.xz \
     && tar -xf shadowsocks-v1.15.3.x86_64-unknown-linux-musl.tar.xz \
@@ -13,4 +14,4 @@ run apk add openssh git xz \
     && mv v2ray-plugin_linux_amd64 /usr/bin/v2ray-plugin \
     && rm v2ray-plugin-linux-amd64-v5.7.0.tar.gz\
     && rm shadowsocks-v1.15.3.x86_64-unknown-linux-musl.tar.xz
-env ENV="/root/.ashrc"
+ENV ENV="/root/.ashrc"

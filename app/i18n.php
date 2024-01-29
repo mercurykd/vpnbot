@@ -30,12 +30,12 @@ $i = [
         'ru' => 'назад',
     ],
     'import'               => [
-        'en' => 'import',
-        'ru' => 'импорт',
+        'en' => 'restore',
+        'ru' => 'восстановить',
     ],
     'export'               => [
-        'en' => 'export',
-        'ru' => 'экспорт',
+        'en' => 'backup',
+        'ru' => 'сохранить',
     ],
     'delete'               => [
         'en' => 'delete',
@@ -238,7 +238,7 @@ $i = [
         'ru' => 'режим отладки',
     ],
     'backup'  => [
-        'en' => 'backup',
+        'en' => 'auto backup',
         'ru' => 'бэкап',
     ],
     'logs'  => [
@@ -268,5 +268,17 @@ $i = [
     'exchange'  => [
         'en' => 'open ip',
         'ru' => 'откр айпи',
+    ],
+    'ocserv'  => [
+        'en' => 'OpenConnect',
+        'ru' => 'OpenConnect',
+    ],
+    'change secret'  => [
+        'en' => 'change secret',
+        'ru' => 'секретное слово',
+    ],
+    'dns'  => [
+        'en' => 'dns',
+        'ru' => 'днс',
     ],
 ];

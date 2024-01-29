@@ -1,4 +1,5 @@
-FROM alpine:3.18.2
+ARG image
+FROM $image
 RUN apk add --no-cache --update php81 \
     php81-mbstring \
     php81-session \

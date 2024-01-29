@@ -28,7 +28,9 @@ proxy: # консоль сервиса
 tg: # консоль сервиса
 	docker compose exec tg /bin/sh
 xr: # консоль сервиса
-	docker compose exec xr /bin/sh
+	docker compose exec xr /bin/shec tg /bin/sh
+oc: # консоль сервиса
+	docker compose exec oc /bin/sh
 clean:
 	docker image prune
 	docker builder prune
