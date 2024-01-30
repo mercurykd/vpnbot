@@ -997,6 +997,8 @@ class Bot
                 $out[] = 'update ocserv';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->restartOcserv($json['oc']);
+            }
+            if (!empty($json['pac']['domain'])) {
                 $this->setUpstreamDomainOcserv($json['pac']['domain']);
             }
             // nginx
