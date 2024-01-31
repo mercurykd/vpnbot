@@ -592,6 +592,13 @@ class Bot
         $this->menu('oc');
     }
 
+    public function chocdomain($domain)
+    {
+        $c = file_get_contents('/config/ocserv.conf');
+        $t = preg_replace('~^default-domain[^\n]+~sm', "default-domain = $domain", $c);
+        $this->restartOcserv($t);
+    }
+
     public function chocpass($pass)
     {
         $pac = $this->getPacConf();
@@ -1253,6 +1260,7 @@ class Bot
                 $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->setPacConf($conf);
+                $this->chocdomain($domain);
                 $this->setUpstreamDomainOcserv($domain);
             } else {
                 file_put_contents('/config/nginx.conf', $nginx);
@@ -1366,6 +1374,9 @@ class Bot
             if (preg_match('~test is successful~', $u)) {
                 $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $out[] = 'Restart ocserv';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->restartOcserv(file_get_contents('/config/ocserv.conf'));
                 $out[] = 'Restart Adguard Home';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $out[] = $this->stopAd();
@@ -1427,6 +1438,7 @@ class Bot
             $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
             $this->setPacConf($conf);
             $this->setUpstreamDomainOcserv('');
+            $this->chocdomain('');
         } else {
             file_put_contents('/config/nginx.conf', $nginx);
         }
