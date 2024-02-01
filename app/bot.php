@@ -595,7 +595,7 @@ class Bot
     public function chocdomain($domain)
     {
         $c = file_get_contents('/config/ocserv.conf');
-        $t = preg_replace('~^default-domain[^\n]+~sm', "default-domain = $domain", $c);
+        $t = preg_replace('~^default-domain[^\n]+~sm', "default-domain = oc.$domain", $c);
         $this->restartOcserv($t);
     }
 
