@@ -136,6 +136,9 @@ class Bot
             case preg_match('~^/clearLog (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->clearLog(...explode('_', $m['arg']));
                 break;
+            case preg_match('~^/delLog (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->delLog(...explode('_', $m['arg']));
+                break;
             case preg_match('~^/debug$~', $this->input['callback'], $m):
                 $this->debug();
                 break;
@@ -3252,6 +3255,10 @@ DNS-over-HTTPS with IP:
                         'text'          => $this->i18n('clear'),
                         'callback_data' => "/clearLog $k",
                     ],
+                    [
+                        'text'          => $this->i18n('delete'),
+                        'callback_data' => "/delLog $k",
+                    ],
                 ];
             }
         }
@@ -3287,6 +3294,17 @@ DNS-over-HTTPS with IP:
         foreach (scandir('/logs/') as $k => $v) {
             if ($i == $k) {
                 file_put_contents("/logs/$v", '');
+                break;
+            }
+        }
+        $this->logs();
+    }
+
+    public function delLog($i)
+    {
+        foreach (scandir('/logs/') as $k => $v) {
+            if ($i == $k) {
+                unlink("/logs/$v");
                 break;
             }
         }
