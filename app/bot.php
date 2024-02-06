@@ -2817,11 +2817,15 @@ DNS-over-HTTPS with IP:
 
     public function ocMenu()
     {
-        $pac = $this->getPacConf();
-        preg_match('~^camouflage_secret[^\n]+?"([^"]+)*"~sm', file_get_contents('/config/ocserv.conf'), $m);
+        $pac    = $this->getPacConf();
+        $ocserv = file_get_contents('/config/ocserv.conf');
+        preg_match('~^camouflage_secret[^\n]+?"([^"]+)*"~sm', $ocserv, $m);
+        $cs = $m[1];
+        preg_match('~^dns = ([^\n]+)~sm', $ocserv, $m);
+        $dns = $m[1];
         $text[] = "Menu -> OpenConnect";
         if (!empty($m[1])) {
-            $text[] = "<code>https://oc.{$pac['domain']}/?{$m[1]}</code>";
+            $text[] = "<code>https://oc.{$pac['domain']}/?$cs</code>";
         }
         $text[] = "password: <span class='tg-spoiler'>{$pac['ocserv']}</span>";
         $data[] = [
@@ -2834,7 +2838,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/changeOcPass",
             ],
             [
-                'text'          => $this->i18n('dns'),
+                'text'          => $this->i18n('dns') . ": $dns",
                 'callback_data' => "/changeOcDns",
             ],
         ];
