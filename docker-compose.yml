@@ -85,7 +85,7 @@ services:
                 image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
-            - ./config/php.ini:/etc/php82/php.ini
+            - ./config/php.ini:/etc/php81/php.ini
             - ./config/:/config/
             - ./certs/:/certs/
             - ./ssh:/ssh
