@@ -242,7 +242,7 @@ class Bot
                 $this->switchTorrent($m[1]);
                 break;
             case preg_match('~^/switchAmnezia (-?\d+)$~', $this->input['callback'], $m):
-                $this->switchAmnezia($m[1], 1);
+                $this->switchAmnezia($m[1]);
                 break;
             case preg_match('~^/switchExchange (\d+)$~', $this->input['callback'], $m):
                 $this->switchExchange($m[1]);
@@ -969,12 +969,7 @@ class Bot
                 $out[] = 'update wireguard';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->saveClients($json['wg']['clients']);
-                if (!empty($switch_amnezia)) {
-                    $this->ssh("echo '{$this->createConfig($json['wg']['server'])}' > /etc/wireguard/wg0.conf");
-                    $this->switchAmnezia();
-                } else {
-                    $this->restartWG($this->createConfig($json['wg']['server']));
-                }
+                $this->restartWG($this->createConfig($json['wg']['server']), $switch_amnezia);
             }
             // ad
             if (!empty($json['ad'])) {
@@ -1094,7 +1089,7 @@ class Bot
         $this->restartWG($this->createConfig($server));
     }
 
-    public function switchAmnezia($page = 0, $menu = false)
+    public function switchAmnezia($page = 0)
     {
         $c = $this->getPacConf();
         $c['amnezia'] = $c['amnezia'] ? 0 : 1;
@@ -1160,12 +1155,8 @@ class Bot
                 unset($wg['peers'][$k]['PresharedKey']);
             }
         }
-        $this->ssh("echo '{$this->createConfig($wg)}' > /etc/wireguard/wg0.conf");
-        $this->ssh("{$this->getWGType(1)}-quick down wg0");
-        $this->ssh("{$this->getWGType()}-quick up wg0");
-        if (!empty($menu)) {
-            $this->menu('wg', $page);
-        }
+        $this->restartWG($this->createConfig($wg), 1);
+        $this->menu('wg', $page);
     }
 
     public function switchTorrent($page)
@@ -3723,10 +3714,15 @@ DNS-over-HTTPS with IP:
         return ($revert ? !$wg : $wg) ? 'awg' : 'wg';
     }
 
-    public function restartWG($conf_str)
+    public function restartWG($conf_str, $switch = false)
     {
         $this->ssh("echo '$conf_str' > /etc/wireguard/wg0.conf");
-        $this->ssh("{$this->getWGType()} syncconf wg0 <({$this->getWGType()}-quick strip wg0)");
+        if (!empty($switch)) {
+            $this->ssh("{$this->getWGType(1)}-quick down wg0");
+            $this->ssh("{$this->getWGType()}-quick up wg0");
+        } else {
+            $this->ssh("{$this->getWGType()} syncconf wg0 <({$this->getWGType()}-quick strip wg0)");
+        }
         return true;
     }
 
