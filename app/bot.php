@@ -242,7 +242,7 @@ class Bot
                 $this->switchTorrent($m[1]);
                 break;
             case preg_match('~^/switchAmnezia (-?\d+)$~', $this->input['callback'], $m):
-                $this->switchAmnezia($m[1]);
+                $this->switchAmnezia($m[1], 1);
                 break;
             case preg_match('~^/switchExchange (\d+)$~', $this->input['callback'], $m):
                 $this->switchExchange($m[1]);
@@ -954,19 +954,27 @@ class Bot
                 file_put_contents('/certs/cert_private', $json['ssl']['private']);
                 file_put_contents('/certs/cert_public', $json['ssl']['public']);
             }
+            // pac
+            if (!empty($json['pac'])) {
+                $out[] = 'update pac';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                if ($this->getPacConf()['amnezia'] != $json['pac']['amnezia']) {
+                    $switch_amnezia = 1;
+                }
+                $this->setPacConf($json['pac']);
+                $this->pacUpdate('1');
+            }
             // wg
             if (!empty($json['wg'])) {
                 $out[] = 'update wireguard';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->saveClients($json['wg']['clients']);
-                $this->restartWG($this->createConfig($json['wg']['server']));
-            }
-            // pac
-            if (!empty($json['pac'])) {
-                $out[] = 'update pac';
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $this->setPacConf($json['pac']);
-                $this->pacUpdate('1');
+                if (!empty($switch_amnezia)) {
+                    $this->ssh("echo '{$this->createConfig($json['wg']['server'])}' > /etc/wireguard/wg0.conf");
+                    $this->switchAmnezia();
+                } else {
+                    $this->restartWG($this->createConfig($json['wg']['server']));
+                }
             }
             // ad
             if (!empty($json['ad'])) {
@@ -1086,7 +1094,7 @@ class Bot
         $this->restartWG($this->createConfig($server));
     }
 
-    public function switchAmnezia($page)
+    public function switchAmnezia($page = 0, $menu = false)
     {
         $c = $this->getPacConf();
         $c['amnezia'] = $c['amnezia'] ? 0 : 1;
@@ -1155,7 +1163,9 @@ class Bot
         $this->ssh("echo '{$this->createConfig($wg)}' > /etc/wireguard/wg0.conf");
         $this->ssh("{$this->getWGType(1)}-quick down wg0");
         $this->ssh("{$this->getWGType()}-quick up wg0");
-        $this->menu('wg', $page);
+        if (!empty($menu)) {
+            $this->menu('wg', $page);
+        }
     }
 
     public function switchTorrent($page)
