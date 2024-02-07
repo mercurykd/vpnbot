@@ -5,6 +5,10 @@ $i = [
         'en' => 'Wireguard',
         'ru' => 'Wireguard',
     ],
+    'amnezia'             => [
+        'en' => 'Amnezia',
+        'ru' => 'Amnezia',
+    ],
     'sh_title'             => [
         'en' => 'Shadowsocks',
         'ru' => 'Shadowsocks',

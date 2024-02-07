@@ -170,6 +170,8 @@ services:
             ADDRESS: ${WGADDRESS}
         cap_add:
             - NET_ADMIN
+        devices:
+            - /dev/net/tun:/dev/net/tun
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_wg.sh"]
         networks:
@@ -306,6 +308,8 @@ services:
         command: ["/bin/sh", "/start_oc.sh"]
         cap_add:
             - NET_ADMIN
+        devices:
+            - /dev/net/tun:/dev/net/tun
         networks:
             default:
                 ipv4_address: 10.10.0.11

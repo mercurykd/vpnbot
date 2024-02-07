@@ -12,7 +12,13 @@ else
 fi
 iptables -t nat -A POSTROUTING --destination 10.10.0.5 -j ACCEPT
 iptables -t nat -A POSTROUTING -o $INTERFACE -j MASQUERADE
-wg-quick up wg0
+ln -s /etc/wireguard/wg0.conf /etc/amnezia/amneziawg/wg0.conf
+if [ $(cat /pac.json | jq .amnezia) -eq 1 ]
+then
+    awg-quick up wg0
+else
+    wg-quick up wg0
+fi
 cat /ssh/key.pub > /root/.ssh/authorized_keys
 ssh-keygen -A
 exec /usr/sbin/sshd -D -e "$@" &

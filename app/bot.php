@@ -241,6 +241,9 @@ class Bot
             case preg_match('~^/switchTorrent (\d+)$~', $this->input['callback'], $m):
                 $this->switchTorrent($m[1]);
                 break;
+            case preg_match('~^/switchAmnezia (-?\d+)$~', $this->input['callback'], $m):
+                $this->switchAmnezia($m[1]);
+                break;
             case preg_match('~^/switchExchange (\d+)$~', $this->input['callback'], $m):
                 $this->switchExchange($m[1]);
                 break;
@@ -1081,6 +1084,78 @@ class Bot
         unset($new['# ## time']);
         $server['peers'][$client] = $new;
         $this->restartWG($this->createConfig($server));
+    }
+
+    public function switchAmnezia($page)
+    {
+        $c = $this->getPacConf();
+        $c['amnezia'] = $c['amnezia'] ? 0 : 1;
+        $this->setPacConf($c);
+
+        $pk = $this->presharedKey();
+        $ak = $this->amneziaKeys();
+        $clients = $this->readClients();
+        foreach ($clients as $k => $v) {
+            if (!empty($c['amnezia'])) {
+                $clients[$k]['peers'][0]['PresharedKey'] = $pk;
+                $clients[$k]['interface']['Jc']          = $ak['Jc'];
+                $clients[$k]['interface']['Jmin']        = $ak['Jmin'];
+                $clients[$k]['interface']['Jmax']        = $ak['Jmax'];
+                $clients[$k]['interface']['S1']          = $ak['S1'];
+                $clients[$k]['interface']['S2']          = $ak['S2'];
+                $clients[$k]['interface']['H1']          = $ak['H1'];
+                $clients[$k]['interface']['H2']          = $ak['H2'];
+                $clients[$k]['interface']['H3']          = $ak['H3'];
+                $clients[$k]['interface']['H4']          = $ak['H4'];
+            } else {
+                unset($clients[$k]['peers'][0]['PresharedKey']);
+                unset($clients[$k]['interface']['Jc']);
+                unset($clients[$k]['interface']['Jmin']);
+                unset($clients[$k]['interface']['Jmax']);
+                unset($clients[$k]['interface']['S1']);
+                unset($clients[$k]['interface']['S2']);
+                unset($clients[$k]['interface']['H1']);
+                unset($clients[$k]['interface']['H2']);
+                unset($clients[$k]['interface']['H3']);
+                unset($clients[$k]['interface']['H4']);
+            }
+        }
+        $this->saveClients($clients);
+
+        $wg = $this->readConfig();
+        if (!empty($c['amnezia'])) {
+            $wg['interface']['Jc']   = $ak['Jc'];
+            $wg['interface']['Jmin'] = $ak['Jmin'];
+            $wg['interface']['Jmax'] = $ak['Jmax'];
+            $wg['interface']['S1']   = $ak['S1'];
+            $wg['interface']['S2']   = $ak['S2'];
+            $wg['interface']['H1']   = $ak['H1'];
+            $wg['interface']['H2']   = $ak['H2'];
+            $wg['interface']['H3']   = $ak['H3'];
+            $wg['interface']['H4']   = $ak['H4'];
+        } else {
+            unset($wg['interface']['Jc']);
+            unset($wg['interface']['Jmin']);
+            unset($wg['interface']['Jmax']);
+            unset($wg['interface']['S1']);
+            unset($wg['interface']['S2']);
+            unset($wg['interface']['H1']);
+            unset($wg['interface']['H2']);
+            unset($wg['interface']['H3']);
+            unset($wg['interface']['H4']);
+        }
+
+        foreach ($wg['peers'] as $k => $v) {
+            if (!empty($c['amnezia'])) {
+                $wg['peers'][$k]['PresharedKey'] = $pk;
+            } else {
+                unset($wg['peers'][$k]['PresharedKey']);
+            }
+        }
+        $this->ssh("echo '{$this->createConfig($wg)}' > /etc/wireguard/wg0.conf");
+        $this->ssh("{$this->getWGType(1)}-quick down wg0");
+        $this->ssh("{$this->getWGType()}-quick up wg0");
+        $this->menu('wg', $page);
     }
 
     public function switchTorrent($page)
@@ -1945,7 +2020,14 @@ DNS-over-HTTPS with IP:
         $bt      = $this->getPacConf()['blocktorrent'];
         $ex      = $this->getPacConf()['exchange'];
         $dns     = $this->getPacConf()['dns'];
+        $am      = $this->getPacConf()['amnezia'];
         $data    = [
+            [
+                [
+                    'text'          => $this->i18n($am ? 'on' : 'off') . " amnezia",
+                    'callback_data' => "/switchAmnezia $page",
+                ],
+            ],
             [
                 [
                     'text'          => $this->i18n(!$bt ? 'on' : 'off') . " {$this->i18n('torrent')} ",
@@ -2713,7 +2795,7 @@ DNS-over-HTTPS with IP:
                 'data' => [
                     [
                         [
-                            'text'          => $this->i18n('wg_title'),
+                            'text'          => $this->i18n($this->getPacConf()['amnezia'] ? 'amnezia' : 'wg_title'),
                             'callback_data' => "/menu wg 0",
                         ],
                         [
@@ -3434,7 +3516,7 @@ DNS-over-HTTPS with IP:
 
     public function readStatus()
     {
-        $r = $this->ssh('wg');
+        $r = $this->ssh($this->getWGType());
         $r = explode(PHP_EOL, $r);
         $r = array_filter($r);
         $i = 0;
@@ -3485,13 +3567,13 @@ DNS-over-HTTPS with IP:
         foreach ($data['interface'] as $k => $v) {
             $conf[] = "$k = $v";
         }
-        $domain = ($this->getPacConf()['domain'] ?: $this->ip) . ":" . getenv('WGPORT');
+        $pac = $this->getPacConf();
         if (!empty($data['peers'])) {
             foreach ($data['peers'] as $peer) {
                 $conf[] = '';
                 $conf[] = $peer['# PublicKey'] ? '# [Peer]' : '[Peer]';
                 if (!empty($peer['Endpoint'])) {
-                    $peer['Endpoint'] = $domain;
+                    $peer['Endpoint'] = ($pac['domain'] && !$pac['amnezia'] ? $pac['domain'] : $this->ip) . ":" . getenv('WGPORT');
                 }
                 foreach ($peer as $k => $v) {
                     $conf[] = "$k = $v";
@@ -3499,6 +3581,36 @@ DNS-over-HTTPS with IP:
             }
         }
         return implode(PHP_EOL, $conf);
+    }
+
+    public function presharedKey()
+    {
+        $c = $this->getPacConf();
+        if (empty($c['presharedkey'])) {
+            $c['presharedkey'] = trim($this->ssh("{$this->getWGType()} genpsk"));
+            $this->setPacConf($c);
+        }
+        return $c['presharedkey'];
+    }
+
+    public function amneziaKeys()
+    {
+        $c = $this->getPacConf();
+        if (empty($c['amnezia_keys'])) {
+            $c['amnezia_keys'] = [
+                'Jc'   => rand(3, 10),
+                'Jmin' => 50,
+                'Jmax' => 1000,
+                'S1'   => rand(15, 150),
+                'S2'   => rand(15, 150),
+                'H1'   => rand(1, 2_147_483_647),
+                'H2'   => rand(1, 2_147_483_647),
+                'H3'   => rand(1, 2_147_483_647),
+                'H4'   => rand(1, 2_147_483_647),
+            ];
+            $this->setPacConf($c);
+        }
+        return $c['amnezia_keys'];
     }
 
     public function createPeer($ips_user = false, $name = false)
@@ -3521,32 +3633,39 @@ DNS-over-HTTPS with IP:
                 break;
             }
         }
-        $public_server_key = trim($this->ssh("echo {$conf['interface']['PrivateKey']} | wg pubkey"));
-        $private_peer_key  = trim($this->ssh("wg genkey"));
-        $public_peer_key   = trim($this->ssh("echo $private_peer_key | wg pubkey"));
+        $public_server_key = trim($this->ssh("echo {$conf['interface']['PrivateKey']} | {$this->getWGType()} pubkey"));
+        $private_peer_key  = trim($this->ssh("{$this->getWGType()} genkey"));
+        $public_peer_key   = trim($this->ssh("echo $private_peer_key | {$this->getWGType()} pubkey"));
 
         $name = ($name ? "$name" : '') . time();
 
-        $conf['peers'][] = [
-            '## name'    => $name,
-            'PublicKey'  => $public_peer_key,
-            'AllowedIPs' => "$client_ip/32",
-        ];
-        $client_conf = [
-            'interface' => [
+        $conf['peers'][] = array_merge([
                 '## name'    => $name,
-                'PrivateKey' => $private_peer_key,
-                'Address'    => "$client_ip/32",
-                'MTU'        => 1350,
+                'PublicKey'  => $public_peer_key,
+                'AllowedIPs' => "$client_ip/32",
             ],
-            'peers' => [
+            $this->getPacConf()['amnezia'] ? ['PresharedKey' => $this->presharedKey()] : []
+        );
+        $client_conf = [
+            'interface' => array_merge(
                 [
-                    'PublicKey'           => $public_server_key,
-                    'Endpoint'            => ($this->getPacConf()['domain'] ?: $this->ip) . ":" . getenv('WGPORT'),
-                    'AllowedIPs'          => $ips_user ?: "0.0.0.0/0",
-                    'PersistentKeepalive' => 20,
-                ]
-            ]
+                    '## name'    => $name,
+                    'PrivateKey' => $private_peer_key,
+                    'Address'    => "$client_ip/32",
+                    'MTU'        => 1350,
+                ],
+                $this->getPacConf()['amnezia'] ? $this->amneziaKeys() : []
+            ),
+            'peers' => [
+                    array_merge(
+                        [
+                            'PublicKey'           => $public_server_key,
+                            'AllowedIPs'          => $ips_user ?: "0.0.0.0/0",
+                            'PersistentKeepalive' => 20,
+                        ],
+                        $this->getPacConf()['amnezia'] ? ['PresharedKey' => $this->presharedKey()] : []
+                    ),
+                ],
         ];
         $k = $this->saveClient($client_conf);
         $this->restartWG($this->createConfig($conf));
@@ -3588,10 +3707,16 @@ DNS-over-HTTPS with IP:
         file_put_contents($this->clients, json_encode($clients, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
+    public function getWGType($revert = 0)
+    {
+        $wg = $this->getPacConf()['amnezia'];
+        return ($revert ? !$wg : $wg) ? 'awg' : 'wg';
+    }
+
     public function restartWG($conf_str)
     {
         $this->ssh("echo '$conf_str' > /etc/wireguard/wg0.conf");
-        $this->ssh("wg syncconf wg0 <(wg-quick strip wg0)");
+        $this->ssh("{$this->getWGType()} syncconf wg0 <({$this->getWGType()}-quick strip wg0)");
         return true;
     }
 
