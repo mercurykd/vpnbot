@@ -205,6 +205,9 @@ class Bot
             case preg_match('~^/adguardpsswd$~', $this->input['callback'], $m):
                 $this->adguardpsswd();
                 break;
+            case preg_match('~^/setAdguardKey$~', $this->input['callback'], $m):
+                $this->setAdguardKey();
+                break;
             case preg_match('~^/addadmin$~', $this->input['callback'], $m):
                 $this->enterAdmin();
                 break;
@@ -1421,7 +1424,9 @@ class Bot
             case 'letsencrypt':
                 $out[] = 'Install certificate:';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                exec("certbot certonly --force-renew --preferred-chain 'ISRG Root X1' -n --agree-tos --email mail@{$conf['domain']} -d {$conf['domain']} -d oc.{$conf['domain']} --webroot -w /certs/ --logs-dir /logs --max-log-backups 0 2>&1", $out, $code);
+                $adguardClient = $this->getPacConf()['adguardkey'];
+                $adguardClient = $adguardClient ? "-d $adguardClient.{$conf['domain']}" : '';
+                exec("certbot certonly --force-renew --preferred-chain 'ISRG Root X1' -n --agree-tos --email mail@{$conf['domain']} -d {$conf['domain']} -d oc.{$conf['domain']} $adguardClient --webroot -w /certs/ --logs-dir /logs --max-log-backups 0 2>&1", $out, $code);
                 if ($code > 0) {
                     $this->send($this->input['chat'], "ERROR\n" . implode("\n", $out));
                     break;
@@ -1613,6 +1618,29 @@ class Bot
             'callback'      => 'chpsswd',
             'args'          => [],
         ];
+    }
+
+    public function setAdguardKey()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter key",
+            $this->input['message_id'],
+            reply: 'enter key',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'setAdKey',
+            'args'          => [],
+        ];
+    }
+
+    public function setAdKey($key)
+    {
+        $c = $this->getPacConf();
+        $c['adguardkey'] = $key;
+        $this->setPacConf($c);
+        $this->menu('adguard');
     }
 
     public function enterAdmin()
@@ -3116,8 +3144,8 @@ DNS-over-HTTPS with IP:
         $scheme = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
         $text = "$scheme://$domain/adguard\nLogin: admin\nPass: <span class='tg-spoiler'>{$conf['adpswd']}</span>\n\n";
         if ($ssl) {
-            $text .= "DNS over HTTPS:\n<code>$ip</code>\n<code>$scheme://$domain/dns-query</code>\n\n";
-            $text .= "DNS over TLS:\n<code>tls://$domain</code>";
+            $text .= "DNS over HTTPS:\n<code>$ip</code>\n<code>$scheme://$domain/dns-query" . ($conf['adguardkey'] ? "/{$conf['adguardkey']}" : '') . "</code>\n\n";
+            $text .= "DNS over TLS:\n<code>tls://" . ($conf['adguardkey'] ? "{$conf['adguardkey']}." : '') . "$domain</code>";
         }
         $data = [
             [
@@ -3135,6 +3163,10 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('add upstream'),
                 'callback_data' => "/addupstream",
+            ],
+            [
+                'text'          => $this->i18n('setSecret') . ($conf['adguardkey'] ? ": {$conf['adguardkey']}" : ''),
+                'callback_data' => "/setAdguardKey",
             ],
         ];
         $upstreams = yaml_parse_file($this->adguard)['dns']['upstream_dns'];
