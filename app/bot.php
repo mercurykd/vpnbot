@@ -3011,9 +3011,7 @@ DNS-over-HTTPS with IP:
     {
         $pac    = $this->getPacConf();
         $text[] = "Menu -> NaiveProxy";
-        $text[] = "<code>https://np.{$pac['domain']}</code>";
-        $text[] = "user: <span class='tg-spoiler'>{$pac['naive']['user']}</span>";
-        $text[] = "password: <span class='tg-spoiler'>{$pac['naive']['pass']}</span>";
+        $text[] = "<code>https://{$pac['naive']['user']}:{$pac['naive']['pass']}@np.{$pac['domain']}</code>";
         $data[] = [
             [
                 'text'          => $this->i18n('change login'),
