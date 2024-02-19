@@ -19,6 +19,8 @@ ss: # консоль сервиса
 	docker compose exec ss /bin/sh
 ng: # консоль сервиса
 	docker compose exec ng /bin/sh
+np: # консоль сервиса
+	docker compose exec np /bin/sh
 up: # консоль сервиса
 	docker compose exec up /bin/sh
 ad: # консоль сервиса

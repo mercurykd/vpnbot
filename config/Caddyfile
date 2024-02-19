@@ -1,0 +1,19 @@
+{
+	order forward_proxy before file_server
+	servers {
+		listener_wrappers {
+			proxy_protocol
+			tls
+		}
+	}
+}
+
+:443 {
+	tls /certs/cert_public /certs/cert_private
+	forward_proxy {
+		basic_auth _ __
+		hide_ip
+		hide_via
+		probe_resistance
+	}
+}

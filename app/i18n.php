@@ -277,6 +277,14 @@ $i = [
         'en' => 'OpenConnect',
         'ru' => 'OpenConnect',
     ],
+    'naive'  => [
+        'en' => 'NaiveProxy',
+        'ru' => 'NaiveProxy',
+    ],
+    'change login'  => [
+        'en' => 'change login',
+        'ru' => 'изменить логин',
+    ],
     'change secret'  => [
         'en' => 'change secret',
         'ru' => 'секретное слово',

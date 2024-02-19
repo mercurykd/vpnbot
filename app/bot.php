@@ -117,7 +117,7 @@ class Bot
             case preg_match('~^/menu (?P<type>addpeer) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>wg) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>client) (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
-            case preg_match('~^/menu (?P<type>pac|adguard|config|ss|lang|oc)$~', $this->input['callback'], $m):
+            case preg_match('~^/menu (?P<type>pac|adguard|config|ss|lang|oc|naive)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>subzoneslist|reverselist|includelist|excludelist) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
                 $this->menu(type: $m['type'] ?? false, arg: $m['arg'] ?? false);
                 break;
@@ -186,6 +186,12 @@ class Bot
                 break;
             case preg_match('~^/changeOcPass$~', $this->input['callback'], $m):
                 $this->changeOcPass();
+                break;
+            case preg_match('~^/changeNaiveUser$~', $this->input['callback'], $m):
+                $this->changeNaiveUser();
+                break;
+            case preg_match('~^/changeNaivePass$~', $this->input['callback'], $m):
+                $this->changeNaivePass();
                 break;
             case preg_match('~^/changeOcDns$~', $this->input['callback'], $m):
                 $this->changeOcDns();
@@ -562,6 +568,38 @@ class Bot
         ];
     }
 
+    public function changeNaiveUser()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter login",
+            $this->input['message_id'],
+            reply: 'enter password',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'chnplogin',
+            'args'           => [],
+        ];
+    }
+
+    public function changeNaivePass()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter pass",
+            $this->input['message_id'],
+            reply: 'enter password',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'chnppass',
+            'args'           => [],
+        ];
+    }
+
     public function addOcUser()
     {
         $r = $this->send(
@@ -585,12 +623,40 @@ class Bot
         $this->ssh('ocserv -c /etc/ocserv/ocserv.conf', 'oc');
     }
 
+    public function restartNaive()
+    {
+        $pac = $this->getPacConf();
+        $this->ssh('pkill caddy', 'np');
+        $c = file_get_contents('/config/Caddyfile');
+        $t = preg_replace('~^(\t+)?basic_auth[^\n]+~sm', '$1basic_auth ' . ($pac['naive']['user'] ?? '_') . ' ' . ($pac['naive']['pass'] ?? '__'), $c);
+        file_put_contents('/config/Caddyfile', $t);
+        $this->ssh('caddy run -c /config/Caddyfile > /dev/null 2>&1 &', 'np', false);
+    }
+
     public function chocdns($dns)
     {
         $c = file_get_contents('/config/ocserv.conf');
         $t = preg_replace('~^dns[^\n]+~sm', "dns = $dns", $c);
         $this->restartOcserv($t);
         $this->menu('oc');
+    }
+
+    public function chnplogin($user)
+    {
+        $pac = $this->getPacConf();
+        $pac['naive']['user'] = $user;
+        $this->setPacConf($pac);
+        $this->restartNaive();
+        $this->menu('naive');
+    }
+
+    public function chnppass($pass)
+    {
+        $pac = $this->getPacConf();
+        $pac['naive']['pass'] = $pass;
+        $this->setPacConf($pac);
+        $this->restartNaive();
+        $this->menu('naive');
     }
 
     public function chockey($pass)
@@ -965,6 +1031,9 @@ class Bot
                     $switch_amnezia = 1;
                 }
                 $this->setPacConf($json['pac']);
+                $out[] = 'update naiveproxy';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->restartNaive();
                 $this->pacUpdate('1');
             }
             // wg
@@ -1019,6 +1088,7 @@ class Bot
             }
             if (!empty($json['pac']['domain'])) {
                 $this->setUpstreamDomainOcserv($json['pac']['domain']);
+                $this->setUpstreamDomainNaive($json['pac']['domain']);
             }
             // nginx
             $out[] = 'reset nginx';
@@ -1344,6 +1414,7 @@ class Bot
                 $this->setPacConf($conf);
                 $this->chocdomain($domain);
                 $this->setUpstreamDomainOcserv($domain);
+                $this->setUpstreamDomainNaive($domain);
             } else {
                 file_put_contents('/config/nginx.conf', $nginx);
             }
@@ -1426,7 +1497,7 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $adguardClient = $this->getPacConf()['adguardkey'];
                 $adguardClient = $adguardClient ? "-d $adguardClient.{$conf['domain']}" : '';
-                exec("certbot certonly --force-renew --preferred-chain 'ISRG Root X1' -n --agree-tos --email mail@{$conf['domain']} -d {$conf['domain']} -d oc.{$conf['domain']} $adguardClient --webroot -w /certs/ --logs-dir /logs --max-log-backups 0 2>&1", $out, $code);
+                exec("certbot certonly --force-renew --preferred-chain 'ISRG Root X1' -n --agree-tos --email mail@{$conf['domain']} -d {$conf['domain']} -d oc.{$conf['domain']} -d np.{$conf['domain']} $adguardClient --webroot -w /certs/ --logs-dir /logs --max-log-backups 0 2>&1", $out, $code);
                 if ($code > 0) {
                     $this->send($this->input['chat'], "ERROR\n" . implode("\n", $out));
                     break;
@@ -1461,6 +1532,9 @@ class Bot
                 $out[] = 'Restart ocserv';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->restartOcserv(file_get_contents('/config/ocserv.conf'));
+                $out[] = 'Restart NaiveProxy';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->restartNaive();
                 $out[] = 'Restart Adguard Home';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $out[] = $this->stopAd();
@@ -2864,8 +2938,14 @@ DNS-over-HTTPS with IP:
                     ],
                     [
                         [
+                            'text'          => $this->i18n('naive'),
+                            'callback_data' => "/menu naive",
+                        ],
+                    ],
+                    [
+                        [
                             'text' => $this->i18n('chat'),
-                            'url'  => "https://t.me/vpnbot_group",
+                            'url'  => "https://t.me/+bUuWfsKzaMZhNjQy",
                         ],
                         [
                             'text' => $this->i18n('donate'),
@@ -2887,6 +2967,7 @@ DNS-over-HTTPS with IP:
             'ss'           => $type == 'ss'           ? $this->menuSS() : false,
             'lang'         => $type == 'lang'         ? $this->menuLang() : false,
             'oc'           => $type == 'oc'           ? $this->ocMenu() : false,
+            'naive'        => $type == 'naive'        ? $this->naiveMenu() : false,
         ];
 
         $text = $menu[$type ?: 'main' ]['text'];
@@ -2924,6 +3005,34 @@ DNS-over-HTTPS with IP:
         $pac    = $this->getPacConf();
         $domain = $pac['domain'] ?: $this->ip;
         return "vless://{$c['inbounds'][0]['settings']['clients'][0]['id']}@$domain:443?security=reality&sni={$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}&fp=chrome&pbk={$pac['xray']}&sid={$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}&type=tcp&flow=xtls-rprx-vision#vpnbot";
+    }
+
+    public function naiveMenu()
+    {
+        $pac    = $this->getPacConf();
+        $text[] = "Menu -> NaiveProxy";
+        $text[] = "user: <span class='tg-spoiler'>{$pac['naive']['user']}</span>";
+        $text[] = "password: <span class='tg-spoiler'>{$pac['naive']['pass']}</span>";
+        $data[] = [
+            [
+                'text'          => $this->i18n('change login'),
+                'callback_data' => "/changeNaiveUser",
+            ],
+            [
+                'text'          => $this->i18n('change password'),
+                'callback_data' => "/changeNaivePass",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu",
+            ],
+        ];
+        return [
+            'text' => implode("\n", $text),
+            'data' => $data,
+        ];
     }
 
     public function ocMenu()
@@ -3091,6 +3200,13 @@ DNS-over-HTTPS with IP:
     {
         $nginx = file_get_contents('/config/upstream.conf');
         $t = preg_replace('~#ocserv.+#ocserv~s', $domain ? "#ocserv\noc.$domain ocserv;\n#ocserv" : "#ocserv\n#oc.\$domain ocserv;\n#ocserv", $nginx);
+        file_put_contents('/config/upstream.conf', $t);
+        $this->ssh("nginx -s reload 2>&1", 'up');
+    }
+    public function setUpstreamDomainNaive($domain)
+    {
+        $nginx = file_get_contents('/config/upstream.conf');
+        $t = preg_replace('~#naive.+#naive~s', $domain ? "#naive\nnp.$domain naive;\n#naive" : "#naive\n#np.\$domain naive;\n#naive", $nginx);
         file_put_contents('/config/upstream.conf', $t);
         $this->ssh("nginx -s reload 2>&1", 'up');
     }

@@ -314,3 +314,30 @@ services:
             default:
                 ipv4_address: 10.10.0.11
         logging: *default-logging
+    np:
+        build:
+            dockerfile: dockerfile/naive.dockerfile
+            args:
+                image: ${IMAGE}
+        volumes:
+            - ./config/.profile:/root/.ashrc:ro
+            - ./ssh:/ssh
+            - ./config/sshd_config:/etc/ssh/sshd_config
+            - ./config:/config
+            - ./certs:/certs
+            - ./scripts/start_np.sh:/start_np.sh
+        hostname: naive
+        depends_on:
+            php:
+                condition: service_healthy
+        environment:
+            TZ: ${TZ}
+            ENV: /root/.ashrc
+        stop_grace_period: 1s
+        command: ["/bin/sh", "/start_np.sh"]
+        cap_add:
+            - NET_ADMIN
+        networks:
+            default:
+                ipv4_address: 10.10.0.12
+        logging: *default-logging
