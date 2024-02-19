@@ -1,3 +1,8 @@
+19.02.2024 добавлен NaiveProxy
+- сделать бэкап
+- <code>git reset --hard && git pull && make r</code>
+- восстановить бэкап
+- обновить сертификат
 08.02.2024 добавлена amnezia + мелкие правки
 <code>git pull</code>
 <code>make r</code>
