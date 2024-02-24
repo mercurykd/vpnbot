@@ -1,6 +1,6 @@
 telegram bot to manage servers (inside the bot)
 
-<img src="https://github.com/mercurykd/vpnbot/assets/30900414/85296f50-7286-4210-847f-8a2aca7cbed7" width="200">
+<img src="https://github.com/mercurykd/vpnbot/assets/30900414/d5a81237-5215-41db-87e5-20734120cc9c" width="200">
 
 ### XTLS-Reality
 - change secret
@@ -8,7 +8,19 @@ telegram bot to manage servers (inside the bot)
 - change fake domain
 <img src="https://github.com/mercurykd/vpnbot/assets/30900414/39bdf4e0-96a6-4257-b61e-30a14122e236" width="200">
 
-### Wireguard
+### NaiveProxy
+- change login
+- change password
+<img src="https://github.com/mercurykd/vpnbot/assets/30900414/2127a4af-0436-452c-bfe2-c750dd5dbc06" width="200">
+
+### OpenConnect
+- change secret
+- change password
+- change dns
+- add user
+<img src="https://github.com/mercurykd/vpnbot/assets/30900414/a4ffc04f-965a-439b-862b-210b98e1f87d" width="200">
+
+### Wireguard / Amnezia
 - create
 - delete
 - rename
