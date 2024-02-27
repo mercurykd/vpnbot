@@ -1,3 +1,5 @@
+27.02.2024 оптимизация размеров образов, сборка naive из исходников
+- <code>git pull && make r</code>
 19.02.2024 добавлен NaiveProxy
 - сделать бэкап
 - <code>git reset --hard && git pull && make r</code>

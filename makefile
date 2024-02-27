@@ -6,7 +6,7 @@ d: # остановка контейнеров
 	docker compose down
 dv: # остановка контейнеров
 	docker compose down -v
-r: d u
+r: cleanf d u cleanf
 ps: # список контейнеров
 	docker compose ps
 l: # логи из контейнеров
@@ -36,6 +36,9 @@ oc: # консоль сервиса
 clean:
 	docker image prune
 	docker builder prune
+cleanf:
+	docker image prune -f > /dev/null
+	docker builder prune -f > /dev/null
 cleanall:
 	docker image prune -a
 	docker builder prune -a

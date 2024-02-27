@@ -1,8 +1,7 @@
 ARG image
 FROM $image
-RUN apk add --update \
-    openssh \
-    iptables \
+RUN apk add --update openssh iptables \
+    && apk add --no-cache --virtual .build-deps \
     curl \
     g++ \
     gnutls-dev \
@@ -28,4 +27,5 @@ RUN apk add --update \
     && ./configure \
     && make \
     && make install \
+    && apk del .build-deps \
     && mkdir /root/.ssh

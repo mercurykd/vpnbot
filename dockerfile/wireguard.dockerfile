@@ -1,11 +1,14 @@
 ARG image
 FROM $image
-RUN apk add iproute2 linux-headers iptables xtables-addons openssh wireguard-tools jq alpine-sdk git go bash htop \
+RUN apk add --no-cache --virtual .build-deps alpine-sdk git go \
+    && apk add iproute2 linux-headers iptables xtables-addons openssh wireguard-tools jq bash htop \
+    && git clone https://github.com/amnezia-vpn/amneziawg-go \
+    && git clone https://github.com/amnezia-vpn/amneziawg-tools.git \
+    && cd /amneziawg-go \
+    && make install \
+    && cd /amneziawg-tools/src \
+    && make install WITH_WGQUICK=yes \
+    && apk del .build-deps \
+    && rm -rf /amneziawg-go \
+    && rm -rf /amneziawg-tools \
     && mkdir /root/.ssh
-RUN git clone https://github.com/amnezia-vpn/amneziawg-go \
-    && git clone https://github.com/amnezia-vpn/amneziawg-tools.git
-RUN cd amneziawg-go \
-    && make install
-RUN cd amneziawg-tools/src \
-    && make install WITH_WGQUICK=yes
-ENV ENV="/root/.ashrc"
