@@ -32,6 +32,7 @@ services:
         ports:
             - 443:443
         hostname: upstream
+        container_name: upstream-${VER}
         depends_on:
             php:
                 condition: service_healthy
@@ -66,6 +67,7 @@ services:
         ports:
             - 80:80
         hostname: nginx
+        container_name: nginx-${VER}
         depends_on:
             up:
                 condition: service_started
@@ -94,6 +96,8 @@ services:
             - ./scripts/start_php.sh:/start_php.sh
             - ./scripts/check_file.sh:/check_file.sh
             - ./version:/version
+            - ./mirror:/mirror
+            - ./.env:/mirror/.env
         environment:
             TZ: ${TZ}
             IP: ${IP}
@@ -102,6 +106,7 @@ services:
             SSPORT: ${SSPORT}
             TGPORT: ${TGPORT}
         hostname: php
+        container_name: php-${VER}
         restart: unless-stopped
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_php.sh"]
@@ -129,6 +134,7 @@ services:
             - ./config/sshd_config:/etc/ssh/sshd_config
             - ./scripts/start_proxy.sh:/start_proxy.sh
         hostname: proxy
+        container_name: proxy-${VER}
         depends_on:
             php:
                 condition: service_healthy
@@ -159,6 +165,7 @@ services:
             - ./ssh:/ssh
             - ./config/sshd_config:/etc/ssh/sshd_config
         hostname: wireguard
+        container_name: wireguard-${VER}
         depends_on:
             php:
                 condition: service_healthy
@@ -197,6 +204,7 @@ services:
             - ./logs/:/logs/
             - ./scripts/start_ad.sh:/start_ad.sh
         hostname: adguard
+        container_name: adguard-${VER}
         depends_on:
             php:
                 condition: service_healthy
@@ -222,6 +230,7 @@ services:
             - ./config/sshd_config:/etc/ssh/sshd_config
             - ./scripts/start_ss.sh:/start_ss.sh
         hostname: shadowsocks
+        container_name: shadowsocks-${VER}
         depends_on:
             php:
                 condition: service_healthy
@@ -247,6 +256,7 @@ services:
             - ./scripts/start_tg.sh:/start_tg.sh
             - ./config/mtprotosecret:/mtprotosecret
         hostname: telegram
+        container_name: mtproto-${VER}
         depends_on:
             php:
                 condition: service_healthy
@@ -274,6 +284,7 @@ services:
             - ./config/xray.json:/xray.json
             - ./scripts/start_xray.sh:/start_xray.sh
         hostname: xray
+        container_name: xray-${VER}
         depends_on:
             php:
                 condition: service_healthy
@@ -298,6 +309,7 @@ services:
             - ./certs:/certs
             - ./scripts/start_oc.sh:/start_oc.sh
         hostname: ocserv
+        container_name: openconnect-${VER}
         depends_on:
             php:
                 condition: service_healthy
@@ -327,6 +339,7 @@ services:
             - ./certs:/certs
             - ./scripts/start_np.sh:/start_np.sh
         hostname: naive
+        container_name: naive-${VER}
         depends_on:
             php:
                 condition: service_healthy

@@ -117,7 +117,7 @@ class Bot
             case preg_match('~^/menu (?P<type>addpeer) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>wg) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>client) (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
-            case preg_match('~^/menu (?P<type>pac|adguard|config|ss|lang|oc|naive)$~', $this->input['callback'], $m):
+            case preg_match('~^/menu (?P<type>pac|adguard|config|ss|lang|oc|naive|mirror)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>subzoneslist|reverselist|includelist|excludelist) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
                 $this->menu(type: $m['type'] ?? false, arg: $m['arg'] ?? false);
                 break;
@@ -126,6 +126,9 @@ class Bot
                 break;
             case preg_match('~^/mtproto$~', $this->input['callback'], $m):
                 $this->mtproto();
+                break;
+            case preg_match('~^/getMirror$~', $this->input['callback'], $m):
+                $this->getMirror();
                 break;
             case preg_match('~^/logs$~', $this->input['callback'], $m):
                 $this->logs();
@@ -2938,6 +2941,12 @@ DNS-over-HTTPS with IP:
                     ],
                     [
                         [
+                            'text'          => $this->i18n('mirror'),
+                            'callback_data' => "/menu mirror",
+                        ],
+                    ],
+                    [
+                        [
                             'text'          => $this->i18n('config'),
                             'callback_data' => "/menu config",
                         ],
@@ -2968,6 +2977,7 @@ DNS-over-HTTPS with IP:
             'lang'         => $type == 'lang'         ? $this->menuLang() : false,
             'oc'           => $type == 'oc'           ? $this->ocMenu() : false,
             'naive'        => $type == 'naive'        ? $this->naiveMenu() : false,
+            'mirror'       => $type == 'mirror'        ? $this->mirrorMenu() : false,
         ];
 
         $text = $menu[$type ?: 'main' ]['text'];
@@ -3032,6 +3042,72 @@ DNS-over-HTTPS with IP:
             'text' => implode("\n", $text),
             'data' => $data,
         ];
+    }
+
+    public function mirrorMenu()
+    {
+        $ip     = $this->getPacConf()['domain'] ?: $this->ip;
+        $hash   = substr(md5($this->key), 0, 8);
+        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
+        $text[] = "Menu -> Mirror";
+        $text[] = <<<PNG
+                    <pre>client -> intermediate VPS -> vpnbot
+                                         ^           |
+                                         |  install  |
+                                         |  mirror   |
+                                          -----------
+                    </pre>
+                    PNG;
+        $text[] = "<code>$scheme://$ip/pac?h=$hash&t=mirror</code>";
+        $data[] = [
+            [
+                'text'          => $this->i18n('download'),
+                'callback_data' => "/getMirror",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu",
+            ],
+        ];
+        return [
+            'text' => implode("\n", $text),
+            'data' => $data,
+        ];
+    }
+
+    public function getMirror()
+    {
+        unlink('/config/mirror.tar.gz');
+        unlink('/config/mirror.tar');
+        $s = file_get_contents('/mirror/start_socat.sh');
+        $t = preg_replace([
+            '~{ip}~',
+            '~{tg}~',
+            '~{ss}~',
+            '~{wg}~',
+        ], [
+            getenv('IP'),
+            getenv('TGPORT'),
+            getenv('SSPORT'),
+            getenv('WGPORT'),
+        ], $s);
+        file_put_contents('/mirror/start_socat.sh', $t);
+        $a = new PharData('/config/mirror.tar');
+        $a->buildFromDirectory('/mirror');
+        $a->compress(Phar::GZ);
+        if (!empty($this->input)) {
+            $this->sendFile($this->input['from'], curl_file_create('/config/mirror.tar.gz'));
+        } else {
+            header('Content-Disposition: attachment; filename=mirror.tar.gz');
+            header('Content-Type: application/tar+gzip');
+            echo file_get_contents('/config/mirror.tar.gz');
+            exit;
+        }
+        unlink('/config/mirror.tar.gz');
+        unlink('/config/mirror.tar');
+        file_put_contents('/mirror/start_socat.sh', $s);
     }
 
     public function ocMenu()

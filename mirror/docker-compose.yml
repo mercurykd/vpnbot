@@ -1,0 +1,18 @@
+version: "3"
+
+services:
+  socat:
+    build:
+        dockerfile: ./dockerfile
+    ports:
+      - 80:80
+      - 443:443
+      - 853:853
+      - ${TGPORT}:${TGPORT}
+      - ${SSPORT}:${SSPORT}
+      - ${SSPORT}:${SSPORT}/udp
+      - ${WGPORT}:${WGPORT}/udp
+    volumes:
+      - ./start_socat.sh:/start_socat.sh
+    command: /bin/sh /start_socat.sh
+    stop_grace_period: 1s

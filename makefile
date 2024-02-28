@@ -1,7 +1,7 @@
 b:
 	docker compose build
 u: # запуск контейнеров
-	IP=$(shell ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$$|\1|p' | awk '{print $1}' | head -1) docker compose up -d --build --force-recreate
+	IP=$(shell ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$$|\1|p' | awk '{print $1}' | head -1) VER=$(shell git describe --tags) docker compose up -d --build --force-recreate
 d: # остановка контейнеров
 	docker compose down
 dv: # остановка контейнеров
