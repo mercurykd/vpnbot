@@ -17,6 +17,7 @@ volumes:
 
 services:
     up:
+        image: mercurykd/vpnbot-up:1.1
         build:
             context: dockerfile
             dockerfile: nginx.dockerfile
@@ -49,6 +50,7 @@ services:
                 ipv4_address: 10.10.0.10
         logging: *default-logging
     ng:
+        image: mercurykd/vpnbot-ng:1.1
         build:
             context: dockerfile
             dockerfile: nginx.dockerfile
@@ -81,6 +83,7 @@ services:
                 ipv4_address: 10.10.0.2
         logging: *default-logging
     php:
+        image: mercurykd/vpnbot-php:1.1
         build:
             dockerfile: dockerfile/php.dockerfile
             args:
@@ -123,6 +126,7 @@ services:
             timeout: 5s
             retries: 5
     proxy:
+        image: mercurykd/vpnbot-ss:1.1
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
             args:
@@ -148,6 +152,7 @@ services:
         command: ["/bin/sh", "/start_proxy.sh"]
         logging: *default-logging
     wg:
+        image: mercurykd/vpnbot-wg:1.1
         build:
             dockerfile: dockerfile/wireguard.dockerfile
             args:
@@ -186,6 +191,7 @@ services:
                 ipv4_address: 10.10.0.4
         logging: *default-logging
     ad:
+        image: mercurykd/vpnbot-ad:1.1
         build:
             dockerfile: dockerfile/adguard.dockerfile
             args:
@@ -219,6 +225,7 @@ services:
         entrypoint: ["/bin/sh", "/start_ad.sh"]
         logging: *default-logging
     ss:
+        image: mercurykd/vpnbot-ss:1.1
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
             args:
@@ -247,6 +254,7 @@ services:
                 ipv4_address: 10.10.0.6
         logging: *default-logging
     tg:
+        image: mercurykd/vpnbot-tg:1.1
         build:
             dockerfile: dockerfile/telegram.dockerfile
         volumes:
@@ -273,6 +281,7 @@ services:
                 ipv4_address: 10.10.0.8
         logging: *default-logging
     xr:
+        image: mercurykd/vpnbot-xr:1.1
         build:
             dockerfile: dockerfile/xray.dockerfile
             args:
@@ -297,6 +306,7 @@ services:
                 ipv4_address: 10.10.0.9
         logging: *default-logging
     oc:
+        image: mercurykd/vpnbot-oc:1.1
         build:
             dockerfile: dockerfile/ocserv.dockerfile
             args:
@@ -327,6 +337,7 @@ services:
                 ipv4_address: 10.10.0.11
         logging: *default-logging
     np:
+        image: mercurykd/vpnbot-np:1.1
         build:
             dockerfile: dockerfile/naive.dockerfile
             args:

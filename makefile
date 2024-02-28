@@ -1,7 +1,7 @@
 b:
 	docker compose build
 u: # запуск контейнеров
-	IP=$(shell ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$$|\1|p' | awk '{print $1}' | head -1) VER=$(shell git describe --tags) docker compose up -d --build --force-recreate
+	IP=$(shell ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$$|\1|p' | awk '{print $1}' | head -1) VER=$(shell git describe --tags) docker compose up -d --force-recreate
 d: # остановка контейнеров
 	docker compose down
 dv: # остановка контейнеров
@@ -40,8 +40,8 @@ cleanf:
 	docker image prune -f > /dev/null
 	docker builder prune -f > /dev/null
 cleanall:
-	docker image prune -a
-	docker builder prune -a
+	docker image prune -a -f
+	docker builder prune -a -f
 p:
 	git stash
 	git pull
@@ -49,3 +49,5 @@ p:
 update: p r
 cn:
 	docker compose exec ng nginx -t
+push:
+	docker compose push
