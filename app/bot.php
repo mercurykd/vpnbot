@@ -1099,7 +1099,7 @@ class Bot
 
             $t = file_get_contents('/config/nginx_default.conf');
             if (!empty($json['pac']['domain'])) {
-                $t = preg_replace('/server_name([^\n]+)?/', "server_name {$json['pac']['domain']};", $t);
+                $t = preg_replace('/server_name ([^\n]+)?/', "server_name {$json['pac']['domain']};", $t);
                 preg_match_all('~#-domain.+?#-domain~s', $t, $m);
                 foreach ($m[0] as $k => $v) {
                     $t = preg_replace('~#-domain.+?#-domain~s', $this->uncomment($v, 'domain'), $t, 1);
