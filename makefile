@@ -15,6 +15,8 @@ php: # консоль сервиса
 	docker compose exec php /bin/sh
 wg: # консоль сервиса
 	docker compose exec wg /bin/sh
+wg1: # консоль сервиса
+	docker compose exec wg1 /bin/sh
 ss: # консоль сервиса
 	docker compose exec ss /bin/sh
 ng: # консоль сервиса
@@ -55,3 +57,6 @@ push:
 	docker compose push
 s:
 	git status -su
+c:
+	git add config/
+	git checkout .

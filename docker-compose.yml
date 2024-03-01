@@ -106,6 +106,8 @@ services:
             IP: ${IP}
             ADDRESS: ${WGADDRESS}
             WGPORT: ${WGPORT}
+            WG1ADDRESS: ${WG1ADDRESS}
+            WG1PORT: ${WG1PORT}
             SSPORT: ${SSPORT}
             TGPORT: ${TGPORT}
         hostname: php
@@ -188,6 +190,44 @@ services:
         networks:
             default:
                 ipv4_address: 10.10.0.4
+        logging: *default-logging
+    wg1:
+        image: mercurykd/vpnbot-wg:1.1
+        build:
+            dockerfile: dockerfile/wireguard.dockerfile
+            args:
+                image: ${IMAGE}
+        volumes:
+            - ./config/.profile:/root/.ashrc:ro
+            - ./config/wg1.conf:/etc/wireguard/wg0.conf
+            - ./config/pac.json:/pac.json
+            - ./scripts/start_wg.sh:/start_wg.sh
+            - ./scripts/reset_wg.sh:/reset_wg.sh
+            - ./scripts/block_torrent.sh:/block_torrent.sh
+            - ./scripts/block_exchange.sh:/block_exchange.sh
+            - ./ssh:/ssh
+            - ./config/sshd_config:/etc/ssh/sshd_config
+        hostname: wireguard1
+        container_name: wireguard1-${VER}
+        depends_on:
+            php:
+                condition: service_healthy
+        ports:
+            - ${WG1PORT}:${WG1PORT}/udp
+        environment:
+            TZ: ${TZ}
+            WGPORT: ${WG1PORT}
+            ADDRESS: ${WG1ADDRESS}
+            ENV: /root/.ashrc
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun:/dev/net/tun
+        stop_grace_period: 1s
+        command: ["/bin/sh", "/start_wg.sh"]
+        networks:
+            default:
+                ipv4_address: 10.10.0.14
         logging: *default-logging
     ad:
         image: mercurykd/vpnbot-ad:1.1
