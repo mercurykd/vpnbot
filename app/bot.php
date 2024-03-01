@@ -1045,6 +1045,7 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->saveClients($json['wg']['clients']);
                 $this->restartWG($this->createConfig($json['wg']['server']), $switch_amnezia);
+                $this->iptablesWG();
             }
             // ad
             if (!empty($json['ad'])) {
@@ -1235,29 +1236,33 @@ class Bot
         $this->menu('wg', $page);
     }
 
-    public function switchTorrent($page)
+    public function switchTorrent($page = 0, $restart = false)
     {
         $c = $this->getPacConf();
         $c['blocktorrent'] = $c['blocktorrent'] ? 0 : 1;
         $this->setPacConf($c);
-        if ($c['blocktorrent']) {
-            $this->ssh('bash /block_torrent.sh');
-        } else {
-            $this->ssh('bash /unblock_torrent.sh');
-        }
+        $this->iptablesWG();
         $this->answer($this->input['callback_id'], 'доступ к торрентам ' . ($c['blocktorrent'] ? 'заблокирован' : 'разблокирован'), true);
         $this->menu('wg', $page);
+    }
+
+    public function iptablesWG()
+    {
+        $c = $this->getPacConf();
+        $this->ssh('iptables -F');
+        if ($c['exchange']) {
+            $this->ssh('bash /block_exchange.sh');
+        }
+        if ($c['blocktorrent']) {
+            $this->ssh('bash /block_torrent.sh');
+        }
     }
     public function switchExchange($page)
     {
         $c = $this->getPacConf();
         $c['exchange'] = $c['exchange'] ? 0 : 1;
         $this->setPacConf($c);
-        if ($c['exchange']) {
-            $this->ssh('bash /block_exchange.sh');
-        } else {
-            $this->ssh('bash /unblock_exchange.sh');
-        }
+        $this->iptablesWG();
         $this->answer($this->input['callback_id'], 'обмен между пользователями ' . ($c['exchange'] ? 'заблокирован' : 'разблокирован'), true);
         $this->menu('wg', $page);
     }

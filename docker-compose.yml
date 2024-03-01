@@ -164,9 +164,7 @@ services:
             - ./scripts/start_wg.sh:/start_wg.sh
             - ./scripts/reset_wg.sh:/reset_wg.sh
             - ./scripts/block_torrent.sh:/block_torrent.sh
-            - ./scripts/unblock_torrent.sh:/unblock_torrent.sh
             - ./scripts/block_exchange.sh:/block_exchange.sh
-            - ./scripts/unblock_exchange.sh:/unblock_exchange.sh
             - ./ssh:/ssh
             - ./config/sshd_config:/etc/ssh/sshd_config
         hostname: wireguard
@@ -180,6 +178,7 @@ services:
             TZ: ${TZ}
             WGPORT: ${WGPORT}
             ADDRESS: ${WGADDRESS}
+            ENV: /root/.ashrc
         cap_add:
             - NET_ADMIN
         devices:

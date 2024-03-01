@@ -6,7 +6,7 @@ d: # остановка контейнеров
 	docker compose down
 dv: # остановка контейнеров
 	docker compose down -v
-r: cleanf d u cleanf
+r: d cleanf u cleanf
 ps: # список контейнеров
 	docker compose ps
 l: # логи из контейнеров
@@ -25,12 +25,14 @@ up: # консоль сервиса
 	docker compose exec up /bin/sh
 ad: # консоль сервиса
 	docker compose exec ad /bin/sh
+wp: # консоль сервиса
+	docker compose exec wp bash
 proxy: # консоль сервиса
 	docker compose exec proxy /bin/sh
 tg: # консоль сервиса
 	docker compose exec tg /bin/sh
 xr: # консоль сервиса
-	docker compose exec xr /bin/shec tg /bin/sh
+	docker compose exec xr /bin/sh
 oc: # консоль сервиса
 	docker compose exec oc /bin/sh
 clean:
@@ -51,3 +53,5 @@ cn:
 	docker compose exec ng nginx -t
 push:
 	docker compose push
+s:
+	git status -su
