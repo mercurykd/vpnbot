@@ -3,7 +3,7 @@ b:
 u: # запуск контейнеров
 	IP=$(shell ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$$|\1|p' | awk '{print $1}' | head -1) VER=$(shell git describe --tags) docker compose up -d --force-recreate
 d: # остановка контейнеров
-	docker compose down
+	docker compose down --remove-orphans
 dv: # остановка контейнеров
 	docker compose down -v
 r: d cleanf u cleanf
