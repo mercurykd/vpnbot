@@ -4065,10 +4065,15 @@ DNS-over-HTTPS with IP:
             die('нет айпи');
         }
         echo "$ip\n";
-        var_dump($this->request('setWebhook', [
+        var_dump($r = $this->request('setWebhook', [
             'url'         => "https://$ip/tlgrm?k={$this->key}",
             'certificate' => curl_file_create('/certs/self_public'),
         ]));
+        if (!empty($r['result']) && $r['result'] == true) {
+            file_put_contents('/start', 1);
+        } else {
+            die('set webhook fail');
+        }
     }
 
     public function setcommands()
