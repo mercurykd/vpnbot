@@ -101,6 +101,7 @@ services:
             - ./version:/version
             - ./mirror:/mirror
             - ./.env:/mirror/.env
+            - ./update:/update
         environment:
             TZ: ${TZ}
             IP: ${IP}
@@ -110,6 +111,7 @@ services:
             WG1PORT: ${WG1PORT}
             SSPORT: ${SSPORT}
             TGPORT: ${TGPORT}
+            VER: ${VER}
         hostname: php
         container_name: php-${VER}
         restart: unless-stopped
@@ -127,6 +129,55 @@ services:
             interval: 5s
             timeout: 5s
             retries: 5
+    service:
+        image: mercurykd/vpnbot-php:1.1
+        build:
+            dockerfile: dockerfile/php.dockerfile
+            args:
+                image: ${IMAGE}
+        volumes:
+            - ./config/.profile:/root/.ashrc:ro
+            - ./config/php.ini:/etc/php81/php.ini
+            - ./config/:/config/
+            - ./certs/:/certs/
+            - ./ssh:/ssh
+            - ./app:/app
+            - ./logs/:/logs/
+            - ./update:/update
+            - ./scripts/start_service.sh:/start_service.sh
+        environment:
+            TZ: ${TZ}
+            IP: ${IP}
+            ADDRESS: ${WGADDRESS}
+            WGPORT: ${WGPORT}
+            WG1ADDRESS: ${WG1ADDRESS}
+            WG1PORT: ${WG1PORT}
+            SSPORT: ${SSPORT}
+            TGPORT: ${TGPORT}
+            VER: ${VER}
+        hostname: service
+        container_name: service-${VER}
+        # restart: unless-stopped
+        stop_grace_period: 1s
+        command: ["/bin/sh", "/start_service.sh"]
+        working_dir: /app
+        networks:
+            default:
+                ipv4_address: 10.10.0.15
+        logging: *default-logging
+        depends_on:
+            - up
+            - ng
+            - php
+            - proxy
+            - wg
+            - wg1
+            - ad
+            - ss
+            - tg
+            - xr
+            - oc
+            - np
     proxy:
         image: mercurykd/vpnbot-ss:1.1
         build:

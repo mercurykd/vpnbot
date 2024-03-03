@@ -11,9 +11,3 @@ $bot = new Bot($c['key'], $i);
 $bot->setwebhook();
 $bot->setcommands();
 $bot->syncPortClients();
-if (!empty($c['admin'])) {
-    $ip = getenv('IP');
-    foreach ($c['admin'] as $k => $v) {
-        $bot->send($v, "start $ip");
-    }
-}

@@ -4,6 +4,7 @@ class Bot
 {
     public $input;
     public $adguard;
+    public $update;
 
     public function __construct($key, $i18n)
     {
@@ -19,6 +20,7 @@ class Bot
         $this->dns      = '1.1.1.1, 8.8.8.8';
         $this->limit    = $this->getPacConf()['limitpage'] ?: 5;
         $this->adguard  = '/config/AdGuardHome.yaml';
+        $this->update   = '/update/json';
     }
 
     public function input()
@@ -130,6 +132,9 @@ class Bot
                 break;
             case preg_match('~^/mtproto$~', $this->input['callback'], $m):
                 $this->mtproto();
+                break;
+            case preg_match('~^/updatebot$~', $this->input['callback'], $m):
+                $this->updatebot();
                 break;
             case preg_match('~^/getMirror$~', $this->input['callback'], $m):
                 $this->getMirror();
@@ -1005,10 +1010,14 @@ class Bot
         return json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
-    public function exportManual()
+    public function exportManual($file = false)
     {
+        $json = $this->export();
+        if (!empty($file)) {
+            file_put_contents($file, $json);
+        }
         $bot = $this->request('getMyName', [])['result']['name'];
-        return $this->upload("{$bot}_export_" . date('d_m_Y_H_i') . '.json', $this->export());
+        return $this->upload("{$bot}_export_" . date('d_m_Y_H_i') . '.json', $json);
     }
 
     public function import()
@@ -1027,10 +1036,14 @@ class Bot
         ];
     }
 
-    public function importFile()
+    public function importFile($file = false)
     {
-        $r    = $this->request('getFile', ['file_id' => $this->input['file_id']]);
-        $json = json_decode(file_get_contents($this->file . $r['result']['file_path']), true);
+        if (!empty($file)) {
+            $json = json_decode(file_get_contents($file), true);
+        } else {
+            $r    = $this->request('getFile', ['file_id' => $this->input['file_id']]);
+            $json = json_decode(file_get_contents($this->file . $r['result']['file_path']), true);
+        }
         if (empty($json) || !is_array($json)) {
             $this->answer($this->input['callback_id'], 'error', true);
         } else {
@@ -1145,8 +1158,12 @@ class Bot
 
             $out[] = "end import";
             $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+            $this->language = $this->getPacConf()['language'] ?: 'en';
+            $this->limit    = $this->getPacConf()['limitpage'] ?: 5;
             sleep(3);
-            $this->menu();
+            if (empty($file)) {
+                $this->menu();
+            }
         }
     }
 
@@ -2942,7 +2959,7 @@ DNS-over-HTTPS with IP:
     {
         $menu = [
             'main' => [
-                'text' => $this->i18n('menu'),
+                'text' => 'v' . getenv('VER'),
                 'data' => [
                     [
                         [
@@ -3026,7 +3043,7 @@ DNS-over-HTTPS with IP:
             'lang'         => $type == 'lang'         ? $this->menuLang() : false,
             'oc'           => $type == 'oc'           ? $this->ocMenu() : false,
             'naive'        => $type == 'naive'        ? $this->naiveMenu() : false,
-            'mirror'       => $type == 'mirror'        ? $this->mirrorMenu() : false,
+            'mirror'       => $type == 'mirror'       ? $this->mirrorMenu() : false,
         ];
 
         $text = $menu[$type ?: 'main' ]['text'];
@@ -3478,6 +3495,15 @@ DNS-over-HTTPS with IP:
         return openssl_x509_parse($c)["validTo_time_t"] ?: false;
     }
 
+    public function updatebot()
+    {
+        $this->exportManual($this->update);
+        $r = $this->send($this->input['from'], 'update...');
+        file_put_contents('/update/reload_message', "{$this->input['from']}:{$r['result']['message_id']}");
+        file_put_contents('/update/pipe', '1');
+        $this->delete($this->input['from'], $this->input['message_id']);
+    }
+
     public function configMenu()
     {
         $conf = $this->getPacConf();
@@ -3586,6 +3612,12 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('debug') . ': ' . $this->i18n($c['debug'] ? 'on' : 'off'),
                 'callback_data' => "/debug",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('update bot'),
+                'callback_data' => "/updatebot",
             ],
         ];
         $data[] = [
@@ -4072,7 +4104,7 @@ DNS-over-HTTPS with IP:
         if (!empty($r['result']) && $r['result'] == true) {
             file_put_contents('/start', 1);
         } else {
-            die('set webhook fail');
+            die("set webhook fail\n");
         }
     }
 
