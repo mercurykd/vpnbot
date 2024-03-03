@@ -55,3 +55,4 @@ s:
 c:
 	git add config/
 	git checkout .
+	git reset
