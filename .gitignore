@@ -16,4 +16,5 @@
 .vscode/
 .idea/
 mirror/.env
-update/
+update/*
+!update/update.sh
