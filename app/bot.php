@@ -3829,7 +3829,6 @@ DNS-over-HTTPS with IP:
 
     public function readStatus()
     {
-        // $this->sd([$this->getWGType(), $this->getInstanceWG()]);
         $r = $this->ssh($this->getWGType(), $this->getInstanceWG());
         $r = explode(PHP_EOL, $r);
         $r = array_filter($r);
@@ -4016,6 +4015,7 @@ DNS-over-HTTPS with IP:
             }
             $this->saveClients($clients);
         }
+        unset($this->wg);
     }
 
     public function saveClients(array $clients)
