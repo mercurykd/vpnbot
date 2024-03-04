@@ -11,7 +11,7 @@ do
         docker compose down --remove-orphans
         git reset --hard
         git pull > ./update/message
-        IP=$(ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$|\1|p' | awk '{print $1}' | head -1) VER=$(git describe --tags) docker compose up -d --force-recreate
+        IP=$(curl https://ipinfo.io/ip) VER=$(git describe --tags) docker compose up -d --force-recreate
         bash $pwd/update/update.sh &
         exit 0
     fi
