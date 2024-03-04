@@ -4002,14 +4002,20 @@ DNS-over-HTTPS with IP:
 
     public function syncPortClients()
     {
-        $endpoint = $this->ip . ':' . getenv('WGPORT');
-        $clients  = $this->readClients();
-        foreach ($clients as $k => $v) {
-            foreach ($v['peers'] as $i => $j) {
-                $clients[$k]['peers'][$i]['Endpoint'] = $endpoint;
+        $endpoint = [
+            $this->ip . ':' . getenv('WGPORT'),
+            $this->ip . ':' . getenv('WG1PORT'),
+        ];
+        for ($i=0; $i < 2; $i++) {
+            $this->wg = $i;
+            $clients  = $this->readClients();
+            foreach ($clients as $k => $v) {
+                foreach ($v['peers'] as $i => $j) {
+                    $clients[$k]['peers'][$i]['Endpoint'] = $endpoint[$i];
+                }
             }
+            $this->saveClients($clients);
         }
-        $this->saveClients($clients);
     }
 
     public function saveClients(array $clients)
