@@ -1061,6 +1061,9 @@ class Bot
                 if ($this->getPacConf()['amnezia'] != $json['pac']['amnezia']) {
                     $switch_amnezia = 1;
                 }
+                if ($this->getPacConf()['wg1_amnezia'] != $json['pac']['wg1_amnezia']) {
+                    $switch_wg1amnezia = 1;
+                }
                 $this->setPacConf($json['pac']);
                 $out[] = 'update naiveproxy';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
@@ -1082,7 +1085,7 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->wg = 1;
                 $this->saveClients($json['wg1']['clients']);
-                $this->restartWG($this->createConfig($json['wg1']['server']), $switch_amnezia);
+                $this->restartWG($this->createConfig($json['wg1']['server']), $switch_wg1amnezia);
                 $this->iptablesWG();
             }
             // ad
