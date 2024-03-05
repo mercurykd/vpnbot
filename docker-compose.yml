@@ -83,7 +83,7 @@ services:
                 ipv4_address: 10.10.0.2
         logging: *default-logging
     php:
-        image: mercurykd/vpnbot-php:1.1
+        image: mercurykd/vpnbot-php:1.2
         build:
             dockerfile: dockerfile/php.dockerfile
             args:
