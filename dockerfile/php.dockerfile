@@ -19,6 +19,7 @@ RUN apk add --no-cache --update php81 \
     openssh \
     openssl \
     curl \
+    py3-qt5 \
     && wget https://github.com/ameshkov/dnslookup/releases/download/v1.9.1/dnslookup-linux-amd64-v1.9.1.tar.gz \
     && tar -xf dnslookup-linux-amd64-v1.9.1.tar.gz \
     && mv linux-amd64/dnslookup /usr/bin \

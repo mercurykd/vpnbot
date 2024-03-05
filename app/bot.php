@@ -2536,14 +2536,60 @@ DNS-over-HTTPS with IP:
         $this->menu('client', "{$k}_$page");
     }
 
+    public function getAmneziaShortLink($client)
+    {
+        $dns = explode(',', $client['interface']['DNS']);
+        $c   = json_encode([
+            "containers" => [
+                [
+                    "awg" => [
+                        "isThirdPartyConfig" => True,
+                        "last_config" => json_encode([
+                            "H1"              => "{$client['interface']['H1']}",
+                            "H2"              => "{$client['interface']['H2']}",
+                            "H3"              => "{$client['interface']['H3']}",
+                            "H4"              => "{$client['interface']['H4']}",
+                            "Jc"              => "{$client['interface']['Jc']}",
+                            "Jmax"            => "{$client['interface']['Jmax']}",
+                            "Jmin"            => "{$client['interface']['Jmin']}",
+                            "S1"              => "{$client['interface']['S1']}",
+                            "S2"              => "{$client['interface']['S2']}",
+                            "client_ip"       => explode('/', $client['interface']['Address'])[0],
+                            "client_priv_key" => $client['interface']['PrivateKey'],
+                            "client_pub_key"  => "0",
+                            "config"          => $this->createConfig($client),
+                            "hostName"        => $this->ip,
+                            "port"            => (int) getenv('WG1PORT'),
+                            "psk_key"         => $client['peers'][0]['PresharedKey'],
+                            "server_pub_key"  => $client['peers'][0]['PublicKey']
+                        ]),
+                        "port" => (int) getenv('WG1PORT'),
+                        "transport_proto" => "udp"
+                    ],
+                    "container" => "amnezia-awg"
+                ]
+            ],
+            "defaultContainer" => "amnezia-awg",
+            "description"      => $client['interface']['## name'],
+            "dns1"             => $dns[0],
+            "dns2"             => $dns[1] ?: '',
+            "hostName"         => $this->ip
+        ]);
+        exec("echo '$c' | python amnezia.py", $o);
+        return $o[0];
+    }
+
     public function getClient($client, $page)
     {
         $clients = $this->readClients();
         if ($clients) {
             $name = $this->getName($clients[$client]['interface']);
             $conf = $this->createConfig($clients[$client]);
+            if ($this->getInstanceWG(1)) {
+                $sl = $this->getAmneziaShortLink($clients[$client]);
+            }
             return [
-                'text' => "<code>$conf</code>\n\n<b>$name</b> ({$this->getTitleWG()})",
+                'text' => "<pre>$conf</pre>\n\n<code>$sl</code>\n\n<b>$name</b> ({$this->getTitleWG()})",
                 'data' => [
                     [
                         [
