@@ -1,21 +1,22 @@
 ARG image
 FROM $image
-RUN apk add --update openssh iptables \
-    && apk add --no-cache --virtual .build-deps \
-    curl \
-    g++ \
+RUN apk add --update openssh \
+    iptables \
     gnutls-dev \
-    gpgme \
     libev-dev \
-    libnl3-dev \
-    libseccomp-dev \
-    linux-headers \
     linux-pam-dev \
     lz4-dev \
+    libseccomp-dev \
+    && apk add --no-cache --virtual .build-deps \
+    xz \
+    linux-headers \
+    libnl3-dev \
+    g++ \
+    gpgme \
+    curl \
     make \
     readline-dev \
     tar \
-    xz \
     autoconf \
     automake \
     gperf \

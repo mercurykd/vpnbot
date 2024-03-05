@@ -396,7 +396,7 @@ services:
                 ipv4_address: 10.10.0.9
         logging: *default-logging
     oc:
-        image: mercurykd/vpnbot-oc:1.1
+        image: mercurykd/vpnbot-oc:1.2
         build:
             dockerfile: dockerfile/ocserv.dockerfile
             args:
