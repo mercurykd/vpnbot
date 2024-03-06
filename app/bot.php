@@ -1005,6 +1005,7 @@ class Bot
             'mtproto' => file_get_contents('/config/mtprotosecret'),
             'xray'    => json_decode(file_get_contents('/config/xray.json'), true),
             'oc'      => file_get_contents('/config/ocserv.conf'),
+            'ocu'     => file_get_contents('/config/ocserv.passwd'),
 
         ];
         return json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -1129,6 +1130,7 @@ class Bot
             if (!empty($json['oc'])) {
                 $out[] = 'update ocserv';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                file_put_contents('/config/ocserv.passwd', $json['ocu']);
                 $this->restartOcserv($json['oc']);
             }
             if (!empty($json['pac']['domain'])) {
