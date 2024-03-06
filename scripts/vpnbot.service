@@ -5,7 +5,7 @@ After=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/root/vpnbot
+WorkingDirectory=path
 ExecStart=/bin/sh -c "IP=$(curl https://ipinfo.io/ip) VER=$(git describe --tags) docker compose up -d --force-recreate"
 ExecStartPost=/bin/sh -c "bash ./update/update.sh &"
 ExecStop=/bin/sh -c "docker compose down --remove-orphans"
