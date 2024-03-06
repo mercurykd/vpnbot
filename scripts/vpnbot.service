@@ -3,10 +3,13 @@ Description=VPN: Docker Compose Application Service
 Requires=docker.service
 After=docker.service
 [Service]
+Type=oneshot
+RemainAfterExit=yes
 WorkingDirectory=/root/vpnbot
-ExecStart=/bin/sh -c "IP=$(curl https://ipinfo.io/ip) VER=$(git describe --tags) docker compose up -d --force-recreate && bash ./update/update.sh &"
-ExecStop=/bin/sh -c "kill -9 $(cat ./update/update_pid) > /dev/null && docker compose down --remove-orphans"
+ExecStart=/bin/sh -c "IP=$(curl https://ipinfo.io/ip) VER=$(git describe --tags) docker compose up -d --force-recreate"
+ExecStartPost=/bin/sh -c "bash ./update/update.sh &"
+ExecStop=/bin/sh -c "docker compose down --remove-orphans"
+ExecStopPost=/bin/sh -c "kill -9 $(cat ./update/update_pid) > /dev/null"
 TimeoutStartSec=0
-Restart=on-failure
 [Install]
 WantedBy=multi-user.target
