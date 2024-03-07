@@ -133,7 +133,7 @@ services:
             timeout: 5s
             retries: 5
     service:
-        image: mercurykd/vpnbot-php:1.1
+        image: mercurykd/vpnbot-php:1.2
         build:
             dockerfile: dockerfile/php.dockerfile
             args:
