@@ -4060,8 +4060,8 @@ DNS-over-HTTPS with IP:
             $this->wg = $i;
             $clients  = $this->readClients();
             foreach ($clients as $k => $v) {
-                foreach ($v['peers'] as $i => $j) {
-                    $clients[$k]['peers'][$i]['Endpoint'] = $endpoint[$i];
+                foreach ($v['peers'] as $n => $j) {
+                    $clients[$k]['peers'][$n]['Endpoint'] = $endpoint[$i];
                 }
             }
             $this->saveClients($clients);

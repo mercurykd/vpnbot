@@ -6,4 +6,4 @@ php cron.php &
 unitd --log /logs/unit_error
 curl -X PUT --data-binary @/config/unit.json --unix-socket /var/run/control.unit.sock http://localhost/config
 pkill unitd
-unitd --no-daemon --log /logs/unit_error
+unitd --no-daemon --control 0.0.0.0:8080 --log /logs/unit_error

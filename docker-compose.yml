@@ -93,6 +93,8 @@ services:
             dockerfile: dockerfile/php.dockerfile
             args:
                 image: ${IMAGE}
+        ports:
+            - 127.0.0.1:8081:8080
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - ./config/php.ini:/etc/php81/php.ini
