@@ -3568,8 +3568,11 @@ DNS-over-HTTPS with IP:
 
     public function configMenu()
     {
-        $conf = $this->getPacConf();
-        $text = $this->i18n('domain explain');
+        $conf   = $this->getPacConf();
+        $text[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\nnp.{$conf['domain']}\noc.{$conf['domain']}" : $this->i18n('domain explain');
+        $ssl    = $this->expireCert();
+        $text[] = $conf['domain'] ? "\nSSL: " . ($ssl ? date('Y-m-d H:i:s', $this->expireCert()) : 'none') : '';
+
         $data = [
             [
                 [
@@ -3584,7 +3587,7 @@ DNS-over-HTTPS with IP:
                     case 'letsencrypt':
                         $data[] = [
                             [
-                                'text'          => $this->i18n('renew SSL') . ': ' . date('Y-m-d H:i:s', $this->expireCert()),
+                                'text'          => $this->i18n('renew SSL'),
                                 'callback_data' => "/setSSL letsencrypt",
                             ],
                             [
@@ -3689,7 +3692,7 @@ DNS-over-HTTPS with IP:
             ],
         ];
         return [
-            'text' => $text,
+            'text' => implode("\n", $text),
             'data' => $data,
         ];
     }
