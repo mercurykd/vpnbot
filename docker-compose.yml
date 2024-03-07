@@ -239,6 +239,8 @@ services:
               required: true # default
             - path: ./override.env
               required: false
+        environment:
+            ADDRESS: ${WGADDRESS}
         cap_add:
             - NET_ADMIN
         devices:
@@ -277,6 +279,8 @@ services:
               required: true # default
             - path: ./override.env
               required: false
+        environment:
+            ADDRESS: ${WG1ADDRESS}
         cap_add:
             - NET_ADMIN
         devices:
