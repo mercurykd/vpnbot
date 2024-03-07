@@ -62,19 +62,17 @@ telegram bot to manage servers (inside the bot)
 <img src="https://github.com/mercurykd/vpnbot/assets/30900414/431ec09d-9c14-4c74-b8f6-e49c142132e8" width="200">
 
 ---
-environment: ubuntu 18.04/20.04/22.04, debian 11
+environment: ubuntu 18.04/20.04/22.04, debian 11/12
 
-install:
+### Install:
 
-`wget -O- https://raw.githubusercontent.com/mercurykd/vpnbot/master/scripts/init.sh | sh -s YOUR_TELEGRAM_BOT_KEY`
-
----
-
-additional options:
-
-install as service(autoload on start):
-
+```shell
+wget -O- https://raw.githubusercontent.com/mercurykd/vpnbot/master/scripts/init.sh | sh -s YOUR_TELEGRAM_BOT_KEY
 ```
+
+### Install as service (autoload on start):
+
+```shell
 cd /root/vpnbot
 bash scripts/install_as_service.sh
 ```
