@@ -2181,6 +2181,17 @@ DNS-over-HTTPS with IP:
         $c       = $this->getPacConf();
         $conf    = $this->readConfig();
         $status  = $this->readStatus();
+        if (empty($status)) {
+            return [
+                'text' => "Menu -> " . $this->getTitleWG() . "\n\nerror status",
+                'data' => [[
+                    [
+                        'text'          => $this->i18n('back'),
+                        'callback_data' => "/menu",
+                    ],
+                ]],
+            ];
+        }
         $clients = $this->getClients($page);
         $bt      = $c[$this->getInstanceWG(1) . 'blocktorrent'];
         $ex      = $c[$this->getInstanceWG(1) . 'exchange'];
