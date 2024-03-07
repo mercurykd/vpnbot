@@ -41,8 +41,11 @@ services:
                 condition: service_started
             ss:
                 condition: service_started
-        environment:
-            TZ: ${TZ}
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_upstream.sh"]
         networks:
@@ -73,9 +76,11 @@ services:
         depends_on:
             up:
                 condition: service_started
-        environment:
-            TZ: ${TZ}
-            SSPORT: ${SSPORT}
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_ng.sh"]
         networks:
@@ -103,15 +108,13 @@ services:
             - ./.env:/mirror/.env
             - ./update:/update
         environment:
-            TZ: ${TZ}
             IP: ${IP}
-            ADDRESS: ${WGADDRESS}
-            WGPORT: ${WGPORT}
-            WG1ADDRESS: ${WG1ADDRESS}
-            WG1PORT: ${WG1PORT}
-            SSPORT: ${SSPORT}
-            TGPORT: ${TGPORT}
             VER: ${VER}
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
         hostname: php
         container_name: php-${VER}
         restart: unless-stopped
@@ -146,15 +149,13 @@ services:
             - ./update:/update
             - ./scripts/start_service.sh:/start_service.sh
         environment:
-            TZ: ${TZ}
             IP: ${IP}
-            ADDRESS: ${WGADDRESS}
-            WGPORT: ${WGPORT}
-            WG1ADDRESS: ${WG1ADDRESS}
-            WG1PORT: ${WG1PORT}
-            SSPORT: ${SSPORT}
-            TGPORT: ${TGPORT}
             VER: ${VER}
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
         hostname: service
         container_name: service-${VER}
         # restart: unless-stopped
@@ -200,7 +201,11 @@ services:
                 ipv4_address: 10.10.0.3
         environment:
             TZ: ${TZ}
-            SSPORT: ${SSPORT}
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_proxy.sh"]
         logging: *default-logging
@@ -227,11 +232,11 @@ services:
                 condition: service_healthy
         ports:
             - ${WGPORT}:${WGPORT}/udp
-        environment:
-            TZ: ${TZ}
-            WGPORT: ${WGPORT}
-            ADDRESS: ${WGADDRESS}
-            ENV: /root/.ashrc
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
         cap_add:
             - NET_ADMIN
         devices:
@@ -265,11 +270,11 @@ services:
                 condition: service_healthy
         ports:
             - ${WG1PORT}:${WG1PORT}/udp
-        environment:
-            TZ: ${TZ}
-            WGPORT: ${WG1PORT}
-            ADDRESS: ${WG1ADDRESS}
-            ENV: /root/.ashrc
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
         cap_add:
             - NET_ADMIN
         devices:
@@ -304,8 +309,11 @@ services:
         depends_on:
             php:
                 condition: service_healthy
-        environment:
-            TZ: ${TZ}
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
         stop_grace_period: 1s
         networks:
             default:
@@ -334,9 +342,11 @@ services:
         ports:
             - ${SSPORT}:${SSPORT}/tcp
             - ${SSPORT}:${SSPORT}/udp
-        environment:
-            TZ: ${TZ}
-            SSPORT: ${SSPORT}
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_ss.sh"]
         networks:
@@ -361,9 +371,12 @@ services:
         ports:
             - ${TGPORT}:${TGPORT}
         environment:
-            TZ: ${TZ}
             IP: ${IP}
-            TGPORT: ${TGPORT}
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_tg.sh"]
         networks:
@@ -387,8 +400,11 @@ services:
         depends_on:
             php:
                 condition: service_healthy
-        environment:
-            TZ: ${TZ}
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_xray.sh"]
         networks:
@@ -413,9 +429,11 @@ services:
         depends_on:
             php:
                 condition: service_healthy
-        environment:
-            TZ: ${TZ}
-            ENV: /root/.ashrc
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_oc.sh"]
         cap_add:
@@ -444,9 +462,11 @@ services:
         depends_on:
             php:
                 condition: service_healthy
-        environment:
-            TZ: ${TZ}
-            ENV: /root/.ashrc
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_np.sh"]
         cap_add:
