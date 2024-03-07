@@ -56,3 +56,5 @@ c:
 	git add config/
 	git checkout .
 	git reset
+webhook:
+	docker compose exec php php checkwebhook.php
