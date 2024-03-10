@@ -3090,7 +3090,9 @@ DNS-over-HTTPS with IP:
                         ],
                         [
                             'text' => $this->i18n('donate'),
-                            'url'  => "https://yoomoney.ru/to/410011827900450",
+                            'web_app' => [
+                                'url'  => "https://yoomoney.ru/to/410011827900450",
+                            ]
                         ],
                     ],
                 ],
