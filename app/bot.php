@@ -1161,6 +1161,7 @@ class Bot
                 }
             }
             file_put_contents('/config/nginx.conf', $t);
+            $this->adguardProtect();
             $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
             $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
 
