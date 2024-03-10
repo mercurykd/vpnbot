@@ -69,6 +69,7 @@ services:
             - ./ssh:/ssh
             - ./config/sshd_config:/etc/ssh/sshd_config
             - ./logs/:/logs/
+            - ./app/webapp:/app
         ports:
             - 80:80
         hostname: nginx

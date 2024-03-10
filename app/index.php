@@ -42,6 +42,24 @@ if ($hash == substr(md5($c['key']), 0, 8)) {
         }
     }
 }
+if (!empty($_GET['hash'])) {
+    $t = $_GET;
+    unset($t['hash']);
+    ksort($t);
+    foreach ($t as $k => $v) {
+        $s[] = "$k=$v";
+    }
+    $s  = implode("\n", $s);
+    $sk = hash_hmac('sha256', $c['key'], "WebAppData", true);
+    if (hash_hmac('sha256', $s, $sk) == $_GET['hash']) {
+        require __DIR__ . '/bot.php';
+        require __DIR__ . '/i18n.php';
+        $bot = new Bot($c['key'], $i);
+        setcookie('c', substr(hash('sha256', $c['key']), 0, 8), 0, '/');
+        setcookie('a', $bot->adguardBasicAuth(), 0, '/');
+        die('ok');
+    }
+}
 
 header('500', true, 500);
 exit;

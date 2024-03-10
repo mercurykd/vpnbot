@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="jquery-3.7.1.min.js"></script>
+    <title>Document</title>
+</head>
+<body>
+    <script>
+        var tg = window.Telegram.WebApp;
+        jQuery(function($) {
+            $.ajax({
+                'url': 'check?' + tg.initData,
+            }).done(function (r) {
+                location.replace('/adguard/');
+            }).fail(function (r) {
+                location.replace('/');
+            });
+        });
+    </script>
+</body>
+</html>

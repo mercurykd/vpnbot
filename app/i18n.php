@@ -305,4 +305,16 @@ $i = [
         'en' => 'update bot',
         'ru' => 'обновить бота',
     ],
+    'third party browser'  => [
+        'en' => 'third party browser',
+        'ru' => 'сторонний браузер',
+    ],
+    'browser_notify_on'  => [
+        'en' => 'the web panel can now be opened in any browser',
+        'ru' => 'веб панель теперь может быть открыта в любом браузере',
+    ],
+    'browser_notify_off'  => [
+        'en' => 'the web panel can no longer be opened in any browser',
+        'ru' => 'веб панель теперь не может быть открыта в любом браузере',
+    ],
 ];

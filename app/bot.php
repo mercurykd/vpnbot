@@ -130,6 +130,9 @@ class Bot
             case preg_match('~^/id$~', $this->input['message'], $m):
                 $this->send($this->input['chat'], $this->input['from'], $this->input['message_id']);
                 break;
+            case preg_match('~^/adguardChBr$~', $this->input['callback'], $m):
+                $this->adguardChBr();
+                break;
             case preg_match('~^/mtproto$~', $this->input['callback'], $m):
                 $this->mtproto();
                 break;
@@ -3455,13 +3458,53 @@ DNS-over-HTTPS with IP:
         ];
     }
 
+    public function adguardProtect()
+    {
+        $h = substr(hash('sha256', $this->key), 0, 8);
+        $s = empty($this->getPacConf()['adgbrowser']) ? '' : '#';
+        $a = $this->adguardBasicAuth();
+        $r = <<<CONF
+        location /adguard/ {
+                access_log /logs/nginx_adguard_access;
+                if (\$cookie_c != "$h") {
+                    $s rewrite .* /webapp redirect;
+                }
+                proxy_pass http://ad:80/;
+                proxy_redirect / /adguard/;
+                proxy_cookie_path / /adguard/;
+                proxy_set_header Authorization "Basic \$cookie_a";
+            }
+            location
+        CONF;
+        $f = '/config/nginx.conf';
+        $c = file_get_contents($f);
+        $t = preg_replace('~(location /adguard.+?})\s*location~s', $r, $c);
+        file_put_contents($f, $t);
+    }
+
+    public function adguardBasicAuth()
+    {
+        return base64_encode('admin:' . $this->getPacConf()['adpswd']);
+    }
+
+    public function adguardChBr()
+    {
+        $c = $this->getPacConf();
+        $c['adgbrowser'] = $c['adgbrowser'] ? 0 : 1;
+        $this->setPacConf($c);
+        $this->adguardProtect();
+        $this->ssh('nginx -s reload', 'ng');
+        $this->answer($this->input['callback_id'], $this->i18n($c['adgbrowser'] ? 'browser_notify_on' : 'browser_notify_off'), true);
+        $this->menu('adguard');
+    }
+
     public function adguardMenu()
     {
         $conf   = $this->getPacConf();
         $ip     = $this->ip;
         $domain = $conf['domain'] ?: $ip;
         $scheme = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
-        $text = "$scheme://$domain/adguard\nLogin: admin\nPass: <span class='tg-spoiler'>{$conf['adpswd']}</span>\n\n";
+        $text   = $conf['adgbrowser'] ? "$scheme://$domain/adguard\nLogin: admin\nPass: <span class='tg-spoiler'>{$conf['adpswd']}</span>\n\n" : '';
         if ($ssl) {
             $text .= "DNS over HTTPS:\n<code>$ip</code>\n<code>$scheme://$domain/dns-query" . ($conf['adguardkey'] ? "/{$conf['adguardkey']}" : '') . "</code>\n\n";
             $text .= "DNS over TLS:\n<code>tls://" . ($conf['adguardkey'] ? "{$conf['adguardkey']}." : '') . "$domain</code>";
@@ -3469,13 +3512,31 @@ DNS-over-HTTPS with IP:
         $data = [
             [
                 [
+                    'text'          => 'web panel',
+                    'web_app' => [
+                        "url" => "https://$domain/adguard"
+                    ],
+                ],
+                [
+                    'text'          => $this->i18n('third party browser') . ': ' . $this->i18n($conf['adgbrowser'] ? 'on' : 'off'),
+                    'callback_data' => '/adguardChBr'
+                ],
+            ],
+            [
+                [
                     'text'          => $this->i18n('change password'),
                     'callback_data' => "/adguardpsswd",
                 ],
                 [
-                    'text'          => $this->i18n('reset settings'),
-                    'callback_data' => "/adguardreset",
+                    'text'          => 'ClientID' . ($conf['adguardkey'] ? ": {$conf['adguardkey']}" : ''),
+                    'callback_data' => "/setAdguardKey",
                 ],
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('reset settings'),
+                'callback_data' => "/adguardreset",
             ],
         ];
         $data[] = [
@@ -3484,8 +3545,8 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/addupstream",
             ],
             [
-                'text'          => $this->i18n('setSecret') . ($conf['adguardkey'] ? ": {$conf['adguardkey']}" : ''),
-                'callback_data' => "/setAdguardKey",
+                'text'          => $this->i18n('check DNS'),
+                'callback_data' => "/checkdns",
             ],
         ];
         $upstreams = yaml_parse_file($this->adguard)['dns']['upstream_dns'];
@@ -3503,12 +3564,6 @@ DNS-over-HTTPS with IP:
                 ];
             }
         }
-        $data[] = [
-            [
-                'text'          => $this->i18n('check DNS'),
-                'callback_data' => "/checkdns",
-            ],
-        ];
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -3569,7 +3624,7 @@ DNS-over-HTTPS with IP:
     public function configMenu()
     {
         $conf   = $this->getPacConf();
-        $text[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\nnp.{$conf['domain']}\noc.{$conf['domain']}" : $this->i18n('domain explain');
+        $text[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\nnp.{$conf['domain']}\noc.{$conf['domain']}" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']}" : '') : $this->i18n('domain explain');
         $ssl    = $this->expireCert();
         $text[] = $conf['domain'] ? "\nSSL: " . ($ssl ? date('Y-m-d H:i:s', $this->expireCert()) : 'none') : '';
 
