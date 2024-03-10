@@ -2,7 +2,8 @@ b:
 	docker compose build
 u: # запуск контейнеров
 	bash ./update/update.sh &
-	IP=$(shell curl https://ipinfo.io/ip) VER=$(shell git describe --tags) docker compose up -d --force-recreate
+	touch ./override.env
+	IP=$(shell curl https://ipinfo.io/ip) VER=$(shell git describe --tags) docker compose --env-file ./.env --env-file ./override.env up -d --force-recreate
 d: # остановка контейнеров
 	-kill -9 $(shell cat ./update/update_pid) > /dev/null
 	docker compose down --remove-orphans
