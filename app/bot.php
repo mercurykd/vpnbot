@@ -5,6 +5,7 @@ class Bot
     public $input;
     public $adguard;
     public $update;
+    public $ip;
 
     public function __construct($key, $i18n)
     {
@@ -1451,7 +1452,7 @@ class Bot
         }
     }
 
-    public function addDomain($domain)
+    public function addDomain($domain, $nomenu = false)
     {
         $domain = trim($domain);
         if (!empty($domain)) {
@@ -1478,8 +1479,21 @@ class Bot
                 file_put_contents('/config/nginx.conf', $nginx);
             }
         }
-        sleep(3);
-        $this->menu('config');
+        if (empty($nomenu)) {
+            sleep(3);
+            $this->menu('config');
+        }
+    }
+
+    public function sslip()
+    {
+        $c = $this->getPacConf();
+        if (empty($c['domain'])) {
+            $this->addDomain(str_replace('.', '-', $this->ip) . '.sslip.io', 1);
+            $this->setSSL('letsencrypt');
+        } else {
+            $this->menu();
+        }
     }
 
     public function comment($text, $tag)
