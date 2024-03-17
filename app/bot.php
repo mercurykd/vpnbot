@@ -336,6 +336,9 @@ class Bot
             case preg_match('~^/changeFakeDomain$~', $this->input['callback'], $m):
                 $this->changeFakeDomain();
                 break;
+            case preg_match('~^/changeTGDomain$~', $this->input['callback'], $m):
+                $this->changeTGDomain();
+                break;
             case preg_match('~^/include (\d+)$~', $this->input['callback'], $m):
                 $this->include($m[1]);
                 break;
@@ -401,17 +404,26 @@ class Bot
 
     public function secretSet($secret)
     {
-        $this->restartTG($secret);
+        file_put_contents('/config/mtprotosecret', $secret);
+        $this->restartTG();
         $this->mtproto();
     }
 
-    public function restartTG($secret)
+    public function setTelegramDomain($domain)
     {
-        file_put_contents('/config/mtprotosecret', $secret ?: '');
+        file_put_contents('/config/mtprotodomain', $domain);
+        $this->restartTG();
+        $this->mtproto();
+    }
+
+    public function restartTG()
+    {
+        $secret     = file_get_contents('/config/mtprotosecret');
+        $fakedomain = file_get_contents('/config/mtprotodomain') ?: 'vk.com';
         $this->ssh('pkill mtproto-proxy', 'tg');
         if (preg_match('~^\w{32}$~', $secret)) {
             $p = getenv('TGPORT');
-            $this->ssh("mtproto-proxy -u nobody -H $p --nat-info 10.10.0.8:{$this->ip} -S $secret --aes-pwd /proxy-secret /proxy-multi.conf -M 1 >/dev/null 2>&1 &", 'tg');
+            $this->ssh("mtproto-proxy --domain $fakedomain -u nobody -H $p --nat-info 10.10.0.8:{$this->ip} -S $secret --aes-pwd /proxy-secret /proxy-multi.conf -M 1 >/dev/null 2>&1 &", 'tg');
         }
     }
 
@@ -426,18 +438,22 @@ class Bot
     {
         $s  = file_get_contents('/config/mtprotosecret');
         $p  = getenv('TGPORT');
+        $d  = trim(file_get_contents('/config/mtprotodomain') ?: 'vk.com');
+        $d  = exec("echo $d | tr -d '\\n' | xxd -ps -c 200");
         $ip = $this->getPacConf()['domain'] ?: $this->ip;
-        return "https://t.me/proxy?server=$ip&port=$p&secret=$s";
+        return "https://t.me/proxy?server=$ip&port=443&secret=ee$s$d";
     }
 
     public function mtproto()
     {
         $s      = file_get_contents('/config/mtprotosecret');
+        $d      = file_get_contents('/config/mtprotodomain') ?: 'vk.com';
         $p      = getenv('TGPORT');
         $ip     = $this->getPacConf()['domain'] ?: $this->ip;
         $st     = $this->ssh('pgrep mtproto-proxy', 'tg') ? 'on' : 'off';
         $text[] = "Menu -> MTProto\n";
         $text[] = "status: $st\n";
+        $text[] = "fake domain: <code>$d</code>\n";
         if ($st == 'on') {
             $text[] = $this->linkMtproto();
         }
@@ -451,6 +467,12 @@ class Bot
             [
                 'text'          => $this->i18n('setSecret'),
                 'callback_data' => "/setSecret",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('changeFakeDomain'),
+                'callback_data' => "/changeTGDomain",
             ],
         ];
         $data[] = [
@@ -1006,10 +1028,11 @@ class Bot
                 'private' => file_get_contents('/certs/cert_private'),
                 'public'  => file_get_contents('/certs/cert_public'),
             ] : false,
-            'mtproto' => file_get_contents('/config/mtprotosecret'),
-            'xray'    => json_decode(file_get_contents('/config/xray.json'), true),
-            'oc'      => file_get_contents('/config/ocserv.conf'),
-            'ocu'     => file_get_contents('/config/ocserv.passwd'),
+            'mtproto'       => file_get_contents('/config/mtprotosecret'),
+            'mtprotodomain' => file_get_contents('/config/mtprotodomain'),
+            'xray'          => json_decode(file_get_contents('/config/xray.json'), true),
+            'oc'            => file_get_contents('/config/ocserv.conf'),
+            'ocu'           => file_get_contents('/config/ocserv.passwd'),
 
         ];
         return json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -1121,7 +1144,9 @@ class Bot
             if (!empty($json['mtproto'])) {
                 $out[] = 'update mtproto';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $this->restartTG($json['mtproto']);
+                file_put_contents('/config/mtprotosecret', $json['mtproto']);
+                file_put_contents('/config/mtprotodomain', $json['mtprotodomain'] ?: '');
+                $this->restartTG();
             }
             // xray
             if (!empty($json['xray'])) {
@@ -3867,6 +3892,22 @@ DNS-over-HTTPS with IP:
             'start_message'  => $this->input['message_id'],
             'start_callback' => $this->input['callback_id'],
             'callback'       => 'setFakeDomain',
+            'args'           => [],
+        ];
+    }
+
+    public function changeTGDomain()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter domain",
+            $this->input['message_id'],
+            reply: 'enter domain',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'setTelegramDomain',
             'args'           => [],
         ];
     }

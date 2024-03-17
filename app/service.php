@@ -35,4 +35,5 @@ if (!empty($c['admin'])) {
 }
 file_put_contents('/update/message', '');
 file_put_contents('/update/reload_message', '');
+$bot->restartTG();
 $bot->sslip();
