@@ -441,7 +441,7 @@ class Bot
         $d  = trim(file_get_contents('/config/mtprotodomain') ?: 'vk.com');
         $d  = exec("echo $d | tr -d '\\n' | xxd -ps -c 200");
         $ip = $this->getPacConf()['domain'] ?: $this->ip;
-        return "https://t.me/proxy?server=$ip&port=443&secret=ee$s$d";
+        return "https://t.me/proxy?server=$ip&port=$p&secret=ee$s$d";
     }
 
     public function mtproto()
