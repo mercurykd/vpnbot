@@ -10,7 +10,7 @@ do
     if [[ -n "$cmd" ]]
     then
         docker compose down --remove-orphans
-        git reset --hard
+        git reset --hard && git clean -fd
         git pull > ./update/message
         if [[ -n "$branch" ]]
         then
