@@ -140,6 +140,12 @@ class Bot
             case preg_match('~^/updatebot$~', $this->input['callback'], $m):
                 $this->updatebot();
                 break;
+            case preg_match('~^/branches$~', $this->input['callback'], $m):
+                $this->branches();
+                break;
+            case preg_match('~^/changeBranch (\d+)$~', $this->input['callback'], $m):
+                $this->changeBranch($m[1]);
+                break;
             case preg_match('~^/getMirror$~', $this->input['callback'], $m):
                 $this->getMirror();
                 break;
@@ -3783,7 +3789,13 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/debug",
             ],
         ];
+        exec('git -C / branch', $m);
+        $track  = trim(file_get_contents('/update/branch'));
         $data[] = [
+            [
+                'text'          => "{$m[0]} => $track",
+                'callback_data' => "/branches",
+            ],
             [
                 'text'          => $this->i18n('update bot'),
                 'callback_data' => "/updatebot",
@@ -3799,6 +3811,39 @@ DNS-over-HTTPS with IP:
             'text' => implode("\n", $text),
             'data' => $data,
         ];
+    }
+
+    public function branches()
+    {
+        exec('git -C / branch -r', $m);
+        array_shift($m);
+        foreach ($m as $k => $v) {
+            $data[] = [
+                [
+                    'text'          => $v,
+                    'callback_data' => "/changeBranch $k",
+                ]
+            ];
+        }
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu config",
+            ]
+        ];
+        $this->update($this->input['from'], $this->input['message_id'], 'branches', $data);
+    }
+
+    public function changeBranch($i)
+    {
+        exec('git -C / branch -r', $m);
+        array_shift($m);
+        foreach ($m as $k => $v) {
+            if ($i == $k) {
+                file_put_contents('/update/branch', trim(str_replace('origin/', '', $v)));
+            }
+        }
+        $this->menu('config');
     }
 
     public function logs()
