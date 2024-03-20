@@ -12,6 +12,10 @@ networks:
         ipam:
             config:
                 - subnet: 10.10.0.0/24
+    xray:
+        ipam:
+            config:
+                - subnet: 10.10.1.0/24
 volumes:
     adguard:
 
@@ -70,6 +74,7 @@ services:
             - ./config/sshd_config:/etc/ssh/sshd_config
             - ./logs/:/logs/
             - ./app/webapp:/app
+            - ./app/login.html:/app/login.html
         ports:
             - 80:80
         hostname: nginx
@@ -87,6 +92,8 @@ services:
         networks:
             default:
                 ipv4_address: 10.10.0.2
+            xray:
+                ipv4_address: 10.10.1.2
         logging: *default-logging
     php:
         image: mercurykd/vpnbot-php:1.2
@@ -417,6 +424,8 @@ services:
         networks:
             default:
                 ipv4_address: 10.10.0.9
+            xray:
+                ipv4_address: 10.10.1.9
         logging: *default-logging
     oc:
         image: mercurykd/vpnbot-oc:1.2

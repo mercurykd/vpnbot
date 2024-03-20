@@ -336,6 +336,9 @@ class Bot
             case preg_match('~^/changeFakeDomain$~', $this->input['callback'], $m):
                 $this->changeFakeDomain();
                 break;
+            case preg_match('~^/selfFakeDomain$~', $this->input['callback'], $m):
+                $this->selfFakeDomain();
+                break;
             case preg_match('~^/changeTGDomain$~', $this->input['callback'], $m):
                 $this->changeTGDomain();
                 break;
@@ -3389,6 +3392,10 @@ DNS-over-HTTPS with IP:
                 'text'          => $this->i18n('changeFakeDomain'),
                 'callback_data' => "/changeFakeDomain",
             ],
+            [
+                'text'          => $this->i18n('selfFakeDomain'),
+                'callback_data' => "/selfFakeDomain",
+            ],
         ];
         if ($c['inbounds'][0]['settings']['clients'][0]['id']) {
             $data[] = [
@@ -3912,14 +3919,24 @@ DNS-over-HTTPS with IP:
         ];
     }
 
-    public function setFakeDomain($domain)
+    public function setFakeDomain($domain, $self = false)
     {
         $c = $this->getXray();
         $c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0] = $domain;
-        $c['inbounds'][0]['streamSettings']['realitySettings']['dest'] = "$domain:443";
+        $c['inbounds'][0]['streamSettings']['realitySettings']['dest'] = $self ? "10.10.1.2:443" : "$domain:443";
         $this->restartXray($c);
         $this->setUpstreamDomain($domain);
         $this->xray();
+    }
+
+    public function selfFakeDomain()
+    {
+        $c = $this->getPacConf();
+        if (!empty($c['domain'])) {
+            $this->setFakeDomain($c['domain'], 1);
+        } else{
+            $this->answer($this->input['callback_id'], 'empty domain', true);
+        }
     }
 
     public function setBackup($text)

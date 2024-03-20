@@ -263,7 +263,11 @@ $i = [
     ],
     'changeFakeDomain'  => [
         'en' => 'changeFakeDomain',
-        'ru' => 'установить фейковый домен',
+        'ru' => 'фейковый домен',
+    ],
+    'selfFakeDomain'  => [
+        'en' => 'selfFakeDomain',
+        'ru' => 'домен бота',
     ],
     'page'  => [
         'en' => 'pagination',
@@ -310,11 +314,11 @@ $i = [
         'ru' => 'сторонний браузер',
     ],
     'browser_notify_on'  => [
-        'en' => 'the web panel can now be opened in any browser',
-        'ru' => 'веб панель теперь может быть открыта в любом браузере',
+        'en' => 'the web panel can be opened in any browser',
+        'ru' => 'веб панель может быть открыта в любом браузере',
     ],
     'browser_notify_off'  => [
-        'en' => 'the web panel can no longer be opened in any browser',
-        'ru' => 'веб панель теперь не может быть открыта в любом браузере',
+        'en' => 'web panel is only available from telegram',
+        'ru' => 'веб панель доступна только из телеграмма',
     ],
 ];
