@@ -121,7 +121,7 @@ class Bot
             case preg_match('~^/menu (?P<type>addpeer) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>wg) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>client) (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
-            case preg_match('~^/menu (?P<type>pac|adguard|config|ss|lang|oc|naive|mirror)$~', $this->input['callback'], $m):
+            case preg_match('~^/menu (?P<type>pac|adguard|config|ss|lang|oc|naive|mirror|update)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>subzoneslist|reverselist|includelist|excludelist) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
                 $this->menu(type: $m['type'] ?? false, arg: $m['arg'] ?? false);
                 break;
@@ -137,8 +137,8 @@ class Bot
             case preg_match('~^/mtproto$~', $this->input['callback'], $m):
                 $this->mtproto();
                 break;
-            case preg_match('~^/updatebot$~', $this->input['callback'], $m):
-                $this->updatebot();
+            case preg_match('~^/applyupdatebot$~', $this->input['callback'], $m):
+                $this->applyupdatebot();
                 break;
             case preg_match('~^/branches$~', $this->input['callback'], $m):
                 $this->branches();
@@ -907,10 +907,10 @@ class Bot
                 $last       = file_get_contents('https://raw.githubusercontent.com/mercurykd/vpnbot/master/version');
                 if (!empty($last) && $last != $this->last && $last != $current) {
                     $this->last = $last;
-                    $diff = implode("\n", array_slice(explode("\n", $last), 0, count(explode("\n", $last)) - count(explode("\n", $current))));
+                    $diff       = array_slice(explode("\n", $last), 0, count(explode("\n", $last)) - count(explode("\n", $current)));
                     if (!empty($diff)) {
                         foreach ($c['admin'] as $k => $v) {
-                            $this->send($v, "update:\n$diff");
+                            $this->send($v, "update:\n{$diff[0]}");
                         }
                     }
                 }
@@ -3160,6 +3160,7 @@ DNS-over-HTTPS with IP:
             'oc'           => $type == 'oc'           ? $this->ocMenu() : false,
             'naive'        => $type == 'naive'        ? $this->naiveMenu() : false,
             'mirror'       => $type == 'mirror'       ? $this->mirrorMenu() : false,
+            'update'       => $type == 'update'       ? $this->updatebot() : false,
         ];
 
         $text = $menu[$type ?: 'main' ]['text'];
@@ -3669,6 +3670,41 @@ DNS-over-HTTPS with IP:
 
     public function updatebot()
     {
+        exec('git -C / branch', $m);
+        $track  = trim(file_get_contents('/update/branch'));
+        $data = [
+            [
+                [
+                    'text'          => "{$m[0]} => $track",
+                    'callback_data' => "/branches",
+                ],
+                [
+                    'text'    => $this->i18n('changelog'),
+                    'web_app' => ['url' => "https://raw.githubusercontent.com/mercurykd/vpnbot/master/version"],
+                ],
+            ],
+            [
+                [
+                    'text'          => $this->i18n('update bot'),
+                    'callback_data' => "/applyupdatebot",
+                ],
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu config",
+            ],
+        ];
+        exec("git -C / branch -vv", $mm);
+        return [
+            'text' => '<pre><code class="language-shell">' . implode("\n", $mm) . '</code></pre>',
+            'data' => $data,
+        ];
+    }
+
+    public function applyupdatebot()
+    {
         $this->exportManual($this->update);
         $r = $this->send($this->input['from'], 'update...');
         file_put_contents('/update/reload_message', "{$this->input['from']}:{$r['result']['message_id']}");
@@ -3678,6 +3714,7 @@ DNS-over-HTTPS with IP:
 
     public function configMenu()
     {
+        exec('git -C / fetch');
         $conf   = $this->getPacConf();
         $text[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\nnp.{$conf['domain']}\noc.{$conf['domain']}" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']}" : '') : $this->i18n('domain explain');
         $ssl    = $this->expireCert();
@@ -3789,16 +3826,10 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/debug",
             ],
         ];
-        exec('git -C / branch', $m);
-        $track  = trim(file_get_contents('/update/branch'));
         $data[] = [
             [
-                'text'          => "{$m[0]} => $track",
-                'callback_data' => "/branches",
-            ],
-            [
-                'text'          => $this->i18n('update bot'),
-                'callback_data' => "/updatebot",
+                'text'          => $this->i18n(exec('git rev-list --count HEAD..@{u}') ? 'have updates' : 'no updates'),
+                'callback_data' => "/menu update",
             ],
         ];
         $data[] = [
@@ -3828,7 +3859,7 @@ DNS-over-HTTPS with IP:
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
-                'callback_data' => "/menu config",
+                'callback_data' => "/menu update",
             ]
         ];
         $this->update($this->input['from'], $this->input['message_id'], 'branches', $data);

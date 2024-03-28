@@ -321,4 +321,12 @@ $i = [
         'en' => 'web panel is only available from telegram',
         'ru' => 'веб панель доступна только из телеграмма',
     ],
+    'no updates'  => [
+        'en' => 'no updates',
+        'ru' => 'нет обновлений',
+    ],
+    'have updates'  => [
+        'en' => 'have updates',
+        'ru' => 'есть обновления',
+    ],
 ];
