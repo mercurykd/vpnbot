@@ -3828,7 +3828,7 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
-                'text'          => $this->i18n(exec('git rev-list --count HEAD..@{u}') ? 'have updates' : 'no updates'),
+                'text'          => $this->i18n(exec('git -C / rev-list --count HEAD..@{u}') ? 'have updates' : 'no updates'),
                 'callback_data' => "/menu update",
             ],
         ];
