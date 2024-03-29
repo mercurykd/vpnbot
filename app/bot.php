@@ -3670,17 +3670,17 @@ DNS-over-HTTPS with IP:
 
     public function updatebot()
     {
-        exec('git -C / branch', $m);
+        $b = exec('git -C / rev-parse --abbrev-ref HEAD');
         $track  = trim(file_get_contents('/update/branch'));
         $data = [
             [
                 [
-                    'text'          => "{$m[0]} => $track",
+                    'text'          => "$b => $track",
                     'callback_data' => "/branches",
                 ],
                 [
                     'text'    => $this->i18n('changelog'),
-                    'web_app' => ['url' => "https://raw.githubusercontent.com/mercurykd/vpnbot/master/version"],
+                    'web_app' => ['url' => "https://raw.githubusercontent.com/mercurykd/vpnbot/$b/version"],
                 ],
             ],
             [
