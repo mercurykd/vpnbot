@@ -2776,9 +2776,9 @@ DNS-over-HTTPS with IP:
 
                 <code>RU blacklist:</code> <code>https://github.com/zapret-info/z-i</code>
 
-                {$this->i18n('self list')}{$this->i18n('self list explain')}
+                {$this->i18n('proxy')}{$this->i18n('self list explain')}
 
-                {$this->i18n('reverse list')}{$this->i18n('reverse list explain')}
+                {$this->i18n('direct')}{$this->i18n('reverse list explain')}
                 text;
         if ($pac) {
             $pac['time']  = date('d.m.Y H:i:s', $pac['mtime']);
@@ -2868,15 +2868,16 @@ DNS-over-HTTPS with IP:
         }
         $data[] = [
             [
-                'text'          => $this->i18n('self list'),
+                'text'          => $this->i18n('proxy'),
+                'callback_data' => "/menu includelist 0",
                 'callback_data' => "/menu includelist 0",
             ],
+            // [
+            //     'text'          => $this->i18n('subzones'),
+            //     'callback_data' => "/menu subzoneslist 0",
+            // ],
             [
-                'text'          => $this->i18n('subzones'),
-                'callback_data' => "/menu subzoneslist 0",
-            ],
-            [
-                'text'          => $this->i18n('reverse list'),
+                'text'          => $this->i18n('direct'),
                 'callback_data' => "/menu reverselist 0",
             ],
         ];
@@ -2908,7 +2909,15 @@ DNS-over-HTTPS with IP:
     {
         $count  = $this->limit;
         $name   = str_replace('list', '', $type);
-        $text   = "Menu -> pac -> {$name}list\n\n";
+        switch ($name) {
+            case 'include':
+                $additional = $this->i18n('self list explain');
+                break;
+            case 'reverse':
+                $additional = $this->i18n('reverse list explain');
+                break;
+        }
+        $text   = "Menu -> pac -> {$name}list\n\n$additional";
         $data[] = [
             [
                 'text'          => $this->i18n('add'),

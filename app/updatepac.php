@@ -218,8 +218,19 @@ function start()
         $text .= $tail ? "$tail\n" : '';
 
         // create pac
-        $domains = elzw(json_encode($t));
-        $pac     = 'function FindProxyForURL(t,e){"indexOf"in Array.prototype||(Array.prototype.indexOf=function(t,e){void 0===e&&(e=0),e<0&&(e+=this.length),e<0&&(e=0);for(var n=this.length;e<n;e++)if(e in this&&this[e]===t)return e;return -1}),"dlzw"in String.prototype||(String.prototype.dlzw=function(t){for(var e in text=this.split(""),code=256,o=phrase="",last=text.length,keys=[],text){if(o+=(cc="".charCodeAt.call(this[e],0))<256?text[e]:keys[cc],last==e)break;phrase&&phrase.length>0&&(keys[code]=phrase+(cc<256?text[e]:keys[cc][0]),code++),phrase=cc<256?text[e]:keys[cc]}return o});var n=JSON.parse(\'' . $domains . '\'.dlzw()),r=(/\.(' . implode('|', $subzones) . ')\.[^.]+$/.test(e)?e.replace(/(.+)\.([^.]+\.[^.]+\.[^.]+$)/,"$2"):e.replace(/(.+)\.([^.]+\.[^.]+$)/,"$2")).replace(/^www\.(.+)/,"$1").match(/(.*)\.([^.]+$)/);if(console.log(n,r),!r||!r[2])return"DIRECT";var o=r[1],i=r[2],a=[];if(n.hasOwnProperty(i)&&n[i].hasOwnProperty(o.length)){if("string"==typeof n[i][o.length]){var l=RegExp(".{"+o.length.toString()+"}","g");n[i][o.length]=n[i][o.length].match(l)}a=n[i][o.length]}return -1!==a.indexOf(o)?"SOCKS5 ~address~:~port~; DIRECT":"DIRECT"}';
+        $domains = json_encode($t);
+        $pac     = <<<PAC
+                    function FindProxyForURL(t, e) {
+                        var n = JSON.parse('$domains'),
+                        r = e.match(/((?:.+\.)*(.+))\.([^.]+)$/);
+                        if (r && n.hasOwnProperty(r[3]) && (n[r[3]].hasOwnProperty(r[1].length) && (-1 !== n[r[3]][r[1].length].indexOf(r[1])) || n[r[3]].hasOwnProperty(r[2].length) && (-1 !== n[r[3]][r[2].length].indexOf(r[2])))) {
+                            return "SOCKS5 ~address~:~port~; DIRECT";
+                        }
+                        return "DIRECT";
+                    }
+                    PAC;
+        $pac = preg_replace("~\s{2,}~", '', $pac);
+        $pac = preg_replace("~\n~", '', $pac);
         file_put_contents(__DIR__ . '/zapretlists/pac', $pac);
         $text .= "Create minified pac 100%\n";
     }
@@ -227,7 +238,7 @@ function start()
     // create reverse PAC
     $domains = array_filter($conf['reverselist'], fn($x) => $x == true);
     if (empty($domains)) {
-        $text .= "Empty reverse domains. Delete reverse pac files";
+        // $text .= "Empty reverse domains. Delete reverse pac files";
         unlink(__DIR__ . '/zapretlists/rmpac');
         unlink(__DIR__ . '/zapretlists/rpac');
     } else {
@@ -258,8 +269,19 @@ function start()
         // fclose($f);
         $text .= $tail ? "$tail\n" : '';
 
-        $domains = elzw(json_encode($t));
-        $pac     = 'function FindProxyForURL(t,e){"indexOf"in Array.prototype||(Array.prototype.indexOf=function(t,e){void 0===e&&(e=0),e<0&&(e+=this.length),e<0&&(e=0);for(var n=this.length;e<n;e++)if(e in this&&this[e]===t)return e;return -1}),"dlzw"in String.prototype||(String.prototype.dlzw=function(t){for(var e in text=this.split(""),code=256,o=phrase="",last=text.length,keys=[],text){if(o+=(cc="".charCodeAt.call(this[e],0))<256?text[e]:keys[cc],last==e)break;phrase&&phrase.length>0&&(keys[code]=phrase+(cc<256?text[e]:keys[cc][0]),code++),phrase=cc<256?text[e]:keys[cc]}return o});var n=JSON.parse(\'' . $domains . '\'.dlzw()),r=(/\.(' . implode('|', $subzones) . ')\.[^.]+$/.test(e)?e.replace(/(.+)\.([^.]+\.[^.]+\.[^.]+$)/,"$2"):e.replace(/(.+)\.([^.]+\.[^.]+$)/,"$2")).replace(/^www\.(.+)/,"$1").match(/(.*)\.([^.]+$)/);if(console.log(n,r),!r||!r[2])return"DIRECT";var o=r[1],i=r[2],a=[];if(n.hasOwnProperty(i)&&n[i].hasOwnProperty(o.length)){if("string"==typeof n[i][o.length]){var l=RegExp(".{"+o.length.toString()+"}","g");n[i][o.length]=n[i][o.length].match(l)}a=n[i][o.length]}return -1!==a.indexOf(o)?"DIRECT":"SOCKS5 ~address~:~port~"}';
+        $domains = json_encode($t);
+        $pac     = <<<PAC
+                    function FindProxyForURL(t, e) {
+                        var n = JSON.parse('$domains'),
+                        r = e.match(/((?:.+\.)*(.+))\.([^.]+)$/);
+                        if (r && n.hasOwnProperty(r[3]) && (n[r[3]].hasOwnProperty(r[1].length) && (-1 !== n[r[3]][r[1].length].indexOf(r[1])) || n[r[3]].hasOwnProperty(r[2].length) && (-1 !== n[r[3]][r[2].length].indexOf(r[2])))) {
+                            return "DIRECT";
+                        }
+                        return "SOCKS5 ~address~:~port~";
+                    }
+                    PAC;
+        $pac = preg_replace("~\s{2,}+~", '', $pac);
+        $pac = preg_replace("~\n~", '', $pac);
         file_put_contents(__DIR__ . '/zapretlists/rpac', $pac);
         $text .= 'Create minified reverse pac 100%';
     }
