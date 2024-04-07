@@ -3519,12 +3519,15 @@ DNS-over-HTTPS with IP:
     public function userXr($i)
     {
         $c      = $this->getXray();
-        $pac    = $this->getPacConf();
+        $domain = $this->getPacConf()['domain'] ?: $this->ip;
+        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
+        $hash   = substr(md5($this->key), 0, 8);
+        $link   = "$scheme://{$domain}/pac?h=$hash&t=s&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}";
+
+
         $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['inbounds'][0]['settings']['clients'][$i]['email']}\n";
-        // $text[] = "uuid: <code>{$c['inbounds'][0]['settings']['clients'][$i]['id']}</code>";
-        // $text[] = "shortId: <code>{$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}</code>";
-        // $text[] = "pubkey: <code>{$pac['xray']}</code>";
-        $text[] = "<code>{$this->linkXray($i)}</code>";
+        $text[] = "<code>{$this->linkXray($i)}</code>\n";
+        $text[] = "v2ray subscription: <code>$link</code>";
 
         $data[] = [
             [
@@ -3556,6 +3559,137 @@ DNS-over-HTTPS with IP:
             implode("\n", $text ?: ['...']),
             $data ?: false,
         );
+    }
+
+    public function v2raySubscription($key)
+    {
+        $domain = $this->getPacConf()['domain'] ?: $this->ip;
+        $xr     = $this->getXray();
+        $pac    = $this->getPacConf();
+
+        $flag = true;
+        foreach ($xr['inbounds'][0]['settings']['clients'] as $k => $v) {
+            if ($v['id'] == $key) {
+                $flag = false;
+                break;
+            }
+        }
+        if ($flag) {
+            return;
+        }
+
+        $c = [
+            "log" => [
+                "access"   => "",
+                "error"    => "",
+                "loglevel" => "warning"
+            ],
+            "inbounds" => [
+                [
+                    "tag"      => "socks",
+                    "port"     => 10808,
+                    "listen"   => "127.0.0.1",
+                    "protocol" => "socks",
+                    "sniffing" => [
+                        "enabled"      => true,
+                        "destOverride" => [
+                            "http",
+                            "tls"
+                        ],
+                        "routeOnly" => false
+                    ],
+                    "settings" => [
+                        "auth"             => "noauth",
+                        "udp"              => true,
+                        "allowTransparent" => false
+                    ]
+                ],
+                [
+                    "tag"      => "http",
+                    "port"     => 10809,
+                    "listen"   => "127.0.0.1",
+                    "protocol" => "http",
+                    "sniffing" => [
+                        "enabled"      => true,
+                        "destOverride" => [
+                            "http",
+                            "tls"
+                        ],
+                        "routeOnly" => false
+                    ],
+                    "settings" => [
+                        "auth"             => "noauth",
+                        "udp"              => true,
+                        "allowTransparent" => false
+                    ]
+                ]
+            ],
+            "outbounds" => [
+                [
+                    "tag"      => "proxy",
+                    "protocol" => "vless",
+                    "settings" => [
+                        "vnext" => [[
+                            "address" => $domain,
+                            "port"    => 443,
+                            "users"   => [[
+                                "id"         => $key,
+                                "alterId"    => 0,
+                                "email"      => "t@t.tt",
+                                "security"   => "auto",
+                                "encryption" => "none",
+                                "flow"       => "xtls-rprx-vision"
+                            ]]
+                        ]]
+                    ],
+                    "streamSettings" => [
+                        "network"         => "tcp",
+                        "security"        => "reality",
+                        "realitySettings" => [
+                            "serverName"  => $domain,
+                            "fingerprint" => "chrome",
+                            "show"        => false,
+                            "publicKey"   => $pac['xray'],
+                            "shortId"     => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
+                            "spiderX"     => ""
+                        ]
+                    ],
+                    "mux" => [
+                        "enabled"     => false,
+                        "concurrency" => -1
+                    ]
+                ],
+                [
+                    "tag"      => "direct",
+                    "protocol" => "freedom",
+                ],
+                [
+                    "tag"      => "block",
+                    "protocol" => "blackhole",
+                    "settings" => [
+                        "response" => [
+                            "type" => "http"
+                        ]
+                    ]
+                ]
+            ],
+            "routing" => [
+                "domainStrategy" => "AsIs",
+                "rules"          => [
+                    [
+                        "type"        => "field",
+                        "outboundTag" => "proxy",
+                        "domain"      => array_keys(array_filter($pac['includelist']))
+                    ],
+                    [
+                        "type"        => "field",
+                        "port"        => "0-65535",
+                        "outboundTag" => "direct"
+                    ]
+                ]
+            ]
+        ];
+        echo json_encode($c);
     }
 
     public function getXray()
