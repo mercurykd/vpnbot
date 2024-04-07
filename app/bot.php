@@ -3187,7 +3187,7 @@ DNS-over-HTTPS with IP:
                     [
                         [
                             'text' => $this->i18n('chat'),
-                            'url'  => "https://t.me/+bUuWfsKzaMZhNjQy",
+                            'url'  => "https://t.me/vpnbot_group",
                         ],
                         [
                             'text' => $this->i18n('donate'),
