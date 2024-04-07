@@ -221,6 +221,12 @@ class Bot
             case preg_match('~^/addOcUser$~', $this->input['callback'], $m):
                 $this->addOcUser();
                 break;
+            case preg_match('~^/addXrUser$~', $this->input['callback'], $m):
+                $this->addXrUser();
+                break;
+            case preg_match('~^/renameXrUser (\d+)$~', $this->input['callback'], $m):
+                $this->renameXrUser($m[1]);
+                break;
             case preg_match('~^/v2ray$~', $this->input['callback'], $m):
                 $this->v2ray();
                 break;
@@ -269,6 +275,12 @@ class Bot
             case preg_match('~^/deloc (\d+)$~', $this->input['callback'], $m):
                 $this->deloc($m[1]);
                 break;
+            case preg_match('~^/userXr (\d+)$~', $this->input['callback'], $m):
+                $this->userXr($m[1]);
+                break;
+            case preg_match('~^/delxr (\d+)$~', $this->input['callback'], $m):
+                $this->delxr($m[1]);
+                break;
             case preg_match('~^/switchTorrent (\d+)$~', $this->input['callback'], $m):
                 $this->switchTorrent($m[1]);
                 break;
@@ -294,8 +306,8 @@ class Bot
             case preg_match('~^/qrSS$~', $this->input['callback'], $m):
                 $this->qrSS();
                 break;
-            case preg_match('~^/qrXray$~', $this->input['callback'], $m):
-                $this->qrXray();
+            case preg_match('~^/qrXray (\d+)$~', $this->input['callback'], $m):
+                $this->qrXray($m[1]);
                 break;
             case preg_match('~^/qrMtproto$~', $this->input['callback'], $m):
                 $this->qrMtproto();
@@ -660,6 +672,38 @@ class Bot
             'start_callback' => $this->input['callback_id'],
             'callback'       => 'addocus',
             'args'           => [],
+        ];
+    }
+
+    public function addXrUser()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter name",
+            $this->input['message_id'],
+            reply: 'enter password',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'addxrus',
+            'args'           => [],
+        ];
+    }
+
+    public function renameXrUser($i)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter name",
+            $this->input['message_id'],
+            reply: 'enter password',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'renXrUs',
+            'args'           => [$i],
         ];
     }
 
@@ -1039,7 +1083,7 @@ class Bot
             ] : false,
             'mtproto'       => file_get_contents('/config/mtprotosecret'),
             'mtprotodomain' => file_get_contents('/config/mtprotodomain'),
-            'xray'          => json_decode(file_get_contents('/config/xray.json'), true),
+            'xray'          => $this->getXray(),
             'oc'            => file_get_contents('/config/ocserv.conf'),
             'ocu'           => file_get_contents('/config/ocserv.passwd'),
 
@@ -1407,9 +1451,9 @@ class Bot
         }
     }
 
-    public function qrXray()
+    public function qrXray($i)
     {
-        $link    = $this->linkXray();
+        $link    = $this->linkXray($i);
         $qr_file = __DIR__ . "/qr/xray.png";
         exec("qrencode -t png -o $qr_file '$link'");
         $r = $this->sendPhoto(
@@ -3201,12 +3245,12 @@ DNS-over-HTTPS with IP:
         $this->answer($this->input['callback_id'], 'in developing...');
     }
 
-    public function linkXray()
+    public function linkXray($i)
     {
         $c      = $this->getXray();
         $pac    = $this->getPacConf();
         $domain = $pac['domain'] ?: $this->ip;
-        return "vless://{$c['inbounds'][0]['settings']['clients'][0]['id']}@$domain:443?security=reality&sni={$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}&fp=chrome&pbk={$pac['xray']}&sid={$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}&type=tcp&flow=xtls-rprx-vision#vpnbot";
+        return "vless://{$c['inbounds'][0]['settings']['clients'][$i]['id']}@$domain:443?security=reality&sni={$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}&fp=chrome&pbk={$pac['xray']}&sid={$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}&type=tcp&flow=xtls-rprx-vision#vpnbot";
     }
 
     public function naiveMenu()
@@ -3368,6 +3412,19 @@ DNS-over-HTTPS with IP:
         $this->menu('oc');
     }
 
+    public function delxr($i)
+    {
+        $r = $this->getXray();
+        foreach ($r['inbounds'][0]['settings']['clients'] as $k => $v) {
+            if ($i == $k) {
+                unset($r['inbounds'][0]['settings']['clients'][$k]);
+                $this->restartXray($r);
+                break;
+            }
+        }
+        $this->xray();
+    }
+
     public function getClientsOc()
     {
         $users = array_filter(explode("\n", file_get_contents('/config/ocserv.passwd')), fn ($e) => !empty($e));
@@ -3381,26 +3438,44 @@ DNS-over-HTTPS with IP:
         $this->menu('oc');
     }
 
+    public function addxrus($user)
+    {
+        $c    = $this->getXray();
+        $uuid = trim($this->ssh('xray uuid', 'xr'));
+        $c['inbounds'][0]['settings']['clients'][] = [
+            'id'    => $uuid,
+            'flow'  => 'xtls-rprx-vision',
+            'email' => $user,
+        ];
+        $this->restartXray($c);
+        $this->xray();
+    }
+
+    public function renXrUs($name, $i)
+    {
+        $c = $this->getXray();
+        $c['inbounds'][0]['settings']['clients'][$i]['email'] = $name;
+        $this->restartXray($c);
+        $this->userXr($i);
+    }
+
     public function xray()
     {
-        $c      = $this->getXray();
-        $pac    = $this->getPacConf();
-        $domain = $pac['domain'] ?: $this->ip;
-        $st     = $this->ssh('pgrep xray', 'xr') ? 'on' : 'off';
-        $text[] = "Menu -> " . $this->i18n('xray') . "\n";
-        $text[] = "uuid: <code>{$c['inbounds'][0]['settings']['clients'][0]['id']}</code>";
-        $text[] = "shortId: <code>{$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}</code>";
-        $text[] = "pubkey: <code>{$pac['xray']}</code>";
-        $text[] = "fake domain: <code>{$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}</code>";
-        if ($c['inbounds'][0]['settings']['clients'][0]['id']) {
-            $text[] = "\n<code>{$this->linkXray()}</code>";
+        if (!$this->ssh('pgrep xray', 'xr')) {
+            $this->generateSecretXray();
         }
-        $text[] = "\nstatus: $st";
+        $c      = $this->getXray();
+        $text[] = "Menu -> " . $this->i18n('xray');
+        $text[] = "fake domain: <code>{$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}</code>";
 
         $data[] = [
             [
-                'text'          => $this->i18n('generateSecret'),
-                'callback_data' => "/generateSecretXray",
+                'text'    => 'android',
+                'web_app' => ['url' => 'https://github.com/2dust/v2rayNG/releases'],
+            ],
+            [
+                'text'    => 'windows',
+                'web_app' => ['url' => 'https://github.com/2dust/v2rayN/releases'],
             ],
         ];
         $data[] = [
@@ -3413,11 +3488,17 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/selfFakeDomain",
             ],
         ];
-        if ($c['inbounds'][0]['settings']['clients'][0]['id']) {
+        $data[] = [
+            [
+                'text'          => $this->i18n('add peer'),
+                'callback_data' => "/addXrUser",
+            ],
+        ];
+        foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
             $data[] = [
                 [
-                    'text'          => $this->i18n('show QR'),
-                    'callback_data' => "/qrXray",
+                    'text'          => "{$v['email']}",
+                    'callback_data' => "/userXr $k",
                 ],
             ];
         }
@@ -3425,6 +3506,48 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('back'),
                 'callback_data' => "/menu",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
+    public function userXr($i)
+    {
+        $c      = $this->getXray();
+        $pac    = $this->getPacConf();
+        $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['inbounds'][0]['settings']['clients'][$i]['email']}\n";
+        // $text[] = "uuid: <code>{$c['inbounds'][0]['settings']['clients'][$i]['id']}</code>";
+        // $text[] = "shortId: <code>{$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}</code>";
+        // $text[] = "pubkey: <code>{$pac['xray']}</code>";
+        $text[] = "<code>{$this->linkXray($i)}</code>";
+
+        $data[] = [
+            [
+                'text'          => $this->i18n('show QR'),
+                'callback_data' => "/qrXray $i",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('rename'),
+                'callback_data' => "/renameXrUser $i",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('delete'),
+                'callback_data' => "/delxr $i",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/xray",
             ],
         ];
         $this->update(
@@ -3443,21 +3566,18 @@ DNS-over-HTTPS with IP:
     public function generateSecretXray()
     {
         $c       = $this->getXray();
-        $uuid    = trim($this->ssh('xray uuid', 'xr'));
         $shortId = trim($this->ssh('openssl rand -hex 8', 'xr'));
         $keys    = $this->ssh('xray x25519', 'xr');
         preg_match('~^Private key:\s([^\s]+)~m', $keys, $m);
         $private = trim($m[1]);
         preg_match('~^Public key:\s([^\s]+)~m', $keys, $m);
         $public = trim($m[1]);
-        $c['inbounds'][0]['settings']['clients'][0]['id'] = $uuid;
         $c['inbounds'][0]['streamSettings']['realitySettings']['privateKey'] = $private;
         $c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0] = $shortId;
         $pac         = $this->getPacConf();
         $pac['xray'] = $public;
         $this->setPacConf($pac);
         $this->restartXray($c);
-        $this->xray();
     }
 
     public function setUpstreamDomain($domain)
