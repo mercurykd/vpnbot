@@ -266,8 +266,8 @@ $i = [
         'ru' => 'фейковый домен',
     ],
     'selfFakeDomain'  => [
-        'en' => 'selfFakeDomain',
-        'ru' => 'домен бота',
+        'en' => 'steal from yourself',
+        'ru' => 'steal from yourself',
     ],
     'page'  => [
         'en' => 'pagination',
@@ -326,7 +326,7 @@ $i = [
         'ru' => 'нет обновлений',
     ],
     'have updates'  => [
-        'en' => 'have updates',
-        'ru' => 'есть обновления',
+        'en' => '🟢 have updates',
+        'ru' => '🟢 есть обновления',
     ],
 ];
