@@ -37,6 +37,13 @@ if ($hash == substr(md5($c['key']), 0, 8)) {
             $bot->v2raySubscription($_GET['s']);
             exit;
 
+        case 'si':
+            require __DIR__ . '/bot.php';
+            require __DIR__ . '/i18n.php';
+            $bot = new Bot($c['key'], $i);
+            $bot->singboxSubscription($_GET['s']);
+            exit;
+
         default:
             if (file_exists($file = __DIR__ . "/zapretlists/$type")) {
                 $pac = file_get_contents($file);

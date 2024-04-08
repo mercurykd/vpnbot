@@ -3467,17 +3467,6 @@ DNS-over-HTTPS with IP:
         $c      = $this->getXray();
         $text[] = "Menu -> " . $this->i18n('xray');
         $text[] = "fake domain: <code>{$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}</code>";
-
-        $data[] = [
-            [
-                'text'    => 'android',
-                'web_app' => ['url' => 'https://github.com/2dust/v2rayNG/releases'],
-            ],
-            [
-                'text'    => 'windows',
-                'web_app' => ['url' => 'https://github.com/2dust/v2rayN/releases'],
-            ],
-        ];
         $data[] = [
             [
                 'text'          => $this->i18n('changeFakeDomain'),
@@ -3518,16 +3507,19 @@ DNS-over-HTTPS with IP:
 
     public function userXr($i)
     {
-        $c      = $this->getXray();
-        $domain = $this->getPacConf()['domain'] ?: $this->ip;
-        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
-        $hash   = substr(md5($this->key), 0, 8);
-        $link   = "$scheme://{$domain}/pac?h=$hash&t=s&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}";
+        $c        = $this->getXray();
+        $domain   = $this->getPacConf()['domain'] ?: $this->ip;
+        $scheme   = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
+        $hash     = substr(md5($this->key), 0, 8);
+        $v2ray    = "$scheme://{$domain}/pac?h=$hash&t=s&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}";
+        $sing     = "$scheme://{$domain}/pac?h=$hash&t=si&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}";
+        $fullsing = 'sing-box://import-remote-profile/?url=' . urlencode("$scheme://{$domain}/pac?h=$hash&t=si&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}") . "#vpnbot$i";
 
 
         $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['inbounds'][0]['settings']['clients'][$i]['email']}\n";
         $text[] = "<code>{$this->linkXray($i)}</code>\n";
-        $text[] = "v2ray subscription: <code>$link</code>";
+        $text[] = "v2ray subscription: <code>$v2ray</code>";
+        $text[] = "sing-box subscription: <code>$sing</code>";
 
         $data[] = [
             [
@@ -3563,9 +3555,9 @@ DNS-over-HTTPS with IP:
 
     public function v2raySubscription($key)
     {
-        $domain = $this->getPacConf()['domain'] ?: $this->ip;
-        $xr     = $this->getXray();
         $pac    = $this->getPacConf();
+        $domain = $pac['domain'] ?: $this->ip;
+        $xr     = $this->getXray();
 
         $flag = true;
         foreach ($xr['inbounds'][0]['settings']['clients'] as $k => $v) {
@@ -3646,7 +3638,7 @@ DNS-over-HTTPS with IP:
                         "network"         => "tcp",
                         "security"        => "reality",
                         "realitySettings" => [
-                            "serverName"  => $domain,
+                            "serverName"  => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
                             "fingerprint" => "chrome",
                             "show"        => false,
                             "publicKey"   => $pac['xray'],
@@ -3685,6 +3677,145 @@ DNS-over-HTTPS with IP:
                         "type"        => "field",
                         "port"        => "0-65535",
                         "outboundTag" => "direct"
+                    ]
+                ]
+            ]
+        ];
+        echo json_encode($c);
+    }
+
+    public function singboxSubscription($key)
+    {
+        $pac    = $this->getPacConf();
+        $domain = $pac['domain'] ?: $this->ip;
+        $xr     = $this->getXray();
+
+        $flag = true;
+        foreach ($xr['inbounds'][0]['settings']['clients'] as $k => $v) {
+            if ($v['id'] == $key) {
+                $flag = false;
+                break;
+            }
+        }
+        if ($flag) {
+            return;
+        }
+
+        $c = [
+            "log" => [
+                "level"     => "error",
+                "timestamp" => true
+            ],
+            "inbounds" => [[
+                    "type"                     => "tun",
+                    "tag"                      => "tun-in",
+                    "domain_strategy"          => "prefer_ipv4",
+                    "interface_name"           => "sing-tun",
+                    "inet4_address"            => "172.19.0.1/30",
+                    "mtu"                      => 1400,
+                    "gso"                      => true,
+                    "auto_route"               => true,
+                    "strict_route"             => true,
+                    "sniff"                    => true,
+                    "endpoint_independent_nat" => false,
+                    "stack"                    => "mixed",
+                    "platform"                 => [
+                        "http_proxy" => [
+                            "enabled"     => false,
+                            "server"      => "127.0.0.1",
+                            "server_port" => 2080
+                        ]
+                    ]
+                ],
+                [
+                    "type"                       => "mixed",
+                    "tag"                        => "mixed-in",
+                    "domain_strategy"            => "prefer_ipv4",
+                    "listen"                     => "127.0.0.1",
+                    "listen_port"                => 2080,
+                    "tcp_fast_open"              => true,
+                    "sniff"                      => true,
+                    "sniff_override_destination" => false,
+                    "users"                      => []
+                ]
+            ],
+            "dns" => [
+                "servers" => [[
+                        "tag"              => "dns_direct",
+                        "address"          => "tls://" . ($pac['adguardkey'] ? "{$pac['adguardkey']}." : '') . "$domain",
+                        "address_resolver" => "dns-remote",
+                        "strategy"         => "prefer_ipv4",
+                        "detour"           => "direct"
+                    ],
+                    [
+                        "tag"              => "dns-remote",
+                        "address"          => "tcp://8.8.8.8",
+                        "address_strategy" => "prefer_ipv4",
+                        "strategy"         => "prefer_ipv4",
+                        "detour"           => "direct"
+                    ]
+                ],
+                "rules" => [[
+                    "outbound"      => "any",
+                    "server"        => "dns-direct",
+                    "disable_cache" => false
+                ]],
+                "strategy"          => "ipv4_only",
+                "independent_cache" => true
+            ],
+            "outbounds" => [[
+                    "flow"            => "xtls-rprx-vision",
+                    "packet_encoding" => "",
+                    "server"          => $domain,
+                    "server_port"     => 443,
+                    "tls"             => [
+                        "enabled"  => true,
+                        "insecure" => false,
+                        "reality"  => [
+                            "enabled"    => true,
+                            "public_key" => $pac['xray'],
+                            "short_id"   => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
+                        ],
+                        "server_name" => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
+                        "utls"        => [
+                            "enabled"     => true,
+                            "fingerprint" => "chrome"
+                        ]
+                    ],
+                    "uuid"            => $key,
+                    "type"            => "vless",
+                    "domain_strategy" => "ipv4_only",
+                    "tag"             => "proxy"
+                ],
+                [
+                    "type" => "direct",
+                    "tag"  => "direct"
+                ],
+                [
+                    "type" => "block",
+                    "tag"  => "block"
+                ],
+                [
+                    "type" => "dns",
+                    "tag"  => "dns-out"
+                ]
+            ],
+            "route" => [
+                "auto_detect_interface" => true,
+                "override_android_vpn"  => true,
+                "rules"                 => [[
+                        "protocol" => "dns",
+                        "outbound" => "dns-out"
+                    ],
+                    [
+                        "domain"   => array_keys(array_filter($pac['includelist'])),
+                        "outbound" => "proxy"
+                    ],
+                    [
+                        "ip_cidr" => [
+                            "0.0.0.0/0"
+                        ],
+                        "outbound" => "direct"
                     ]
                 ]
             ]
