@@ -41,7 +41,18 @@ if ($hash == substr(md5($c['key']), 0, 8)) {
             require __DIR__ . '/bot.php';
             require __DIR__ . '/i18n.php';
             $bot = new Bot($c['key'], $i);
-            $bot->singboxSubscription($_GET['s']);
+            if (!empty($_GET['b'])) {
+                    $fs  = $bot->singboxSubscription($_GET['s'], 1);
+                    $r   = <<<HTML
+                        <div style='width:100%;height:100%;text-align:center;'>
+                            <a style='padding: 20px; border: 1px outset buttonborder; border-radius: 3px; color: buttontext; background-color: buttonface; text-decoration: none; height: 30px; display: inline-block; width: 50%; line-height: 30px;' href='$fs' target='_blank'>sing-box</a>
+                        </div>
+                        HTML;
+            } else {
+                header('Content-Type: application/json');
+                $r = $bot->singboxSubscription($_GET['s']);
+            }
+            echo $r;
             exit;
 
         default:
