@@ -3825,7 +3825,7 @@ DNS-over-HTTPS with IP:
                         "outbound" => "dns-out"
                     ],
                     [
-                        "domain"   => array_keys(array_filter($pac['includelist'])),
+                        "domain_suffix"   => array_keys(array_filter($pac['includelist'])),
                         "outbound" => "proxy"
                     ],
                     [
@@ -3837,7 +3837,7 @@ DNS-over-HTTPS with IP:
                 ]
             ]
         ];
-        if (empty($c['route']['rules'][1]['domain'])) {
+        if (empty($c['route']['rules'][1]['domain_suffix'])) {
             unset($c['route']['rules'][1]);
             $c['route']['rules'] = array_values($c['route']['rules']);
         }
