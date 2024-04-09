@@ -278,6 +278,9 @@ class Bot
             case preg_match('~^/userXr (\d+)$~', $this->input['callback'], $m):
                 $this->userXr($m[1]);
                 break;
+            case preg_match('~^/timerXr (\d+)$~', $this->input['callback'], $m):
+                $this->timerXr($m[1]);
+                break;
             case preg_match('~^/delxr (\d+)$~', $this->input['callback'], $m):
                 $this->delxr($m[1]);
                 break;
@@ -890,6 +893,7 @@ class Bot
     {
         while (true) {
             $this->shutdownClient();
+            $this->shutdownClientXr();
             $this->checkVersion();
             $this->checkBackup();
             $this->checkCert();
@@ -1033,6 +1037,24 @@ class Bot
                         }
                     }
                 }
+            }
+        } catch (Exception $e) {
+        }
+    }
+
+    public function shutdownClientXr()
+    {
+        try {
+            $c = $this->getXray();
+            $f = 0;
+            foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
+                if (!empty($v['time']) && $v['time'] < time()) {
+                    unset($c['inbounds'][0]['settings']['clients'][$k]);
+                    $f = 1;
+                }
+            }
+            if (!empty($f)) {
+                $this->restartXray($c);
             }
         } catch (Exception $e) {
         }
@@ -1871,6 +1893,21 @@ class Bot
             'start_message' => $this->input['message_id'],
             'callback'      => 'setAdKey',
             'args'          => [],
+        ];
+    }
+
+    public function timerXr($k)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter time like https://www.php.net/manual/ru/function.strtotime.php:",
+            $this->input['message_id'],
+            reply: 'enter time like https://www.php.net/manual/ru/function.strtotime.php:',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'setTimerXr',
+            'args'          => [$k],
         ];
     }
 
@@ -3467,6 +3504,18 @@ DNS-over-HTTPS with IP:
         $this->xray();
     }
 
+    public function setTimerXr($time, $i)
+    {
+        $c = $this->getXray();
+        if (empty($time)) {
+            unset($c['inbounds'][0]['settings']['clients'][$i]['time']);
+        } else {
+            $c['inbounds'][0]['settings']['clients'][$i]['time'] = strtotime($time);
+        }
+        file_put_contents('/config/xray.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $this->userXr($i);
+    }
+
     public function renXrUs($name, $i)
     {
         $c = $this->getXray();
@@ -3500,9 +3549,10 @@ DNS-over-HTTPS with IP:
             ],
         ];
         foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
+            $time   = $v['time'] ? $this->getTime($v['time']) : '';
             $data[] = [
                 [
-                    'text'          => "{$v['email']}",
+                    'text'          => "{$v['email']}" . ($time ? ": $time" : ''),
                     'callback_data' => "/userXr $k",
                 ],
             ];
@@ -3543,6 +3593,16 @@ DNS-over-HTTPS with IP:
         $text[] = "v2ray: <a href='$v2ray'>$v2ray</a>\n";
         $text[] = "sing-box: <a href='$sing'>$sing</a>";
 
+        if ($time = $c['inbounds'][0]['settings']['clients'][$i]['time']) {
+            $text[] = "\ntimer: " . $this->getTime($time);
+        }
+
+        $data[] = [
+            [
+                'text'          => $this->i18n('timer'),
+                'callback_data' => "/timerXr $i",
+            ],
+        ];
         $data[] = [
             [
                 'text'          => $this->i18n('show QR'),
