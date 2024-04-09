@@ -287,6 +287,9 @@ class Bot
             case preg_match('~^/delxr (\d+)$~', $this->input['callback'], $m):
                 $this->delxr($m[1]);
                 break;
+            case preg_match('~^/listXr (\d+)$~', $this->input['callback'], $m):
+                $this->listXr($m[1]);
+                break;
             case preg_match('~^/switchTorrent (\d+)$~', $this->input['callback'], $m):
                 $this->switchTorrent($m[1]);
                 break;
@@ -3499,7 +3502,7 @@ DNS-over-HTTPS with IP:
             'email' => $user,
         ];
         $this->restartXray($c);
-        $this->xray();
+        $this->userXr(count($c['inbounds'][0]['settings']['clients']) - 1);
     }
 
     public function setTimerXr($time, $i)
@@ -3548,6 +3551,14 @@ DNS-over-HTTPS with IP:
         $this->userXr($i);
     }
 
+    public function listXr($i)
+    {
+        $c = $this->getPacConf();
+        $c['xtlslist'] = $i;
+        $this->setPacConf($c);
+        $this->xray();
+    }
+
     public function xray()
     {
         if (!$this->ssh('pgrep xray', 'xr')) {
@@ -3572,6 +3583,26 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/addXrUser",
             ],
         ];
+        foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
+            if (!empty($v['off'])) {
+                $off++;
+            } else {
+                $on++;
+            }
+        }
+        $data[] = [
+            [
+                'text'          => $this->i18n('on') . " $on",
+                'callback_data' => "/listXr 0",
+            ],
+            [
+                'text'          => $this->i18n('off') . " $off",
+                'callback_data' => "/listXr 1",
+            ],
+        ];
+        $type = $this->getPacConf()['xtlslist'];
+        $c['inbounds'][0]['settings']['clients'] = array_filter($c['inbounds'][0]['settings']['clients'], fn($e) => !$type ? empty($e['off']) : !empty($e['off']));
+        usort($c['inbounds'][0]['settings']['clients'], fn($a, $b) => ($a['time'] ?: PHP_INT_MAX) <=> ($b['time'] ?: PHP_INT_MAX));
         foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
             $time   = $v['time'] ? $this->getTime($v['time']) : '';
             $data[] = [
