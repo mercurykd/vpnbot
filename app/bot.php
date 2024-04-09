@@ -3124,7 +3124,9 @@ DNS-over-HTTPS with IP:
 
     public function menu($type = false, $arg = false, $return = false)
     {
-        $menu = [
+        $domain = $this->getPacConf()['domain'] ?: $this->ip;
+        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
+        $menu   = [
             'main' => [
                 'text' => 'v' . getenv('VER'),
                 'data' => [
@@ -3192,7 +3194,7 @@ DNS-over-HTTPS with IP:
                         [
                             'text' => $this->i18n('donate'),
                             'web_app' => [
-                                'url'  => "https://www.donationalerts.com/r/mercurykd",
+                                'url'  => "$scheme://$domain/donate.html",
                             ]
                         ],
                     ],
