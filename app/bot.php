@@ -1086,6 +1086,8 @@ class Bot
             'xray'          => $this->getXray(),
             'oc'            => file_get_contents('/config/ocserv.conf'),
             'ocu'           => file_get_contents('/config/ocserv.passwd'),
+            'v2ray'         => file_get_contents('/config/v2ray.json'),
+            'sing'          => file_get_contents('/config/sing.json'),
 
         ];
         return json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -1218,6 +1220,18 @@ class Bot
             if (!empty($json['pac']['domain'])) {
                 $this->setUpstreamDomainOcserv($json['pac']['domain']);
                 $this->setUpstreamDomainNaive($json['pac']['domain']);
+            }
+            // v2ray
+            if (!empty($json['v2ray'])) {
+                $out[] = 'update v2ray';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                file_put_contents('/config/v2ray.json', $json['v2ray']);
+            }
+            // sing
+            if (!empty($json['sing'])) {
+                $out[] = 'update sing-box';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                file_put_contents('/config/sing.json', $json['sing']);
             }
             // nginx
             $out[] = 'reset nginx';
@@ -3581,117 +3595,15 @@ DNS-over-HTTPS with IP:
             return;
         }
 
-        $c = [
-            "log" => [
-                "access"   => "",
-                "error"    => "",
-                "loglevel" => "warning"
-            ],
-            "inbounds" => [
-                [
-                    "tag"      => "socks",
-                    "port"     => 10808,
-                    "listen"   => "127.0.0.1",
-                    "protocol" => "socks",
-                    "sniffing" => [
-                        "enabled"      => true,
-                        "destOverride" => [
-                            "http",
-                            "tls"
-                        ],
-                        "routeOnly" => false
-                    ],
-                    "settings" => [
-                        "auth"             => "noauth",
-                        "udp"              => true,
-                        "allowTransparent" => false
-                    ]
-                ],
-                [
-                    "tag"      => "http",
-                    "port"     => 10809,
-                    "listen"   => "127.0.0.1",
-                    "protocol" => "http",
-                    "sniffing" => [
-                        "enabled"      => true,
-                        "destOverride" => [
-                            "http",
-                            "tls"
-                        ],
-                        "routeOnly" => false
-                    ],
-                    "settings" => [
-                        "auth"             => "noauth",
-                        "udp"              => true,
-                        "allowTransparent" => false
-                    ]
-                ]
-            ],
-            "outbounds" => [
-                [
-                    "tag"      => "proxy",
-                    "protocol" => "vless",
-                    "settings" => [
-                        "vnext" => [[
-                            "address" => $domain,
-                            "port"    => 443,
-                            "users"   => [[
-                                "id"         => $key,
-                                "alterId"    => 0,
-                                "email"      => "t@t.tt",
-                                "security"   => "auto",
-                                "encryption" => "none",
-                                "flow"       => "xtls-rprx-vision"
-                            ]]
-                        ]]
-                    ],
-                    "streamSettings" => [
-                        "network"         => "tcp",
-                        "security"        => "reality",
-                        "realitySettings" => [
-                            "serverName"  => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
-                            "fingerprint" => "chrome",
-                            "show"        => false,
-                            "publicKey"   => $pac['xray'],
-                            "shortId"     => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
-                            "spiderX"     => ""
-                        ]
-                    ],
-                    "mux" => [
-                        "enabled"     => false,
-                        "concurrency" => -1
-                    ]
-                ],
-                [
-                    "tag"      => "direct",
-                    "protocol" => "freedom",
-                ],
-                [
-                    "tag"      => "block",
-                    "protocol" => "blackhole",
-                    "settings" => [
-                        "response" => [
-                            "type" => "http"
-                        ]
-                    ]
-                ]
-            ],
-            "routing" => [
-                "domainStrategy" => "AsIs",
-                "rules"          => [
-                    [
-                        "type"        => "field",
-                        "outboundTag" => "proxy",
-                        "domain"      => array_keys(array_filter($pac['includelist']))
-                    ],
-                    [
-                        "type"        => "field",
-                        "port"        => "0-65535",
-                        "outboundTag" => "direct"
-                    ]
-                ]
-            ]
-        ];
+        $c = json_decode(file_get_contents('/config/v2ray.json'), true);
+
+        $c['outbounds'][0]['settings']['vnext'][0]['address']                 = $domain;
+        $c['outbounds'][0]['settings']['vnext'][0]['users'][0]['id']          = $key;
+        $c['outbounds'][0]['streamSettings']['realitySettings']['serverName'] = $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
+        $c['outbounds'][0]['streamSettings']['realitySettings']['publicKey']  = $pac['xray'];
+        $c['outbounds'][0]['streamSettings']['realitySettings']['shortId']    = $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
+        $c['routing']['rules'][0]['domain']                                   = array_keys(array_filter($pac['includelist']));
+
         if (empty($c['routing']['rules'][0]['domain'])) {
             unset($c['routing']['rules'][0]);
             $c['routing']['rules'] = array_values($c['routing']['rules']);
@@ -3720,125 +3632,20 @@ DNS-over-HTTPS with IP:
             return false;
         }
 
-        $c = [
-            "log" => [
-                "level"     => "error",
-                "timestamp" => true
-            ],
-            "inbounds" => [[
-                    "type"                     => "tun",
-                    "tag"                      => "tun-in",
-                    "domain_strategy"          => "prefer_ipv4",
-                    "interface_name"           => "sing-tun",
-                    "inet4_address"            => "172.19.0.1/30",
-                    "mtu"                      => 1400,
-                    "gso"                      => true,
-                    "auto_route"               => true,
-                    "strict_route"             => true,
-                    "sniff"                    => true,
-                    "endpoint_independent_nat" => false,
-                    "stack"                    => "mixed",
-                    "platform"                 => [
-                        "http_proxy" => [
-                            "enabled"     => false,
-                            "server"      => "127.0.0.1",
-                            "server_port" => 2080
-                        ]
-                    ]
-                ],
-                [
-                    "type"                       => "mixed",
-                    "tag"                        => "mixed-in",
-                    "domain_strategy"            => "prefer_ipv4",
-                    "listen"                     => "127.0.0.1",
-                    "listen_port"                => 2080,
-                    "tcp_fast_open"              => true,
-                    "sniff"                      => true,
-                    "sniff_override_destination" => false,
-                    "users"                      => []
-                ]
-            ],
-            "dns" => [
-                "servers" => [[
-                        "tag"              => "dns_direct",
-                        "address"          => "tls://" . ($pac['adguardkey'] ? "{$pac['adguardkey']}." : '') . "$domain",
-                        "address_resolver" => "dns-remote",
-                        "strategy"         => "prefer_ipv4",
-                        "detour"           => "direct"
-                    ],
-                    [
-                        "tag"              => "dns-remote",
-                        "address"          => "tcp://8.8.8.8",
-                        "address_strategy" => "prefer_ipv4",
-                        "strategy"         => "prefer_ipv4",
-                        "detour"           => "direct"
-                    ]
-                ],
-                "rules" => [[
-                    "outbound"      => "any",
-                    "server"        => "dns-direct",
-                    "disable_cache" => false
-                ]],
-                "strategy"          => "ipv4_only",
-                "independent_cache" => true
-            ],
-            "outbounds" => [[
-                    "flow"            => "xtls-rprx-vision",
-                    "packet_encoding" => "",
-                    "server"          => $domain,
-                    "server_port"     => 443,
-                    "tls"             => [
-                        "enabled"  => true,
-                        "insecure" => false,
-                        "reality"  => [
-                            "enabled"    => true,
-                            "public_key" => $pac['xray'],
-                            "short_id"   => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
-                        ],
-                        "server_name" => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
-                        "utls"        => [
-                            "enabled"     => true,
-                            "fingerprint" => "chrome"
-                        ]
-                    ],
-                    "uuid"            => $key,
-                    "type"            => "vless",
-                    "domain_strategy" => "ipv4_only",
-                    "tag"             => "proxy"
-                ],
-                [
-                    "type" => "direct",
-                    "tag"  => "direct"
-                ],
-                [
-                    "type" => "block",
-                    "tag"  => "block"
-                ],
-                [
-                    "type" => "dns",
-                    "tag"  => "dns-out"
-                ]
-            ],
-            "route" => [
-                "auto_detect_interface" => true,
-                "override_android_vpn"  => true,
-                "rules"                 => [[
-                        "protocol" => "dns",
-                        "outbound" => "dns-out"
-                    ],
-                    [
-                        "domain_suffix"   => array_keys(array_filter($pac['includelist'])),
-                        "outbound" => "proxy"
-                    ],
-                    [
-                        "ip_cidr" => [
-                            "0.0.0.0/0"
-                        ],
-                        "outbound" => "direct"
-                    ]
-                ]
-            ]
-        ];
+
+
+        $c = json_decode(file_get_contents('/config/sing.json'), true);
+
+        if ($c['dns']['servers'][0]['address'] == '~dns~') {
+            $c['dns']['servers'][0]['address'] = "tls://" . ($pac['adguardkey'] ? "{$pac['adguardkey']}." : '') . "$domain";
+        }
+
+        $c['outbounds'][0]['server']                       = $domain;
+        $c['outbounds'][0]['tls']['reality']['public_key'] = $key;
+        $c['outbounds'][0]['tls']['server_name']           = $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
+        $c['outbounds'][0]['tls']['reality']['short_id']   = $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
+        $c['route']['rules'][1]['domain_suffix']           = array_keys(array_filter($pac['includelist']));
+
         if (empty($c['route']['rules'][1]['domain_suffix'])) {
             unset($c['route']['rules'][1]);
             $c['route']['rules'] = array_values($c['route']['rules']);

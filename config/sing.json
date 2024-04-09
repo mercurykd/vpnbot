@@ -1,0 +1,106 @@
+{
+    "log": {
+        "level": "error",
+        "timestamp": true
+    },
+    "inbounds": [{
+        "type": "tun",
+        "tag": "tun-in",
+        "domain_strategy": "prefer_ipv4",
+        "interface_name": "sing-tun",
+        "inet4_address": "172.19.0.1\/30",
+        "mtu": 1400,
+        "gso": true,
+        "auto_route": true,
+        "strict_route": true,
+        "sniff": true,
+        "endpoint_independent_nat": false,
+        "stack": "mixed",
+        "platform": {
+            "http_proxy": {
+                "enabled": false,
+                "server": "127.0.0.1",
+                "server_port": 2080
+            }
+        }
+    }, {
+        "type": "mixed",
+        "tag": "mixed-in",
+        "domain_strategy": "prefer_ipv4",
+        "listen": "127.0.0.1",
+        "listen_port": 2080,
+        "tcp_fast_open": true,
+        "sniff": true,
+        "sniff_override_destination": false,
+        "users": []
+    }],
+    "dns": {
+        "servers": [{
+            "tag": "dns_direct",
+            "address": "~dns~",
+            "address_resolver": "dns-remote",
+            "strategy": "prefer_ipv4",
+            "detour": "direct"
+        }, {
+            "tag": "dns-remote",
+            "address": "tcp:\/\/8.8.8.8",
+            "address_strategy": "prefer_ipv4",
+            "strategy": "prefer_ipv4",
+            "detour": "direct"
+        }],
+        "rules": [{
+            "outbound": "any",
+            "server": "dns-direct",
+            "disable_cache": false
+        }],
+        "strategy": "ipv4_only",
+        "independent_cache": true
+    },
+    "outbounds": [{
+        "flow": "xtls-rprx-vision",
+        "packet_encoding": "",
+        "server": "",
+        "server_port": 443,
+        "tls": {
+            "enabled": true,
+            "insecure": false,
+            "reality": {
+                "enabled": true,
+                "public_key": "",
+                "short_id": ""
+            },
+            "server_name": "",
+            "utls": {
+                "enabled": true,
+                "fingerprint": "chrome"
+            }
+        },
+        "uuid": "",
+        "type": "vless",
+        "domain_strategy": "ipv4_only",
+        "tag": "proxy"
+    }, {
+        "type": "direct",
+        "tag": "direct"
+    }, {
+        "type": "block",
+        "tag": "block"
+    }, {
+        "type": "dns",
+        "tag": "dns-out"
+    }],
+    "route": {
+        "auto_detect_interface": true,
+        "override_android_vpn": true,
+        "rules": [{
+            "protocol": "dns",
+            "outbound": "dns-out"
+        }, {
+            "domain_suffix": [],
+            "outbound": "proxy"
+        }, {
+            "ip_cidr": ["0.0.0.0\/0"],
+            "outbound": "direct"
+        }]
+    }
+}
