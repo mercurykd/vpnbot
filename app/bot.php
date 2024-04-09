@@ -6,6 +6,7 @@ class Bot
     public $adguard;
     public $update;
     public $ip;
+    public $limit;
 
     public function __construct($key, $i18n)
     {
@@ -354,8 +355,8 @@ class Bot
             case preg_match('~^/domain$~', $this->input['callback'], $m):
                 $this->domain();
                 break;
-            case preg_match('~^/xray$~', $this->input['callback'], $m):
-                $this->xray();
+            case preg_match('~^/xray(?: (\d+))?$~', $this->input['callback'], $m):
+                $this->xray($m[1] ?: 0);
                 break;
             case preg_match('~^/generateSecretXray$~', $this->input['callback'], $m):
                 $this->generateSecretXray();
@@ -3559,7 +3560,7 @@ DNS-over-HTTPS with IP:
         $this->xray();
     }
 
-    public function xray()
+    public function xray($page = 0)
     {
         if (!$this->ssh('pgrep xray', 'xr')) {
             $this->generateSecretXray();
@@ -3590,28 +3591,46 @@ DNS-over-HTTPS with IP:
                 $on++;
             }
         }
+        $type   = $this->getPacConf()['xtlslist'];
         $data[] = [
             [
-                'text'          => $this->i18n('on') . " $on",
+                'text'          => $this->i18n('on') . " $on " . (!$type ? "✅" : ''),
                 'callback_data' => "/listXr 0",
             ],
             [
-                'text'          => $this->i18n('off') . " $off",
+                'text'          => $this->i18n('off') . " $off " . ($type ? "✅" : ''),
                 'callback_data' => "/listXr 1",
             ],
         ];
-        $type = $this->getPacConf()['xtlslist'];
-        $c['inbounds'][0]['settings']['clients'] = array_filter($c['inbounds'][0]['settings']['clients'], fn($e) => !$type ? empty($e['off']) : !empty($e['off']));
-        usort($c['inbounds'][0]['settings']['clients'], fn($a, $b) => ($a['time'] ?: PHP_INT_MAX) <=> ($b['time'] ?: PHP_INT_MAX));
-        foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
+        $clients = array_filter($c['inbounds'][0]['settings']['clients'], fn($e) => !$type ? empty($e['off']) : !empty($e['off']));
+        uasort($clients, fn($a, $b) => ($a['time'] ?: PHP_INT_MAX) <=> ($b['time'] ?: PHP_INT_MAX));
+
+        $all     = (int) ceil(count($clients) / $this->limit);
+        $page    = min($page, $all - 1);
+        $page    = $page == -2 ? $all - 1 : $page;
+        $clients = $page != -1 ? array_slice($clients, $page * $this->limit, $this->limit, true) : $clients;
+        foreach ($clients as $k => $v) {
             $time   = $v['time'] ? $this->getTime($v['time']) : '';
             $data[] = [
                 [
-                    'text'          => $this->i18n($v['off'] ? 'off' : 'on') . " {$v['email']}" . ($time ? ": $time" : ''),
+                    'text'          => "{$v['email']}" . ($time ? ": $time" : ''),
                     'callback_data' => "/userXr $k",
                 ],
             ];
         }
+        if ($page != -1 && $all > 1) {
+            $data[] = [
+                [
+                    'text'          => '<<',
+                    'callback_data' => "/xray " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
+                ],
+                [
+                    'text'          => '>>',
+                    'callback_data' => "/xray " . ($page < $all - 1 ? $page + 1 : 0),
+                ]
+            ];
+        }
+
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
