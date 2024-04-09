@@ -4099,7 +4099,7 @@ DNS-over-HTTPS with IP:
                 file_put_contents('/update/branch', trim(str_replace('origin/', '', $v)));
             }
         }
-        $this->menu('config');
+        $this->menu('update');
     }
 
     public function logs()
