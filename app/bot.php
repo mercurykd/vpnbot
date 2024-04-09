@@ -3641,7 +3641,8 @@ DNS-over-HTTPS with IP:
         }
 
         $c['outbounds'][0]['server']                       = $domain;
-        $c['outbounds'][0]['tls']['reality']['public_key'] = $key;
+        $c['outbounds'][0]['uuid']                         = $key;
+        $c['outbounds'][0]['tls']['reality']['public_key'] = $pac['xray'];
         $c['outbounds'][0]['tls']['server_name']           = $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
         $c['outbounds'][0]['tls']['reality']['short_id']   = $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
         $c['route']['rules'][1]['domain_suffix']           = array_keys(array_filter($pac['includelist']));
