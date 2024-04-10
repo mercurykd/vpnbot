@@ -370,6 +370,9 @@ class Bot
             case preg_match('~^/downloadTemplate(?: (.+))?$~', $this->input['callback'], $m):
                 $this->downloadTemplate($m[1] ?: 0);
                 break;
+            case preg_match('~^/defaultTemplate(?: (.+))?$~', $this->input['callback'], $m):
+                $this->defaultTemplate($m[1] ?: 0);
+                break;
             case preg_match('~^/singbox(?: (\w+))?$~', $this->input['callback'], $m):
                 $this->singbox($m[1] ?: false);
                 break;
@@ -3613,6 +3616,18 @@ DNS-over-HTTPS with IP:
         $this->sendFile($this->input['chat'], $f);
     }
 
+    public function defaultTemplate($name)
+    {
+        $pac = $this->getPacConf();
+        if (!empty($name)) {
+            $pac['defaulttemplate'] = $name;
+        } else {
+            unset($pac['defaulttemplate']);
+        }
+        $this->setPacConf($pac);
+        $this->singbox();
+    }
+
     public function singbox($name = false)
     {
         $pac       = $this->getPacConf();
@@ -3633,6 +3648,10 @@ DNS-over-HTTPS with IP:
                 'text'          => "default: " . $this->i18n('show'),
                 'web_app' => ['url' => "$scheme://$domain/pac?h=$hash&t=te"],
             ],
+            [
+                'text'          => $this->i18n($pac['defaulttemplate'] ? 'off' : 'on'),
+                'callback_data' => "/defaultTemplate",
+            ],
         ];
         foreach ($templates as $k => $v) {
             $data[] = [
@@ -3647,6 +3666,10 @@ DNS-over-HTTPS with IP:
                 [
                     'text'          => $this->i18n('delete'),
                     'callback_data' => "/delTemplate " . base64_encode($k),
+                ],
+                [
+                    'text'          => $this->i18n($pac['defaulttemplate'] == base64_encode($k) ? 'on' : 'off'),
+                    'callback_data' => "/defaultTemplate " . base64_encode($k),
                 ],
             ];
         }
@@ -3939,7 +3962,11 @@ DNS-over-HTTPS with IP:
         if (!empty($template) && !empty($pac['singtemplates'][base64_decode($template)])) {
             $c = $pac['singtemplates'][base64_decode($template)];
         } else {
-            $c = json_decode(file_get_contents('/config/sing.json'), true);
+            if (!empty($pac['defaulttemplate'])) {
+                $c = $pac['singtemplates'][base64_decode($pac['defaulttemplate'])];
+            } else {
+                $c = json_decode(file_get_contents('/config/sing.json'), true);
+            }
         }
 
         if ($c['dns']['servers'][0]['address'] == '~dns~') {
@@ -3951,12 +3978,16 @@ DNS-over-HTTPS with IP:
         $c['outbounds'][0]['tls']['reality']['public_key'] = $pac['xray'];
         $c['outbounds'][0]['tls']['server_name']           = $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
         $c['outbounds'][0]['tls']['reality']['short_id']   = $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
-        $c['route']['rules'][1]['domain_suffix']           = array_keys(array_filter($pac['includelist']));
-
-        if (empty($c['route']['rules'][1]['domain_suffix'])) {
-            unset($c['route']['rules'][1]);
-            $c['route']['rules'] = array_values($c['route']['rules']);
+        foreach ($c['route']['rules'] as $k => $v) {
+            if (array_key_exists('domain_suffix', $v) && $v['domain_suffix'] == '~pac~') {
+                $c['route']['rules'][$k]['domain_suffix'] = array_keys(array_filter($pac['includelist']));
+                if (empty($c['route']['rules'][$k]['domain_suffix'])) {
+                    unset($c['route']['rules'][$k]);
+                }
+            }
         }
+        $c['route']['rules'] = array_values($c['route']['rules']);
+
         return json_encode($c);
     }
 

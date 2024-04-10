@@ -96,7 +96,7 @@
             "protocol": "dns",
             "outbound": "dns-out"
         }, {
-            "domain_suffix": [],
+            "domain_suffix": "~pac~",
             "outbound": "proxy"
         }, {
             "ip_cidr": ["0.0.0.0\/0"],
