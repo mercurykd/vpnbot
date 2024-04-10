@@ -58,6 +58,21 @@ if ($hash == substr(md5($c['key']), 0, 8)) {
             }
             exit;
 
+        case 'te':
+            require __DIR__ . '/bot.php';
+            require __DIR__ . '/i18n.php';
+            $bot = new Bot($c['key'], $i);
+            if (!empty($_GET['te'])) {
+                $t = $bot->getPacConf()['singtemplates'][urldecode($_GET['te'])];
+            } else {
+                $t = json_decode(file_get_contents('/config/sing.json'), true);
+            }
+            if ($t) {
+                header('Content-Type: application/json');
+                echo json_encode($t, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                exit;
+            }
+
         default:
             if (file_exists($file = __DIR__ . "/zapretlists/$type")) {
                 $pac = file_get_contents($file);

@@ -279,6 +279,12 @@ class Bot
             case preg_match('~^/userXr (\d+)$~', $this->input['callback'], $m):
                 $this->userXr($m[1]);
                 break;
+            case preg_match('~^/choiceTemplate (\d+(?:_.+)?)$~', $this->input['callback'], $m):
+                $this->choiceTemplate($m[1]);
+                break;
+            case preg_match('~^/templateUser (\d+)$~', $this->input['callback'], $m):
+                $this->templateUser($m[1]);
+                break;
             case preg_match('~^/timerXr (\d+)$~', $this->input['callback'], $m):
                 $this->timerXr($m[1]);
                 break;
@@ -357,6 +363,18 @@ class Bot
                 break;
             case preg_match('~^/xray(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->xray($m[1] ?: 0);
+                break;
+            case preg_match('~^/delTemplate(?: (.+))?$~', $this->input['callback'], $m):
+                $this->delTemplate($m[1] ?: 0);
+                break;
+            case preg_match('~^/downloadTemplate(?: (.+))?$~', $this->input['callback'], $m):
+                $this->downloadTemplate($m[1] ?: 0);
+                break;
+            case preg_match('~^/singbox(?: (\w+))?$~', $this->input['callback'], $m):
+                $this->singbox($m[1] ?: false);
+                break;
+            case preg_match('~^/singAdd$~', $this->input['callback'], $m):
+                $this->singAdd();
                 break;
             case preg_match('~^/generateSecretXray$~', $this->input['callback'], $m):
                 $this->generateSecretXray();
@@ -1110,8 +1128,6 @@ class Bot
             'xray'          => $this->getXray(),
             'oc'            => file_get_contents('/config/ocserv.conf'),
             'ocu'           => file_get_contents('/config/ocserv.passwd'),
-            'v2ray'         => file_get_contents('/config/v2ray.json'),
-            'sing'          => file_get_contents('/config/sing.json'),
 
         ];
         return json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -1244,18 +1260,6 @@ class Bot
             if (!empty($json['pac']['domain'])) {
                 $this->setUpstreamDomainOcserv($json['pac']['domain']);
                 $this->setUpstreamDomainNaive($json['pac']['domain']);
-            }
-            // v2ray
-            if (!empty($json['v2ray'])) {
-                $out[] = 'update v2ray';
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                file_put_contents('/config/v2ray.json', $json['v2ray']);
-            }
-            // sing
-            if (!empty($json['sing'])) {
-                $out[] = 'update sing-box';
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                file_put_contents('/config/sing.json', $json['sing']);
             }
             // nginx
             $out[] = 'reset nginx';
@@ -3560,6 +3564,107 @@ DNS-over-HTTPS with IP:
         $this->xray();
     }
 
+    public function singAdd()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} send the template file:",
+            $this->input['message_id'],
+            reply: 'send the template file:',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'singAddTemplate',
+            'args'           => [],
+        ];
+    }
+
+    public function singAddTemplate($n = null)
+    {
+        if (empty($this->input['caption'])) {
+            $this->send($this->input['chat'], 'empty name');
+            return;
+        }
+        $r    = $this->request('getFile', ['file_id' => $this->input['file_id']]);
+        $json = json_decode(file_get_contents($this->file . $r['result']['file_path']), true);
+        if ($json === false) {
+            $this->send($this->input['chat'], 'wrong format');
+            return;
+        }
+        $pac = $this->getPacConf();
+        $pac['singtemplates'][$this->input['caption']] = $json;
+        $this->setPacConf($pac);
+        $this->singbox();
+    }
+
+    public function delTemplate($name)
+    {
+        $pac = $this->getPacConf();
+        unset($pac['singtemplates'][base64_decode($name)]);
+        $this->setPacConf($pac);
+        $this->singbox();
+    }
+
+    public function downloadTemplate($name)
+    {
+        $pac = $this->getPacConf();
+        $f = new \CURLStringFile(json_encode($pac['singtemplates'][base64_decode($name)], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), base64_decode($name) . '.json', 'application/json');
+        $this->sendFile($this->input['chat'], $f);
+    }
+
+    public function singbox($name = false)
+    {
+        $pac       = $this->getPacConf();
+        $domain    = $pac['domain'] ?: $this->ip;
+        $scheme    = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
+        $hash      = substr(md5($this->key), 0, 8);
+        $text[]    = "Menu -> " . $this->i18n('xray') . ' -> Sing-box templates';
+        $templates = $pac['singtemplates'];
+
+        $data[] = [
+            [
+                'text'          => $this->i18n('add'),
+                'callback_data' => "/singAdd",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => "default: " . $this->i18n('show'),
+                'web_app' => ['url' => "$scheme://$domain/pac?h=$hash&t=te"],
+            ],
+        ];
+        foreach ($templates as $k => $v) {
+            $data[] = [
+                [
+                    'text'          => "$k: " . $this->i18n('show'),
+                    'web_app' => ['url' => "$scheme://$domain/pac?h=$hash&t=te&te=" . urlencode($k)],
+                ],
+                [
+                    'text'          => $this->i18n('download'),
+                    'callback_data' => "/downloadTemplate " . base64_encode($k),
+                ],
+                [
+                    'text'          => $this->i18n('delete'),
+                    'callback_data' => "/delTemplate " . base64_encode($k),
+                ],
+            ];
+        }
+
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/xray",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
     public function xray($page = 0)
     {
         if (!$this->ssh('pgrep xray', 'xr')) {
@@ -3580,9 +3685,11 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
-                'text'          => $this->i18n('add peer'),
-                'callback_data' => "/addXrUser",
+                'text'          => $this->i18n('sing-box templates'),
+                'callback_data' => "/singbox",
             ],
+        ];
+        $data[] = [
         ];
         foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
             if (!empty($v['off'])) {
@@ -3592,16 +3699,6 @@ DNS-over-HTTPS with IP:
             }
         }
         $type   = $this->getPacConf()['xtlslist'];
-        $data[] = [
-            [
-                'text'          => $this->i18n('on') . " $on " . (!$type ? "✅" : ''),
-                'callback_data' => "/listXr 0",
-            ],
-            [
-                'text'          => $this->i18n('off') . " $off " . ($type ? "✅" : ''),
-                'callback_data' => "/listXr 1",
-            ],
-        ];
         $clients = array_filter($c['inbounds'][0]['settings']['clients'], fn($e) => !$type ? empty($e['off']) : !empty($e['off']));
         uasort($clients, fn($a, $b) => ($a['time'] ?: PHP_INT_MAX) <=> ($b['time'] ?: PHP_INT_MAX));
 
@@ -3630,11 +3727,72 @@ DNS-over-HTTPS with IP:
                 ]
             ];
         }
+        $data[] = [
+            [
+                'text'          => $this->i18n('add'),
+                'callback_data' => "/addXrUser",
+            ],
+            [
+                'text'          => $this->i18n('on') . " $on " . (!$type ? "✅" : ''),
+                'callback_data' => "/listXr 0",
+            ],
+            [
+                'text'          => $this->i18n('off') . " $off " . ($type ? "✅" : ''),
+                'callback_data' => "/listXr 1",
+            ],
+        ];
 
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
                 'callback_data' => "/menu",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
+    public function choiceTemplate($arg)
+    {
+        $arg = explode('_', $arg);
+        $c = $this->getXray();
+        if (!empty($arg[1])) {
+            $c['inbounds'][0]['settings']['clients'][$arg[0]]['template'] = $arg[1];
+        } else {
+            unset($c['inbounds'][0]['settings']['clients'][$arg[0]]['template']);
+        }
+        file_put_contents('/config/xray.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $this->userXr($arg[0]);
+    }
+
+    public function templateUser($i)
+    {
+        $c         = $this->getXray();
+        $pac       = $this->getPacConf();
+        $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['inbounds'][0]['settings']['clients'][$i]['email']}\n";
+        $templates = $pac['singtemplates'];
+        $data[] = [
+            [
+                'text'          => 'default',
+                'callback_data' => "/choiceTemplate $i",
+            ],
+        ];
+        foreach ($templates as $k => $v) {
+            $data[] = [
+                [
+                    'text'          => $k,
+                    'callback_data' => "/choiceTemplate {$i}_" . base64_encode($k),
+                ],
+            ];
+        }
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/userXr $i",
             ],
         ];
         $this->update(
@@ -3675,6 +3833,13 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n($c['inbounds'][0]['settings']['clients'][$i]['off'] ? 'off' : 'on'),
                 'callback_data' => "/switchXr $i",
+            ],
+        ];
+        $template = $c['inbounds'][0]['settings']['clients'][$i]['template'] ? base64_decode($c['inbounds'][0]['settings']['clients'][$i]['template']) : 'default';
+        $data[] = [
+            [
+                'text'          => $this->i18n('template') . ": $template",
+                'callback_data' => "/templateUser $i",
             ],
         ];
         $data[] = [
@@ -3763,7 +3928,7 @@ DNS-over-HTTPS with IP:
                 if (empty($v['off'])) {
                     $flag = false;
                 }
-
+                $template = $v['template'];
                 break;
             }
         }
@@ -3771,7 +3936,11 @@ DNS-over-HTTPS with IP:
             return false;
         }
 
-        $c = json_decode(file_get_contents('/config/sing.json'), true);
+        if (!empty($template) && !empty($pac['singtemplates'][base64_decode($template)])) {
+            $c = $pac['singtemplates'][base64_decode($template)];
+        } else {
+            $c = json_decode(file_get_contents('/config/sing.json'), true);
+        }
 
         if ($c['dns']['servers'][0]['address'] == '~dns~') {
             $c['dns']['servers'][0]['address'] = "tls://" . ($pac['adguardkey'] ? "{$pac['adguardkey']}." : '') . "$domain";
