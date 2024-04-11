@@ -138,6 +138,12 @@ class Bot
             case preg_match('~^/mtproto$~', $this->input['callback'], $m):
                 $this->mtproto();
                 break;
+            case preg_match('~^/addCommunityFilter$~', $this->input['callback'], $m):
+                $this->addCommunityFilter();
+                break;
+            case preg_match('~^/pacMenu (\d+)$~', $this->input['callback'], $m):
+                $this->pacMenu($m[1]);
+                break;
             case preg_match('~^/applyupdatebot$~', $this->input['callback'], $m):
                 $this->applyupdatebot();
                 break;
@@ -343,7 +349,7 @@ class Bot
             case preg_match('~^/deldomain$~', $this->input['callback'], $m):
                 $this->delDomain();
                 break;
-            case preg_match('~^/(?P<action>change|delete)(?P<typelist>subzoneslist|reverselist|includelist|excludelist) (?P<arg>[^\s]+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+            case preg_match('~^/(?P<action>change|delete)(?P<typelist>includelist) (?P<arg>[^\s]+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->listPacChange($m['typelist'], $m['action'], ...explode('_', $m['arg']));
                 break;
             case preg_match('~^/paczapret$~', $this->input['callback'], $m):
@@ -2136,7 +2142,7 @@ DNS-over-HTTPS with IP:
             $page = (int) floor(array_search($v, array_keys($conf['includelist'])) / $count);
         }
         $page = $page ?: -2;
-        $this->menu('includelist', $page);
+        $this->pacUpdate();
     }
 
     public function reverse(int $count)
@@ -2861,25 +2867,31 @@ DNS-over-HTTPS with IP:
         return $r;
     }
 
-    public function pacMenu()
+    public function addCommunityFilter()
     {
-        $rmpac    = stat(__DIR__ . '/zapretlists/rmpac');
-        $rpac     = stat(__DIR__ . '/zapretlists/rpac');
-        $mpac     = stat(__DIR__ . '/zapretlists/mpac');
-        $pac      = stat(__DIR__ . '/zapretlists/pac');
-        $conf     = $this->getPacConf();
-        $zapret   = $conf['zapret'] ? $this->i18n('on') : $this->i18n('off');
-        $ip       = $conf['domain'] ?: $this->ip;
-        $hash     = substr(md5($this->key), 0, 8);
-        $scheme   = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
-        $text     = <<<text
+        $pac = $this->getPacConf();
+        $l   = array_filter(array_map(fn($e) => trim($e), explode("\n", file_get_contents('https://community.antifilter.download/list/domains.lst'))));
+        if (!empty($l)) {
+            foreach ($l as $k => $v) {
+                $pac['includelist'][$v] = true;
+            }
+        }
+        $this->setPacConf($pac);
+        $this->pacUpdate();
+    }
+
+    public function pacMenu($page = 0)
+    {
+        $rmpac  = stat(__DIR__ . '/zapretlists/rmpac');
+        $rpac   = stat(__DIR__ . '/zapretlists/rpac');
+        $mpac   = stat(__DIR__ . '/zapretlists/mpac');
+        $pac    = stat(__DIR__ . '/zapretlists/pac');
+        $conf   = $this->getPacConf();
+        $ip     = $conf['domain'] ?: $this->ip;
+        $hash   = substr(md5($this->key), 0, 8);
+        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
+        $text   = <<<text
                 Menu -> pac
-
-                <code>RU blacklist:</code> <code>https://github.com/zapret-info/z-i</code>
-
-                {$this->i18n('proxy')}{$this->i18n('self list explain')}
-
-                {$this->i18n('direct')}{$this->i18n('reverse list explain')}
                 text;
         if ($pac) {
             $pac['time']  = date('d.m.Y H:i:s', $pac['mtime']);
@@ -2891,12 +2903,8 @@ DNS-over-HTTPS with IP:
                     <code>$scheme://$ip/pac?h=$hash&a=127.0.0.1&p=1080</code>
                     text;
             $urls[0][] = [
-                'text' => "PAC",
-                'url'  => "$scheme://$ip/pac?h=$hash&a=127.0.0.1&p=1080",
-            ];
-            $urls[1][] = [
-                'text' => "PAC Wireguard proxy",
-                'url'  => "$scheme://$ip/pac?h=$hash&a=10.10.0.3&p=1080",
+                'text'    => "PAC",
+                'web_app' => ['url'  => "https://$ip/pac?h=$hash&a=127.0.0.1&p=1080"],
             ];
         }
         if ($mpac) {
@@ -2908,9 +2916,9 @@ DNS-over-HTTPS with IP:
                     <b>Shadowsocks-android PAC ({$mpac['time']} / {$mpac['sz']}):</b>
                     <code>$scheme://$ip/pac?h=$hash&t=mpac</code>
                     text;
-            $urls[2][] = [
-                'text' => "PAC ShadowSocks(Android)",
-                'url'  => "$scheme://$ip/pac?h=$hash&t=mpac",
+            $urls[0][] = [
+                'text'    => "PAC ShadowSocks(Android)",
+                'web_app' => ['url'  => "https://$ip/pac?h=$hash&t=mpac"],
             ];
         }
         if ($rpac) {
@@ -2948,115 +2956,46 @@ DNS-over-HTTPS with IP:
         if ($urls) {
             $data = $urls;
         }
-        if ($conf['zapret']) {
-            $data[] = [
-                [
-                    'text'          => "RU blacklist : $zapret",
-                    'callback_data' => "/paczapret",
-                ],
-                [
-                    'text'          => $this->i18n('blacklist exclude'),
-                    'callback_data' => "/menu excludelist 0",
-                ],
-            ];
-        } else {
-            $data[] = [
-                [
-                    'text'          => "RU blacklist : $zapret",
-                    'callback_data' => "/paczapret",
-                ],
-            ];
-        }
         $data[] = [
             [
-                'text'          => $this->i18n('proxy'),
-                'callback_data' => "/menu includelist 0",
-                'callback_data' => "/menu includelist 0",
-            ],
-            // [
-            //     'text'          => $this->i18n('subzones'),
-            //     'callback_data' => "/menu subzoneslist 0",
-            // ],
-            [
-                'text'          => $this->i18n('direct'),
-                'callback_data' => "/menu reverselist 0",
+                'text'          => $this->i18n('add') . ' community antifilter',
+                'callback_data' => "/addCommunityFilter",
             ],
         ];
-        if ($conf['zapret'] || !empty($conf['includelist']) || !empty($conf['reverselist'])) {
-            $data[] = [
-                [
-                    'text'          => "{$this->i18n('update')} PAC",
-                    'callback_data' => "/pacupdate",
-                ],
-                [
-                    'text'          => $this->i18n('check url'),
-                    'callback_data' => "/checkurl",
-                ],
-            ];
-        }
-        $data[] = [
-            [
-                'text'          => $this->i18n('back'),
-                'callback_data' => "/menu",
-            ],
-        ];
-        return [
-            'text' => $text,
-            'data' => $data,
-        ];
-    }
-
-    public function pacList($type, int $page, int $count = 5)
-    {
-        $count  = $this->limit;
-        $name   = str_replace('list', '', $type);
-        switch ($name) {
-            case 'include':
-                $additional = $this->i18n('self list explain');
-                break;
-            case 'reverse':
-                $additional = $this->i18n('reverse list explain');
-                break;
-        }
-        $text   = "Menu -> pac -> {$name}list\n\n$additional";
         $data[] = [
             [
                 'text'          => $this->i18n('add'),
-                'callback_data' => "/$name $count",
+                'callback_data' => "/include {$this->limit}",
             ],
         ];
-        $domains = $this->getPacConf()[$type];
+        $domains = $this->getPacConf()['includelist'];
         if (!empty($domains)) {
             ksort($domains);
-            $all     = (int) ceil(count($domains) / $count);
+            $all     = (int) ceil(count($domains) / $this->limit);
             $page    = min($page, $all - 1);
-            $page    = $page == -2 ? $all - 1 : $page;
-            $domains = $page != -1 ? array_slice($domains, $page * $count, $count, true) : $domains;
+            $page    = $page < 0 ? $all - 1 : $page;
+            $domains = array_slice($domains, $page * $this->limit, $this->limit, true);
             foreach ($domains as $k => $v) {
                 $data[] = [
                     [
-                        'text'          => '(' . ($v ? 'ON' : 'OFF') . ') ' . ($type == 'includelist' ? idn_to_utf8($k) : $k),
-                        'callback_data' => "/change{$name}list {$k}_$count",
+                        'text'          => '(' . ($v ? 'ON' : 'OFF') . ') ' . idn_to_utf8($k),
+                        'callback_data' => "/changeincludelist {$k}_{$this->limit}",
                     ],
                     [
                         'text'          => 'delete',
-                        'callback_data' => "/delete{$name}list {$k}_$count",
+                        'callback_data' => "/deleteincludelist {$k}_{$this->limit}",
                     ],
                 ];
             }
-            if ($page != -1 && $all > 1) {
+            if ($all > 1) {
                 $data[] = [
                     [
                         'text'          => '<<',
-                        'callback_data' => "/menu $type " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
+                        'callback_data' => "/pacMenu " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
                     ],
-                    // [
-                    //     'text'          => 'all',
-                    //     'callback_data' => "/menu $type -1",
-                    // ],
                     [
                         'text'          => '>>',
-                        'callback_data' => "/menu $type " . ($page < $all - 1 ? $page + 1 : 0),
+                        'callback_data' => "/pacMenu " . ($page < $all - 1 ? $page + 1 : 0),
                     ]
                 ];
             }
@@ -3064,13 +3003,15 @@ DNS-over-HTTPS with IP:
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
-                'callback_data' => "/menu pac",
+                'callback_data' => "/menu",
             ],
         ];
-        return [
-            'text' => $text,
-            'data' => $data,
-        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            $text,
+            $data ?: false,
+        );
     }
 
     public function listPacChange($type, $action, $key, int $count)
@@ -3088,7 +3029,7 @@ DNS-over-HTTPS with IP:
                 break;
         }
         $this->setPacConf($conf);
-        $this->menu($type, $page);
+        $this->pacUpdate();
     }
 
     public function pacZapret()
@@ -3233,7 +3174,7 @@ DNS-over-HTTPS with IP:
                         ],
                         [
                             'text'          => $this->i18n('pac'),
-                            'callback_data' => "/menu pac",
+                            'callback_data' => "/pacMenu 0",
                         ],
                     ],
                     [
@@ -3259,12 +3200,8 @@ DNS-over-HTTPS with IP:
             'wg'           => $type == 'wg'           ? $this->statusWg($arg) : false,
             'client'       => $type == 'client'       ? $this->getClient(...explode('_', $arg)) : false,
             'addpeer'      => $type == 'addpeer'      ? $this->addWg(...explode('_', $arg)) : false,
-            'pac'          => $type == 'pac'          ? $this->pacMenu() : false,
+            'pac'          => $type == 'pac'          ? $this->pacMenu($arg) : false,
             'adguard'      => $type == 'adguard'      ? $this->adguardMenu() : false,
-            'includelist'  => $type == 'includelist'  ? $this->pacList($type, $arg) : false,
-            'excludelist'  => $type == 'excludelist'  ? $this->pacList($type, $arg) : false,
-            'reverselist'  => $type == 'reverselist'  ? $this->pacList($type, $arg) : false,
-            'subzoneslist' => $type == 'subzoneslist' ? $this->pacList($type, $arg) : false,
             'config'       => $type == 'config'       ? $this->configMenu() : false,
             'ss'           => $type == 'ss'           ? $this->menuSS() : false,
             'lang'         => $type == 'lang'         ? $this->menuLang() : false,
