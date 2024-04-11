@@ -481,6 +481,7 @@ class Bot
 
     public function restartXray($c)
     {
+        $c['inbounds'][0]['settings']['clients'] = array_values($c['inbounds'][0]['settings']['clients']);
         $this->ssh('pkill xray', 'xr');
         file_put_contents('/config/xray.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         $this->ssh('xray run -config /xray.json > /dev/null 2>&1 &', 'xr');
