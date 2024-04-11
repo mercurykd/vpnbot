@@ -3773,8 +3773,8 @@ DNS-over-HTTPS with IP:
         $hash      = substr(md5($this->key), 0, 8);
         $v2ray     = "$scheme://{$domain}/pac?h=$hash&t=s&b=1&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}";
         $sing      = "$scheme://{$domain}/pac?h=$hash&t=si&b=1&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}";
-        $fullsing  = 'sing-box://import-remote-profile/?url=' . urlencode("$scheme://{$domain}/pac?h=$hash&t=si&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}") . "#vpnbot$i";
-        $fullv2ray = 'v2rayng://install-config?url=' . urlencode("$scheme://{$domain}/pac?h=$hash&t=s&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}") . "#vpnbot$i";
+        $fullsing  = 'sing-box://import-remote-profile/?url=' . urlencode("$scheme://{$domain}/pac?h=$hash&t=si&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}") . "#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
+        $fullv2ray = 'v2rayng://install-config?url=' . urlencode("$scheme://{$domain}/pac?h=$hash&t=s&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}") . "#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
         if (!empty($fs)) {
             return $fullsing;
         }
