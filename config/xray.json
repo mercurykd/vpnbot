@@ -5,11 +5,6 @@
             "protocol": "vless",
             "settings": {
                 "clients": [
-                    {
-                        "email": "user1@myserver",
-                        "flow": "xtls-rprx-vision",
-                        "id": ""
-                    }
                 ],
                 "decryption": "none"
             },

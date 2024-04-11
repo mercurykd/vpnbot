@@ -9,6 +9,7 @@ require __DIR__ . '/i18n.php';
 
 $bot = new Bot($c['key'], $i);
 $bot->adguardProtect();
+$bot->adguardCheckPswd();
 $bot->setcommands();
 $bot->syncPortClients();
 $bot->setwebhook();

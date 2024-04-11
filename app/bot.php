@@ -1588,6 +1588,7 @@ class Bot
                 $t = preg_replace('~#-domain.+?#-domain~s', $this->uncomment($v, 'domain'), $t, 1);
             }
             file_put_contents('/config/nginx.conf', $t);
+            $this->adguardProtect();
             $u = $this->ssh("nginx -t 2>&1", 'ng');
             $out[] = $u;
             $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
@@ -1988,12 +1989,7 @@ class Bot
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         $out[] = $this->stopAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-        $c = yaml_parse_file($this->adguard);
-        $c['users'][0]['password'] = password_hash($pass, PASSWORD_DEFAULT);
-        yaml_emit_file($this->adguard, $c);
-        $p = $this->getPacConf();
-        $p['adpswd'] = $pass;
-        $this->setPacConf($p);
+        $this->adguardChangePswd($pass);
         $out[] = $this->startAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         sleep(3);
@@ -3185,7 +3181,6 @@ DNS-over-HTTPS with IP:
     public function menu($type = false, $arg = false, $return = false)
     {
         $domain = $this->getPacConf()['domain'] ?: $this->ip;
-        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $menu   = [
             'main' => [
                 'text' => 'v' . getenv('VER'),
@@ -3254,7 +3249,7 @@ DNS-over-HTTPS with IP:
                         [
                             'text' => $this->i18n('donate'),
                             'web_app' => [
-                                'url'  => "$scheme://$domain/donate.html",
+                                'url'  => "https://$domain/donate.html",
                             ]
                         ],
                     ],
@@ -3632,7 +3627,6 @@ DNS-over-HTTPS with IP:
     {
         $pac       = $this->getPacConf();
         $domain    = $pac['domain'] ?: $this->ip;
-        $scheme    = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash      = substr(md5($this->key), 0, 8);
         $text[]    = "Menu -> " . $this->i18n('xray') . ' -> Sing-box templates';
         $templates = $pac['singtemplates'];
@@ -3646,7 +3640,7 @@ DNS-over-HTTPS with IP:
         $data[] = [
             [
                 'text'          => "default: " . $this->i18n('show'),
-                'web_app' => ['url' => "$scheme://$domain/pac?h=$hash&t=te"],
+                'web_app' => ['url' => "https://$domain/pac?h=$hash&t=te"],
             ],
             [
                 'text'          => $this->i18n($pac['defaulttemplate'] ? 'off' : 'on'),
@@ -3657,7 +3651,7 @@ DNS-over-HTTPS with IP:
             $data[] = [
                 [
                     'text'          => "$k: " . $this->i18n('show'),
-                    'web_app' => ['url' => "$scheme://$domain/pac?h=$hash&t=te&te=" . urlencode($k)],
+                    'web_app' => ['url' => "https://$domain/pac?h=$hash&t=te&te=" . urlencode($k)],
                 ],
                 [
                     'text'          => $this->i18n('download'),
@@ -4076,11 +4070,27 @@ DNS-over-HTTPS with IP:
         ];
     }
 
+    public function adguardCheckPswd()
+    {
+        if (empty($this->getPacConf()['adpswd'])) {
+            $this->adguardChangePswd(substr(hash('md5', time()), 0, 10));
+        }
+    }
+
+    public function adguardChangePswd($pass)
+    {
+        $c = yaml_parse_file($this->adguard);
+        $c['users'][0]['password'] = password_hash($pass, PASSWORD_DEFAULT);
+        yaml_emit_file($this->adguard, $c);
+        $p = $this->getPacConf();
+        $p['adpswd'] = $pass;
+        $this->setPacConf($p);
+    }
+
     public function adguardProtect()
     {
         $h = substr(hash('sha256', $this->key), 0, 8);
         $s = empty($this->getPacConf()['adgbrowser']) ? '' : '#';
-        $a = $this->adguardBasicAuth();
         $r = <<<CONF
         location /adguard/ {
                 access_log /logs/nginx_adguard_access;
@@ -4926,7 +4936,17 @@ DNS-over-HTTPS with IP:
             CURLOPT_POSTFIELDS     => $data,
         ]);
         $res = curl_exec($ch);
-        return json_decode($res, true);
+        $r   = json_decode($res, true);
+        if (!empty($res['description']) || is_null($res)) {
+            file_put_contents('/logs/requests_error', var_export([
+                'r' => [
+                    'method' => $method,
+                    'data'   => $data,
+                ],
+                'a' => $res,
+            ], true) . "\n", FILE_APPEND);
+        }
+        return $r;
     }
 
     public function setwebhook()
