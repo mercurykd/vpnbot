@@ -3767,7 +3767,8 @@ DNS-over-HTTPS with IP:
     public function userXr($i, $fs = 0, $fv = 0)
     {
         $c         = $this->getXray();
-        $domain    = $this->getPacConf()['domain'] ?: $this->ip;
+        $pac       = $this->getPacConf() ?: $this->ip;
+        $domain    = $pac['domain'] ?: $this->ip;
         $scheme    = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash      = substr(md5($this->key), 0, 8);
         $v2ray     = "$scheme://{$domain}/pac?h=$hash&t=s&b=1&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}";
@@ -3796,10 +3797,10 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/switchXr $i",
             ],
         ];
-        $template = $c['inbounds'][0]['settings']['clients'][$i]['template'] ? base64_decode($c['inbounds'][0]['settings']['clients'][$i]['template']) : 'default';
+        $template = $c['inbounds'][0]['settings']['clients'][$i]['template'] ? base64_decode($c['inbounds'][0]['settings']['clients'][$i]['template']) : 'default(' . ($pac['defaulttemplate'] ? base64_decode($pac['defaulttemplate']) : 'origin') . ')';
         $data[] = [
             [
-                'text'          => $this->i18n('template') . ": $template",
+                'text'          => $this->i18n('template singbox') . ": $template",
                 'callback_data' => "/templateUser $i",
             ],
         ];
