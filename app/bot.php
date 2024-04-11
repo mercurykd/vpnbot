@@ -3639,7 +3639,7 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
-                'text'          => "default: " . $this->i18n('show'),
+                'text'          => "origin",
                 'web_app' => ['url' => "https://$domain/pac?h=$hash&t=te"],
             ],
             [
@@ -3650,7 +3650,7 @@ DNS-over-HTTPS with IP:
         foreach ($templates as $k => $v) {
             $data[] = [
                 [
-                    'text'          => "$k: " . $this->i18n('show'),
+                    'text'          => "$k",
                     'web_app' => ['url' => "https://$domain/pac?h=$hash&t=te&te=" . urlencode($k)],
                 ],
                 [
@@ -3796,6 +3796,12 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => 'default',
                 'callback_data' => "/choiceTemplate $i",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => 'origin',
+                'callback_data' => "/choiceTemplate {$i}_" . base64_encode('origin'),
             ],
         ];
         foreach ($templates as $k => $v) {
@@ -3945,7 +3951,7 @@ DNS-over-HTTPS with IP:
                 if (empty($v['off'])) {
                     $flag = false;
                 }
-                $template = $v['template'];
+                $template = base64_decode($v['template']);
                 break;
             }
         }
@@ -3953,14 +3959,18 @@ DNS-over-HTTPS with IP:
             return false;
         }
 
-        if (!empty($template) && !empty($pac['singtemplates'][base64_decode($template)])) {
-            $c = $pac['singtemplates'][base64_decode($template)];
-        } else {
-            if (!empty($pac['defaulttemplate'])) {
-                $c = $pac['singtemplates'][base64_decode($pac['defaulttemplate'])];
-            } else {
+        switch (true) {
+            case !empty($template) && $template == 'origin':
+            case empty($template) && empty($pac['defaulttemplate']):
                 $c = json_decode(file_get_contents('/config/sing.json'), true);
-            }
+                break;
+            case !empty($template):
+                $c = $pac['singtemplates'][$template];
+                break;
+
+            default:
+                $c = $pac['singtemplates'][base64_decode($pac['defaulttemplate'])];
+                break;
         }
 
         if ($c['dns']['servers'][0]['address'] == '~dns~') {
@@ -4159,12 +4169,6 @@ DNS-over-HTTPS with IP:
                     'text'          => 'ClientID' . ($conf['adguardkey'] ? ": {$conf['adguardkey']}" : ''),
                     'callback_data' => "/setAdguardKey",
                 ],
-            ],
-        ];
-        $data[] = [
-            [
-                'text'          => $this->i18n('reset settings'),
-                'callback_data' => "/adguardreset",
             ],
         ];
         $data[] = [
