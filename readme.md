@@ -6,6 +6,10 @@ telegram bot to manage servers (inside the bot)
 - change secret
 - qr/config
 - change fake domain
+- multiple users
+- subscriptions with routing
+- routing templates per user
+- steal from yourself
 <img src="https://github.com/mercurykd/vpnbot/assets/30900414/39bdf4e0-96a6-4257-b61e-30a14122e236" width="200">
 
 ### NaiveProxy
