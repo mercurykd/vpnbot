@@ -1,0 +1,1 @@
+winsw.exe stop

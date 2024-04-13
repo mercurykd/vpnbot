@@ -1,0 +1,2 @@
+winsw.exe status
+pause

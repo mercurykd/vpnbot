@@ -1,0 +1,2 @@
+winsw.exe uninstall
+pause

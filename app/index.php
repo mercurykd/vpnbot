@@ -49,9 +49,28 @@ if ($hash == substr(md5($c['key']), 0, 8)) {
             require __DIR__ . '/i18n.php';
             $bot = new Bot($c['key'], $i);
             if (!empty($_GET['b'])) {
-                    $fs  = $bot->singboxSubscription($_GET['s'], 1);
-                    header("Location: $fs");
-                    exit;
+                    switch ($_GET['b']) {
+                        case '1':
+                            $fs = $bot->singboxSubscription($_GET['s'], 1);
+                            header("Location: $fs");
+                            exit;
+                        case '2':
+                            $link = htmlspecialchars($bot->singboxSubscription($_GET['s'], a: 1), ENT_XML1, 'UTF-8');
+                            file_put_contents('/singbox/winsw.xml', preg_replace('#~url~#', $link, file_get_contents('/singbox/winsw.xml')));
+                            $zip = new ZipArchive();
+                            $n   = "singbox_$v.zip";
+                            $zip->open($n, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+                            foreach (scandir('/singbox') as $k => $v) {
+                                if (!empty(!in_array($v, ['.', '..']))) {
+                                    $zip->addFile("/singbox/$v", $v);
+                                }
+                            }
+                            $zip->close();
+                            header('Content-Disposition: attachment; filename="singbox.zip"');
+                            echo file_get_contents('singbox.zip');
+                            unlink($n);
+                            break;
+                    }
             } else {
                 header('Content-Type: application/json');
                 echo $bot->singboxSubscription($_GET['s']);

@@ -4,6 +4,7 @@ RUN apk add --no-cache --update php81 \
     php81-mbstring \
     php81-session \
     php81-phar \
+    php81-zip \
     php81-curl \
     php81-opcache \
     php81-openssl \
