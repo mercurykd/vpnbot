@@ -67,7 +67,7 @@ if ($hash == substr(md5($c['key']), 0, 8)) {
                             }
                             $zip->close();
                             header('Content-Disposition: attachment; filename="singbox.zip"');
-                            echo file_get_contents('singbox.zip');
+                            echo file_get_contents($n);
                             unlink($n);
                             break;
                     }
