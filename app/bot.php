@@ -3784,9 +3784,21 @@ DNS-over-HTTPS with IP:
 
         $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['inbounds'][0]['settings']['clients'][$i]['email']}\n";
         $text[] = "<code>{$this->linkXray($i)}</code>\n";
-        $text[] = "v2ray: <a href='$v2ray'>$v2ray</a>\n";
-        $text[] = "sing-box: <a href='$sing'>$sing</a>";
+        $text[] = "v2ray import: <a href='$v2ray'>v2rayng://install-config</a>";
+        $text[] = "v2ray config: <code>$scheme://{$domain}/pac?h=$hash&t=s&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}</code>\n";
+        $text[] = "sing-box import: <a href='$sing'>sing-box://import-remote-profile</a>";
+        $text[] = "sing-box config: <code>$scheme://{$domain}/pac?h=$hash&t=si&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}</code>";
 
+        $data[] = [
+            [
+                'text'    => 'v2ray',
+                'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=s&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}"],
+            ],
+            [
+                'text'    => 'sing-box',
+                'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=si&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}"],
+            ],
+        ];
         $data[] = [
             [
                 'text'          => $c['inbounds'][0]['settings']['clients'][$i]['time'] ? "timer: " . $this->getTime($c['inbounds'][0]['settings']['clients'][$i]['time']) : $this->i18n('timer'),
@@ -3815,8 +3827,6 @@ DNS-over-HTTPS with IP:
                 'text'          => $this->i18n('rename'),
                 'callback_data' => "/renameXrUser $i",
             ],
-        ];
-        $data[] = [
             [
                 'text'          => $this->i18n('delete'),
                 'callback_data' => "/delxr $i",
