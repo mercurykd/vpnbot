@@ -1,2 +1,2 @@
-winsw.exe install
+winsw3.exe install
 pause

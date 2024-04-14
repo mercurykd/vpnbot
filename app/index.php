@@ -55,8 +55,7 @@ if ($hash == substr(md5($c['key']), 0, 8)) {
                             header("Location: $fs");
                             exit;
                         case '2':
-                            $link = htmlspecialchars($bot->singboxSubscription($_GET['s'], a: 1), ENT_XML1, 'UTF-8');
-                            file_put_contents('/singbox/winsw.xml', preg_replace('#~url~#', $link, file_get_contents('/singbox/winsw.xml')));
+                            file_put_contents('/singbox/update.cmd', preg_replace('#~url~#', $bot->singboxSubscription($_GET['s'], a: 1), file_get_contents('/singbox/update.cmd')));
                             $zip = new ZipArchive();
                             $n   = "singbox_$v.zip";
                             $zip->open($n, ZipArchive::CREATE | ZipArchive::OVERWRITE);

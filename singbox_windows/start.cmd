@@ -1,1 +1,1 @@
-winsw.exe start
+winsw3.exe start

@@ -1,1 +1,1 @@
-winsw.exe stop
+winsw3.exe stop

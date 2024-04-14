@@ -1,2 +1,2 @@
-winsw.exe status
+winsw3.exe status
 pause
