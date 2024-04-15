@@ -123,7 +123,6 @@ class Bot
             case preg_match('~^/menu (?P<type>wg) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>client) (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
             case preg_match('~^/menu (?P<type>pac|adguard|config|ss|lang|oc|naive|mirror|update)$~', $this->input['callback'], $m):
-            case preg_match('~^/menu (?P<type>subzoneslist|reverselist|includelist|excludelist) (?P<arg>(?:-)?\d+)$~', $this->input['callback'], $m):
                 $this->menu(type: $m['type'] ?? false, arg: $m['arg'] ?? false);
                 break;
             case preg_match('~^/changeWG (\d+)$~', $this->input['callback'], $m):
@@ -349,7 +348,7 @@ class Bot
             case preg_match('~^/deldomain$~', $this->input['callback'], $m):
                 $this->delDomain();
                 break;
-            case preg_match('~^/(?P<action>change|delete)(?P<typelist>includelist) (?P<arg>[^\s]+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+            case preg_match('~^/(?P<action>change|delete)(?P<typelist>\w+) (?P<arg>[^\s]+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->listPacChange($m['typelist'], $m['action'], ...explode('_', $m['arg']));
                 break;
             case preg_match('~^/paczapret$~', $this->input['callback'], $m):
@@ -369,6 +368,12 @@ class Bot
                 break;
             case preg_match('~^/xray(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->xray($m[1] ?: 0);
+                break;
+            case preg_match('~^/xtlsblock(?: (\d+))?$~', $this->input['callback'], $m):
+                $this->xtlsblock($m[1] ?: 0);
+                break;
+            case preg_match('~^/xtlswarp(?: (\d+))?$~', $this->input['callback'], $m):
+                $this->xtlswarp($m[1] ?: 0);
                 break;
             case preg_match('~^/delTemplate(?: (.+))?$~', $this->input['callback'], $m):
                 $this->delTemplate($m[1] ?: 0);
@@ -397,7 +402,7 @@ class Bot
             case preg_match('~^/changeTGDomain$~', $this->input['callback'], $m):
                 $this->changeTGDomain();
                 break;
-            case preg_match('~^/include (\d+)$~', $this->input['callback'], $m):
+            case preg_match('~^/include (\w+)$~', $this->input['callback'], $m):
                 $this->include($m[1]);
                 break;
             case preg_match('~^/exclude (\d+)$~', $this->input['callback'], $m):
@@ -2116,7 +2121,7 @@ DNS-over-HTTPS with IP:
         $this->setSSL('self');
     }
 
-    public function include(int $count)
+    public function include($type)
     {
         $r = $this->send(
             $this->input['chat'],
@@ -2127,25 +2132,86 @@ DNS-over-HTTPS with IP:
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message' => $this->input['message_id'],
             'callback'      => 'addInclude',
-            'args'          => [$count],
+            'args'          => [$type],
         ];
     }
 
-    public function addInclude(string $domains, int $count)
+    public function addInclude(string $domains, $type)
     {
         $domains = explode(',', $domains);
         $domains = array_filter($domains, fn($x) => !empty(trim($x)));
         if (!empty($domains)) {
             $conf = $this->getPacConf();
             foreach ($domains as $k => $v) {
-                $conf['includelist'][idn_to_ascii(trim($v))] = true;
+                $conf[$type][idn_to_ascii(trim($v))] = true;
             }
-            ksort($conf['includelist']);
+            ksort($conf[$type]);
             $this->setPacConf($conf);
-            $page = (int) floor(array_search($v, array_keys($conf['includelist'])) / $count);
+            $page = (int) floor(array_search($v, array_keys($conf[$type])) / $this->limit);
         }
         $page = $page ?: -2;
-        $this->pacUpdate();
+        $this->backXtlsList($type);
+    }
+
+    public function backXtlsList($type)
+    {
+        switch ($type) {
+            case 'includelist':
+                $this->pacUpdate();
+                break;
+            case 'blocklist':
+                $this->xrayUpdateRules();
+                $this->xtlsblock();
+                break;
+            case 'warplist':
+                $this->xrayUpdateRules();
+                $this->xtlswarp();
+                break;
+        }
+    }
+
+    public function xrayUpdateRules()
+    {
+        $c  = $this->getPacConf();
+        $xr = $this->getXray();
+        $xr['outbounds'] = [
+            [
+                "protocol" => "freedom",
+                "tag"      => "direct",
+            ],
+            [
+                "protocol" => "blackhole",
+                "tag"      => "block",
+            ],
+            [
+                "protocol" => "socks",
+                "tag"      => "warp",
+                "settings" => [
+                    'servers' => [
+                        [
+                            "address" => "127.0.0.1",
+                            "port"    => 111,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+        if (!empty($c['blocklist']) && !empty(array_filter($c['blocklist']))) {
+            $rules[] = [
+                "type"        => "field",
+                "outboundTag" => "block",
+                "domain"      => array_keys(array_filter($c['blocklist'])),
+            ];
+        }
+        if (!empty($c['warplist']) && !empty(array_filter($c['warplist']))) {
+            $rules[] = [
+                "type"        => "field",
+                "outboundTag" => "warp",
+                "domain"      => array_keys(array_filter($c['warplist'])),
+            ];
+        }
+        $xr['routing']['rules'] = $rules ?: [];
+        $this->restartXray($xr);
     }
 
     public function reverse(int $count)
@@ -2965,44 +3031,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/addCommunityFilter",
             ],
         ];
-        $data[] = [
-            [
-                'text'          => $this->i18n('add'),
-                'callback_data' => "/include {$this->limit}",
-            ],
-        ];
-        $domains = $this->getPacConf()['includelist'];
-        if (!empty($domains)) {
-            ksort($domains);
-            $all     = (int) ceil(count($domains) / $this->limit);
-            $page    = min($page, $all - 1);
-            $page    = $page < 0 ? $all - 1 : $page;
-            $domains = array_slice($domains, $page * $this->limit, $this->limit, true);
-            foreach ($domains as $k => $v) {
-                $data[] = [
-                    [
-                        'text'          => '(' . ($v ? 'ON' : 'OFF') . ') ' . idn_to_utf8($k),
-                        'callback_data' => "/changeincludelist {$k}_{$this->limit}",
-                    ],
-                    [
-                        'text'          => 'delete',
-                        'callback_data' => "/deleteincludelist {$k}_{$this->limit}",
-                    ],
-                ];
-            }
-            if ($all > 1) {
-                $data[] = [
-                    [
-                        'text'          => '<<',
-                        'callback_data' => "/pacMenu " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
-                    ],
-                    [
-                        'text'          => '>>',
-                        'callback_data' => "/pacMenu " . ($page < $all - 1 ? $page + 1 : 0),
-                    ]
-                ];
-            }
-        }
+        $data   = array_merge($data, $this->listPac('includelist', $page, 'pacMenu'));
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -3017,22 +3046,101 @@ DNS-over-HTTPS with IP:
         );
     }
 
-    public function listPacChange($type, $action, $key, int $count)
+    public function xtlsblock($page = 0)
+    {
+        $text[] = "Menu -> " . $this->i18n('xray') . ' -> block list';
+
+        $data   = $this->listPac('blocklist', $page, 'xtlsblock');
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/xray",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
+    public function xtlswarp($page = 0)
+    {
+        $text[] = "Menu -> " . $this->i18n('xray') . ' -> warp list';
+
+        $data   = $this->listPac('warplist', $page, 'xtlswarp');
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/xray",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
+    public function listPac($type, $page, $menu)
+    {
+        $data[] = [
+            [
+                'text'          => $this->i18n('add'),
+                'callback_data' => "/include $type",
+            ],
+        ];
+        $domains = $this->getPacConf()[$type];
+        if (!empty($domains)) {
+            ksort($domains);
+            $all     = (int) ceil(count($domains) / $this->limit);
+            $page    = min($page, $all - 1);
+            $page    = $page < 0 ? $all - 1 : $page;
+            $domains = array_slice($domains, $page * $this->limit, $this->limit, true);
+            foreach ($domains as $k => $v) {
+                $data[] = [
+                    [
+                        'text'          => '(' . ($v ? 'ON' : 'OFF') . ') ' . idn_to_utf8($k),
+                        'callback_data' => "/change$type {$k}_{$this->limit}",
+                    ],
+                    [
+                        'text'          => 'delete',
+                        'callback_data' => "/delete$type {$k}_{$this->limit}",
+                    ],
+                ];
+            }
+            if ($all > 1) {
+                $data[] = [
+                    [
+                        'text'          => '<<',
+                        'callback_data' => "/$menu " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
+                    ],
+                    [
+                        'text'          => '>>',
+                        'callback_data' => "/$menu " . ($page < $all - 1 ? $page + 1 : 0),
+                    ]
+                ];
+            }
+        }
+        return $data;
+    }
+
+    public function listPacChange($type, $action, $key)
     {
         $conf = $this->getPacConf();
         ksort($conf[$type]);
-        $page = (int) floor(array_search($key, array_keys($conf[$type])) / $count);
         switch ($action) {
             case 'change':
                 $conf[$type][$key] = !$conf[$type][$key];
-                $page = (int) floor(array_search($key, array_keys($conf[$type])) / $count);
                 break;
             case 'delete':
                 unset($conf[$type][$key]);
                 break;
         }
         $this->setPacConf($conf);
-        $this->pacUpdate();
+        $this->backXtlsList($type);
     }
 
     public function pacZapret()
@@ -3645,6 +3753,16 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('sing-box templates'),
                 'callback_data' => "/singbox",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('block'),
+                'callback_data' => "/xtlsblock",
+            ],
+            [
+                'text'          => $this->i18n('warp'),
+                'callback_data' => "/xtlswarp",
             ],
         ];
         $data[] = [
