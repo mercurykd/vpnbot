@@ -1051,7 +1051,10 @@ class Bot
         foreach ($items as $k => $v) {
             if (($t = gmdate($k, $seconds) - $v['diff']) > 0) {
                 $text .= " $t{$v['sign']}";
-                break;
+                if (!empty($i)) {
+                    break;
+                }
+                $i++;
             }
         }
         return trim($text) ?: '♾';
