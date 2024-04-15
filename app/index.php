@@ -22,68 +22,23 @@ $address = $_GET['a'] ?: '127.0.0.1';
 $port = $_GET['p'] ?: '1080';
 $hash = $_GET['h'];
 if ($hash == substr(md5($c['key']), 0, 8)) {
+    require __DIR__ . '/bot.php';
+    require __DIR__ . '/i18n.php';
+    $bot = new Bot($c['key'], $i);
     switch ($type) {
         case 'mirror':
-            require __DIR__ . '/bot.php';
-            require __DIR__ . '/i18n.php';
-            $bot = new Bot($c['key'], $i);
             $bot->getMirror();
             break;
-
         case 's':
-            require __DIR__ . '/bot.php';
-            require __DIR__ . '/i18n.php';
-            $bot = new Bot($c['key'], $i);
-            if (!empty($_GET['b'])) {
-                $fs  = $bot->v2raySubscription($_GET['s'], 1);
-                header("Location: $fs");
-                exit;
-            } else {
-                header('Content-Type: application/json');
-                echo $bot->v2raySubscription($_GET['s']);
-            }
-            exit;
-
         case 'si':
-            require __DIR__ . '/bot.php';
-            require __DIR__ . '/i18n.php';
-            $bot = new Bot($c['key'], $i);
-            if (!empty($_GET['b'])) {
-                    switch ($_GET['b']) {
-                        case '1':
-                            $fs = $bot->singboxSubscription($_GET['s'], 1);
-                            header("Location: $fs");
-                            exit;
-                        case '2':
-                            file_put_contents('/singbox/update.cmd', preg_replace('#~url~#', $bot->singboxSubscription($_GET['s'], a: 1), file_get_contents('/singbox/update.cmd')));
-                            $zip = new ZipArchive();
-                            $n   = "singbox_$v.zip";
-                            $zip->open($n, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-                            foreach (scandir('/singbox') as $k => $v) {
-                                if (!empty(!in_array($v, ['.', '..']))) {
-                                    $zip->addFile("/singbox/$v", $v);
-                                }
-                            }
-                            $zip->close();
-                            header('Content-Disposition: attachment; filename="singbox.zip"');
-                            echo file_get_contents($n);
-                            unlink($n);
-                            break;
-                    }
-            } else {
-                header('Content-Type: application/json');
-                echo $bot->singboxSubscription($_GET['s']);
-            }
+            $bot->subscription();
             exit;
 
         case 'te':
-            require __DIR__ . '/bot.php';
-            require __DIR__ . '/i18n.php';
-            $bot = new Bot($c['key'], $i);
             if (!empty($_GET['te'])) {
-                $t = $bot->getPacConf()['singtemplates'][urldecode($_GET['te'])];
+                $t = $bot->getPacConf()["{$_GET['ty']}templates"][urldecode($_GET['te'])];
             } else {
-                $t = json_decode(file_get_contents('/config/sing.json'), true);
+                $t = json_decode(file_get_contents("/config/{$_GET['ty']}.json"), true);
             }
             if ($t) {
                 header('Content-Type: application/json');

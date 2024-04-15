@@ -7,6 +7,8 @@ class Bot
     public $update;
     public $ip;
     public $limit;
+    public $key;
+    public $file;
 
     public function __construct($key, $i18n)
     {
@@ -284,11 +286,11 @@ class Bot
             case preg_match('~^/userXr (\d+)$~', $this->input['callback'], $m):
                 $this->userXr($m[1]);
                 break;
-            case preg_match('~^/choiceTemplate (\d+(?:_.+)?)$~', $this->input['callback'], $m):
+            case preg_match('~^/choiceTemplate (.+)$~', $this->input['callback'], $m):
                 $this->choiceTemplate($m[1]);
                 break;
-            case preg_match('~^/templateUser (\d+)$~', $this->input['callback'], $m):
-                $this->templateUser($m[1]);
+            case preg_match('~^/templateUser (\w+) (\d+)$~', $this->input['callback'], $m):
+                $this->templateUser($m[1], $m[2]);
                 break;
             case preg_match('~^/timerXr (\d+)$~', $this->input['callback'], $m):
                 $this->timerXr($m[1]);
@@ -375,20 +377,20 @@ class Bot
             case preg_match('~^/xtlswarp(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->xtlswarp($m[1] ?: 0);
                 break;
-            case preg_match('~^/delTemplate(?: (.+))?$~', $this->input['callback'], $m):
-                $this->delTemplate($m[1] ?: 0);
+            case preg_match('~^/delTemplate (\w+)(?: (.+))?$~', $this->input['callback'], $m):
+                $this->delTemplate($m[1], $m[2]);
                 break;
-            case preg_match('~^/downloadTemplate(?: (.+))?$~', $this->input['callback'], $m):
-                $this->downloadTemplate($m[1] ?: 0);
+            case preg_match('~^/downloadTemplate (\w+)(?: (.+))?$~', $this->input['callback'], $m):
+                $this->downloadTemplate($m[1], $m[2]);
                 break;
-            case preg_match('~^/defaultTemplate(?: (.+))?$~', $this->input['callback'], $m):
-                $this->defaultTemplate($m[1] ?: 0);
+            case preg_match('~^/defaultTemplate (\w+)(?: (.+))?$~', $this->input['callback'], $m):
+                $this->defaultTemplate($m[1], $m[2]);
                 break;
-            case preg_match('~^/singbox(?: (\w+))?$~', $this->input['callback'], $m):
-                $this->singbox($m[1] ?: false);
+            case preg_match('~^/templates (\w+)$~', $this->input['callback'], $m):
+                $this->templates($m[1]);
                 break;
-            case preg_match('~^/singAdd$~', $this->input['callback'], $m):
-                $this->singAdd();
+            case preg_match('~^/templateAdd (\w+)$~', $this->input['callback'], $m):
+                $this->templateAdd($m[1]);
                 break;
             case preg_match('~^/generateSecretXray$~', $this->input['callback'], $m):
                 $this->generateSecretXray();
@@ -3611,7 +3613,7 @@ DNS-over-HTTPS with IP:
         $this->xray();
     }
 
-    public function singAdd()
+    public function templateAdd($type)
     {
         $r = $this->send(
             $this->input['chat'],
@@ -3622,12 +3624,12 @@ DNS-over-HTTPS with IP:
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message'  => $this->input['message_id'],
             'start_callback' => $this->input['callback_id'],
-            'callback'       => 'singAddTemplate',
-            'args'           => [],
+            'callback'       => 'addTemplate',
+            'args'           => [$type],
         ];
     }
 
-    public function singAddTemplate($n = null)
+    public function addTemplate($n, $type)
     {
         if (empty($this->input['caption'])) {
             $this->send($this->input['chat'], 'empty name');
@@ -3640,79 +3642,79 @@ DNS-over-HTTPS with IP:
             return;
         }
         $pac = $this->getPacConf();
-        $pac['singtemplates'][$this->input['caption']] = $json;
+        $pac["{$type}templates"][$this->input['caption']] = $json;
         $this->setPacConf($pac);
-        $this->singbox();
+        $this->templates($type);
     }
 
-    public function delTemplate($name)
+    public function delTemplate($type, $name)
     {
         $pac = $this->getPacConf();
-        unset($pac['singtemplates'][base64_decode($name)]);
+        unset($pac["{$type}templates"][base64_decode($name)]);
         $this->setPacConf($pac);
-        $this->singbox();
+        $this->templates($type);
     }
 
-    public function downloadTemplate($name)
+    public function downloadTemplate($type, $name)
     {
         $pac = $this->getPacConf();
-        $f = new \CURLStringFile(json_encode($pac['singtemplates'][base64_decode($name)], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), base64_decode($name) . '.json', 'application/json');
+        $f = new \CURLStringFile(json_encode($pac["{$type}templates"][base64_decode($name)], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), base64_decode($name) . '.json', 'application/json');
         $this->sendFile($this->input['chat'], $f);
     }
 
-    public function defaultTemplate($name)
+    public function defaultTemplate($type, $name)
     {
         $pac = $this->getPacConf();
         if (!empty($name)) {
-            $pac['defaulttemplate'] = $name;
+            $pac["default{$type}template"] = $name;
         } else {
-            unset($pac['defaulttemplate']);
+            unset($pac["default{$type}template"]);
         }
         $this->setPacConf($pac);
-        $this->singbox();
+        $this->templates($type);
     }
 
-    public function singbox($name = false)
+    public function templates($type)
     {
         $pac       = $this->getPacConf();
         $domain    = $pac['domain'] ?: $this->ip;
         $hash      = substr(md5($this->key), 0, 8);
-        $text[]    = "Menu -> " . $this->i18n('xray') . ' -> Sing-box templates';
-        $templates = $pac['singtemplates'];
+        $text[]    = "Menu -> " . $this->i18n('xray') . " -> $type templates";
+        $templates = $pac["{$type}templates"];
 
         $data[] = [
             [
                 'text'          => $this->i18n('add'),
-                'callback_data' => "/singAdd",
+                'callback_data' => "/templateAdd $type",
             ],
         ];
         $data[] = [
             [
                 'text'          => "origin",
-                'web_app' => ['url' => "https://$domain/pac?h=$hash&t=te"],
+                'web_app' => ['url' => "https://$domain/pac?h=$hash&t=te&ty=$type"],
             ],
             [
-                'text'          => $this->i18n($pac['defaulttemplate'] ? 'off' : 'on'),
-                'callback_data' => "/defaultTemplate",
+                'text'          => $this->i18n($pac["default{$type}template"] ? 'off' : 'on'),
+                'callback_data' => "/defaultTemplate $type",
             ],
         ];
         foreach ($templates as $k => $v) {
             $data[] = [
                 [
                     'text'          => "$k",
-                    'web_app' => ['url' => "https://$domain/pac?h=$hash&t=te&te=" . urlencode($k)],
+                    'web_app' => ['url' => "https://$domain/pac?h=$hash&t=te&ty=$type&te=" . urlencode($k)],
                 ],
                 [
                     'text'          => $this->i18n('download'),
-                    'callback_data' => "/downloadTemplate " . base64_encode($k),
+                    'callback_data' => "/downloadTemplate $type " . base64_encode($k),
                 ],
                 [
                     'text'          => $this->i18n('delete'),
-                    'callback_data' => "/delTemplate " . base64_encode($k),
+                    'callback_data' => "/delTemplate $type " . base64_encode($k),
                 ],
                 [
-                    'text'          => $this->i18n($pac['defaulttemplate'] == base64_encode($k) ? 'on' : 'off'),
-                    'callback_data' => "/defaultTemplate " . base64_encode($k),
+                    'text'          => $this->i18n($pac["default{$type}template"] == base64_encode($k) ? 'on' : 'off'),
+                    'callback_data' => "/defaultTemplate $type " . base64_encode($k),
                 ],
             ];
         }
@@ -3751,8 +3753,12 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
+                'text'          => $this->i18n('v2ray templates'),
+                'callback_data' => "/templates v2ray",
+            ],
+            [
                 'text'          => $this->i18n('sing-box templates'),
-                'callback_data' => "/singbox",
+                'callback_data' => "/templates sing",
             ],
         ];
         $data[] = [
@@ -3835,39 +3841,39 @@ DNS-over-HTTPS with IP:
     public function choiceTemplate($arg)
     {
         $arg = explode('_', $arg);
-        $c = $this->getXray();
-        if (!empty($arg[1])) {
-            $c['inbounds'][0]['settings']['clients'][$arg[0]]['template'] = $arg[1];
+        $c   = $this->getXray();
+        if (!empty($arg[2])) {
+            $c['inbounds'][0]['settings']['clients'][$arg[1]]["{$arg[0]}template"] = $arg[2];
         } else {
-            unset($c['inbounds'][0]['settings']['clients'][$arg[0]]['template']);
+            unset($c['inbounds'][0]['settings']['clients'][$arg[1]]["{$arg[0]}template"]);
         }
         file_put_contents('/config/xray.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        $this->userXr($arg[0]);
+        $this->userXr($arg[1]);
     }
 
-    public function templateUser($i)
+    public function templateUser($type, $i)
     {
         $c         = $this->getXray();
         $pac       = $this->getPacConf();
-        $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['inbounds'][0]['settings']['clients'][$i]['email']}\n";
-        $templates = $pac['singtemplates'];
-        $data[] = [
+        $text[]    = "Menu -> " . $this->i18n('xray') . " -> {$c['inbounds'][0]['settings']['clients'][$i]['email']}\n";
+        $templates = $pac["{$type}templates"];
+        $data[]    = [
             [
                 'text'          => 'default',
-                'callback_data' => "/choiceTemplate $i",
+                'callback_data' => "/choiceTemplate {$type}_$i",
             ],
         ];
         $data[] = [
             [
                 'text'          => 'origin',
-                'callback_data' => "/choiceTemplate {$i}_" . base64_encode('origin'),
+                'callback_data' => "/choiceTemplate {$type}_{$i}_" . base64_encode('origin'),
             ],
         ];
         foreach ($templates as $k => $v) {
             $data[] = [
                 [
                     'text'          => $k,
-                    'callback_data' => "/choiceTemplate {$i}_" . base64_encode($k),
+                    'callback_data' => "/choiceTemplate {$type}_{$i}_" . base64_encode($k),
                 ],
             ];
         }
@@ -3885,60 +3891,57 @@ DNS-over-HTTPS with IP:
         );
     }
 
-    public function userXr($i, $fs = 0, $fv = 0, $a = 0)
+    public function userXr($i)
     {
-        $c         = $this->getXray();
-        $pac       = $this->getPacConf() ?: $this->ip;
-        $domain    = $pac['domain'] ?: $this->ip;
-        $scheme    = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
-        $hash      = substr(md5($this->key), 0, 8);
-        $v2ray     = "$scheme://{$domain}/pac?h=$hash&t=s&b=1&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}";
-        $sing      = "$scheme://{$domain}/pac?h=$hash&t=si&b=1&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}";
-        $fullsing  = 'sing-box://import-remote-profile/?url=' . urlencode("$scheme://{$domain}/pac?h=$hash&t=si&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}") . "#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
-        $fullv2ray = 'v2rayng://install-config?url=' . urlencode("$scheme://{$domain}/pac?h=$hash&t=s&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}") . "#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
-        if (!empty($fs)) {
-            return $fullsing;
-        }
-        if (!empty($fv)) {
-            return $fullv2ray;
-        }
-        if (!empty($a)) {
-            return "$scheme://{$domain}/pac?h=$hash&t=si&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}";
-        }
+        $c      = $this->getXray()['inbounds'][0]['settings']['clients'][$i];
+        $pac    = $this->getPacConf();
+        $domain = $pac['domain'] ?: $this->ip;
+        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
+        $hash   = substr(md5($this->key), 0, 8);
 
-        $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['inbounds'][0]['settings']['clients'][$i]['email']}\n";
+        $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['email']}\n";
         $text[] = "<code>{$this->linkXray($i)}</code>\n";
-        $text[] = "v2ray import: <a href='$v2ray'>v2rayng://install-config</a>";
-        $text[] = "v2ray config: <code>$scheme://{$domain}/pac?h=$hash&t=s&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}</code>\n";
-        $text[] = "sing-box import (Android, IOS): <a href='$sing'>sing-box://import-remote-profile</a>";
-        $text[] = "sing-box windows: <a href='$scheme://{$domain}/pac?h=$hash&t=si&b=2&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}'>windows service</a>";
-        $text[] = "sing-box config: <code>$scheme://{$domain}/pac?h=$hash&t=si&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}</code>";
+
+        $text[] = "import subscribe:";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=v&s={$c['id']}'>v2rayng</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=si&s={$c['id']}'>sing-box</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=st&s={$c['id']}'>streisand</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=h&s={$c['id']}'>hiddify</a>";
+
+        $text[] = "\nv2ray config: <code>$scheme://{$domain}/pac?h=$hash&t=s&s={$c['id']}</code>";
+        $text[] = "sing-box config: <code>$scheme://{$domain}/pac?h=$hash&t=si&s={$c['id']}</code>";
+        $text[] = "sing-box windows: <a href='$scheme://{$domain}/pac?h=$hash&t=si&r=w&s={$c['id']}'>windows service</a>";
 
         $data[] = [
             [
                 'text'    => 'v2ray',
-                'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=s&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}"],
+                'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=s&s={$c['id']}"],
             ],
             [
                 'text'    => 'sing-box',
-                'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=si&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}"],
+                'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=si&s={$c['id']}"],
             ],
         ];
         $data[] = [
             [
-                'text'          => $c['inbounds'][0]['settings']['clients'][$i]['time'] ? "timer: " . $this->getTime($c['inbounds'][0]['settings']['clients'][$i]['time']) : $this->i18n('timer'),
+                'text'          => $c['time'] ? "timer: " . $this->getTime($c['time']) : $this->i18n('timer'),
                 'callback_data' => "/timerXr $i",
             ],
             [
-                'text'          => $this->i18n($c['inbounds'][0]['settings']['clients'][$i]['off'] ? 'off' : 'on'),
+                'text'          => $this->i18n($c['off'] ? 'off' : 'on'),
                 'callback_data' => "/switchXr $i",
             ],
         ];
-        $template = $c['inbounds'][0]['settings']['clients'][$i]['template'] ? base64_decode($c['inbounds'][0]['settings']['clients'][$i]['template']) : 'default(' . ($pac['defaulttemplate'] ? base64_decode($pac['defaulttemplate']) : 'origin') . ')';
-        $data[] = [
+        $singtemplate  = $c['singtemplate'] ? base64_decode($c['singtemplate']) : 'default(' . ($pac['defaultsingtemplate'] ? base64_decode($pac['defaultsingtemplate']) : 'origin') . ')';
+        $v2raytemplate = $c['v2raytemplate'] ? base64_decode($c['v2raytemplate']) : 'default(' . ($pac['defaultv2raytemplate'] ? base64_decode($pac['defaultv2raytemplate']) : 'origin') . ')';
+        $data[]        = [
             [
-                'text'          => $this->i18n('template singbox') . ": $template",
-                'callback_data' => "/templateUser $i",
+                'text'          => $this->i18n('v2ray') . ": $v2raytemplate",
+                'callback_data' => "/templateUser v2ray $i",
+            ],
+            [
+                'text'          => $this->i18n('singbox') . ": $singtemplate",
+                'callback_data' => "/templateUser sing $i",
             ],
         ];
         $data[] = [
@@ -4010,25 +4013,22 @@ DNS-over-HTTPS with IP:
         echo json_encode($c);
     }
 
-    public function singboxSubscription($key, $fs = 0, $a = 0)
+    public function subscription()
     {
         $pac    = $this->getPacConf();
         $domain = $pac['domain'] ?: $this->ip;
         $xr     = $this->getXray();
+        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
+        $hash   = substr(md5($this->key), 0, 8);
 
         $flag = true;
         foreach ($xr['inbounds'][0]['settings']['clients'] as $k => $v) {
-            if ($v['id'] == $key) {
-                if (!empty($fs)) {
-                    return $this->userXr($k, 1);
-                }
-                if (!empty($a)) {
-                    return $this->userXr($k, a: 1);
-                }
+            if ($v['id'] == $_GET['s']) {
                 if (empty($v['off'])) {
                     $flag = false;
                 }
-                $template = base64_decode($v['template']);
+                $template = base64_decode($_GET['t'] == 's' ? $v['v2raytemplate'] : $v['singtemplate']);
+                $uid      = $v['id'];
                 break;
             }
         }
@@ -4036,40 +4036,96 @@ DNS-over-HTTPS with IP:
             return false;
         }
 
+        if (!empty($_GET['r'])) {
+            $si = "$scheme://{$domain}/pac?h=$hash&t=si&s=$uid";
+            $v2 = "$scheme://{$domain}/pac?h=$hash&t=s&s=$uid";
+            switch ($_GET['r']) {
+                case 'si':
+                    header("Location: sing-box://import-remote-profile/?url=" . urlencode($si));
+                    exit;
+                case 'st':
+                    header("Location: streisand://import/$v2");
+                    exit;
+                case 'v':
+                    header("Location: v2rayng://install-config?url=" . urlencode($v2));
+                    exit;
+                case 'h':
+                    header("Location: hiddify://install-config/?url=" . urlencode($si));
+                    exit;
+                case 'w':
+                    file_put_contents('/singbox/update.cmd', preg_replace('#~url~#', $si, file_get_contents('/singbox/update.cmd')));
+                    $zip = new ZipArchive();
+                    $n   = "singbox_$uid.zip";
+                    $zip->open($n, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+                    foreach (scandir('/singbox') as $k => $v) {
+                        if (!empty(!in_array($v, ['.', '..']))) {
+                            $zip->addFile("/singbox/$v", $v);
+                        }
+                    }
+                    $zip->close();
+                    header('Content-Disposition: attachment; filename="singbox.zip"');
+                    echo file_get_contents($n);
+                    unlink($n);
+                    exit;
+            }
+        }
+
         switch (true) {
             case !empty($template) && $template == 'origin':
-            case empty($template) && empty($pac['defaulttemplate']):
-                $c = json_decode(file_get_contents('/config/sing.json'), true);
+            case empty($template) && empty($pac['default' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'template']):
+                $c = json_decode(file_get_contents('/config/' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . '.json'), true);
                 break;
             case !empty($template):
-                $c = $pac['singtemplates'][$template];
+                $c = $pac[$_GET['t'] == 's' ? 'v2raytemplates' : 'singtemplates'][$template];
                 break;
 
             default:
-                $c = $pac['singtemplates'][base64_decode($pac['defaulttemplate'])];
+                $c = $pac[$_GET['t'] == 's' ? 'v2raytemplates' : 'singtemplates'][base64_decode($pac['default' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'template'])];
                 break;
         }
 
-        if ($c['dns']['servers'][0]['address'] == '~dns~') {
-            $c['dns']['servers'][0]['address'] = "tls://" . ($pac['adguardkey'] ? "{$pac['adguardkey']}." : '') . "$domain";
-        }
+        switch ($_GET['t']) {
+            case 's':
+                $c['outbounds'][0]['settings']['vnext'][0]['address']                 = $domain;
+                $c['outbounds'][0]['settings']['vnext'][0]['users'][0]['id']          = $uid;
+                $c['outbounds'][0]['streamSettings']['realitySettings']['serverName'] = $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
+                $c['outbounds'][0]['streamSettings']['realitySettings']['publicKey']  = $pac['xray'];
+                $c['outbounds'][0]['streamSettings']['realitySettings']['shortId']    = $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
 
-        $c['outbounds'][0]['server']                       = $domain;
-        $c['outbounds'][0]['uuid']                         = $key;
-        $c['outbounds'][0]['tls']['reality']['public_key'] = $pac['xray'];
-        $c['outbounds'][0]['tls']['server_name']           = $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
-        $c['outbounds'][0]['tls']['reality']['short_id']   = $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
-        foreach ($c['route']['rules'] as $k => $v) {
-            if (array_key_exists('domain_suffix', $v) && $v['domain_suffix'] == '~pac~') {
-                $c['route']['rules'][$k]['domain_suffix'] = array_keys(array_filter($pac['includelist']));
-                if (empty($c['route']['rules'][$k]['domain_suffix'])) {
-                    unset($c['route']['rules'][$k]);
+                foreach ($c['routing']['rules'] as $k => $v) {
+                    if (array_key_exists('domain', $v) && $v['domain'] == '~pac~') {
+                        $c['routing']['rules'][$k]['domain'] = array_keys(array_filter($pac['includelist'] ?: []));
+                        if (empty($c['routing']['rules'][$k]['domain'])) {
+                            unset($c['routing']['rules'][$k]);
+                        }
+                    }
                 }
-            }
-        }
-        $c['route']['rules'] = array_values($c['route']['rules']);
+                $c['routing']['rules'] = array_values($c['routing']['rules']);
+                break;
+            case 'si':
+                if ($c['dns']['servers'][0]['address'] == '~dns~') {
+                    $c['dns']['servers'][0]['address'] = "tls://" . ($pac['adguardkey'] ? "{$pac['adguardkey']}." : '') . "$domain";
+                }
 
-        return json_encode($c);
+                $c['outbounds'][0]['server']                       = $domain;
+                $c['outbounds'][0]['uuid']                         = $uid;
+                $c['outbounds'][0]['tls']['reality']['public_key'] = $pac['xray'];
+                $c['outbounds'][0]['tls']['server_name']           = $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
+                $c['outbounds'][0]['tls']['reality']['short_id']   = $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
+                foreach ($c['route']['rules'] as $k => $v) {
+                    if (array_key_exists('domain_suffix', $v) && $v['domain_suffix'] == '~pac~') {
+                        $c['route']['rules'][$k]['domain_suffix'] = array_keys(array_filter($pac['includelist'] ?: []));
+                        if (empty($c['route']['rules'][$k]['domain_suffix'])) {
+                            unset($c['route']['rules'][$k]);
+                        }
+                    }
+                }
+                $c['route']['rules'] = array_values($c['route']['rules']);
+                break;
+        }
+
+        header('Content-type: application/json');
+        echo json_encode($c);
     }
 
     public function getXray()

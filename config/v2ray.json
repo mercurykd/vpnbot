@@ -85,7 +85,7 @@
         "rules": [{
             "type": "field",
             "outboundTag": "proxy",
-            "domain": []
+            "domain": "~pac~"
         }, {
             "type": "field",
             "port": "0-65535",
