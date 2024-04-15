@@ -3102,7 +3102,7 @@ DNS-over-HTTPS with IP:
             foreach ($domains as $k => $v) {
                 $data[] = [
                     [
-                        'text'          => '(' . ($v ? 'ON' : 'OFF') . ') ' . idn_to_utf8($k),
+                        'text'          => $this->i18n($v ? 'on' : 'off') . ' ' . idn_to_utf8($k),
                         'callback_data' => "/change$type {$k}_{$this->limit}",
                     ],
                     [
