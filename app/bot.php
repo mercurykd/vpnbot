@@ -2189,8 +2189,8 @@ DNS-over-HTTPS with IP:
                 "settings" => [
                     'servers' => [
                         [
-                            "address" => "127.0.0.1",
-                            "port"    => 111,
+                            "address" => "10.10.0.13",
+                            "port"    => 4000,
                         ],
                     ],
                 ],
