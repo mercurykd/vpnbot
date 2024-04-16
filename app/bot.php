@@ -994,7 +994,8 @@ class Bot
             if (!empty($c['admin']) && (empty($this->time) || ((time() - $this->time) > 3600))) {
                 $this->time = time();
                 $current    = file_get_contents('/version');
-                $last       = file_get_contents('https://raw.githubusercontent.com/mercurykd/vpnbot/master/version');
+                $b          = exec('git -C / rev-parse --abbrev-ref HEAD');
+                $last       = file_get_contents("https://raw.githubusercontent.com/mercurykd/vpnbot/$b/version");
                 if (!empty($last) && $last != $this->last && $last != $current) {
                     $this->last = $last;
                     $diff       = array_slice(explode("\n", $last), 0, count(explode("\n", $last)) - count(explode("\n", $current)));
@@ -4417,6 +4418,12 @@ DNS-over-HTTPS with IP:
         $this->exportManual($this->update);
         $r = $this->send($this->input['from'], 'update...');
         file_put_contents('/update/reload_message', "{$this->input['from']}:{$r['result']['message_id']}");
+        file_put_contents('/update/key', $this->key);
+        file_put_contents('/update/curl', json_encode([
+            'chat_id'    => $this->input['chat'],
+            'message_id' => $r['result']['message_id'],
+            'text'       => '~t~'
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         file_put_contents('/update/pipe', '1');
         $this->delete($this->input['from'], $this->input['message_id']);
     }
