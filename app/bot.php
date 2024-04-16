@@ -455,9 +455,9 @@ class Bot
     {
         $r = $this->send(
             $this->input['chat'],
-            "@{$this->input['username']} enter url",
+            "@{$this->input['username']} enter key or 0 for stop mtproto",
             $this->input['message_id'],
-            reply: 'enter url',
+            reply: 'enter key or 0 for stop mtproto',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message'  => $this->input['message_id'],
@@ -512,10 +512,7 @@ class Bot
 
     public function mtproto()
     {
-        $s      = file_get_contents('/config/mtprotosecret');
         $d      = file_get_contents('/config/mtprotodomain') ?: 'vk.com';
-        $p      = getenv('TGPORT');
-        $ip     = $this->getPacConf()['domain'] ?: $this->ip;
         $st     = $this->ssh('pgrep mtproto-proxy', 'tg') ? 'on' : 'off';
         $text[] = "Menu -> MTProto\n";
         $text[] = "status: $st\n";
