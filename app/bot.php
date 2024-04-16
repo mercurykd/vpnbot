@@ -999,9 +999,10 @@ class Bot
                 if (!empty($last) && $last != $this->last && $last != $current) {
                     $this->last = $last;
                     $diff       = array_slice(explode("\n", $last), 0, count(explode("\n", $last)) - count(explode("\n", $current)));
+                    $diff       = array_slice($diff, 0, 10);
                     if (!empty($diff)) {
                         foreach ($c['admin'] as $k => $v) {
-                            $this->send($v, "update:\n{$diff[0]}");
+                            $this->send($v, implode("\n", $diff));
                         }
                     }
                 }
