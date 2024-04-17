@@ -368,6 +368,12 @@ class Bot
             case preg_match('~^/domain$~', $this->input['callback'], $m):
                 $this->domain();
                 break;
+            case preg_match('~^/warp$~', $this->input['callback'], $m):
+                $this->warp();
+                break;
+            case preg_match('~^/warpPlus$~', $this->input['callback'], $m):
+                $this->warpPlus();
+                break;
             case preg_match('~^/xray(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->xray($m[1] ?: 0);
                 break;
@@ -3275,8 +3281,8 @@ DNS-over-HTTPS with IP:
                             'callback_data' => "/menu ss",
                         ],
                         [
-                            'text'          => $this->i18n('mirror'),
-                            'callback_data' => "/menu mirror",
+                            'text'          => $this->i18n('warp'),
+                            'callback_data' => "/warp",
                         ],
                     ],
                     [
@@ -3820,6 +3826,59 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('off') . " $off " . ($type ? "✅" : ''),
                 'callback_data' => "/listXr 1",
+            ],
+        ];
+
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
+    public function warpPlus()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter key",
+            $this->input['message_id'],
+            reply: 'enter key',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'addWarpPlus',
+            'args'           => [],
+        ];
+    }
+
+    public function addWarpPlus($key)
+    {
+        $c         = $this->getPacConf();
+        $c['warp'] = $key;
+        $this->setPacConf($c);
+        $this->send($this->input['chat'], 'Warp registration license: ' . $this->ssh("warp-cli --accept-tos registration license $key", 'wp'));
+        sleep(1);
+        $this->warp();
+    }
+
+    public function warp()
+    {
+        $st = $this->ssh('curl -x socks5://127.0.0.1:40000 https://cloudflare.com/cdn-cgi/trace', 'wp');
+        preg_match('~warp=(\w+)~', $st, $m);
+        $text[] = "Menu -> " . $this->i18n('warp');
+        $text[] = "status: {$m['1']}";
+        $data[] = [
+            [
+                'text'          => $this->i18n('set key'),
+                'callback_data' => "/warpPlus",
             ],
         ];
 
@@ -5059,8 +5118,9 @@ DNS-over-HTTPS with IP:
             fclose($s);
             ssh2_disconnect($c);
         } catch (Exception | Error $e) {
-            $this->send($this->input['chat'], $e->getMessage(), $this->input['message_id']);
-            die();
+            if (!empty($GLOBALS['debug'])) {
+                $this->send($this->input['chat'], $e->getMessage(), $this->input['message_id']);
+            }
         }
         return $data;
     }

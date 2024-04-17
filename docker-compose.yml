@@ -491,7 +491,7 @@ services:
                 ipv4_address: 10.10.0.12
         logging: *default-logging
     wp:
-        image: mercurykd/vpnbot-wp:1
+        image: mercurykd/vpnbot-wp:1.1
         build:
             dockerfile: dockerfile/warp.dockerfile
             args:

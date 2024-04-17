@@ -1,6 +1,10 @@
 <?php
 
 $i = [
+    'warp'             => [
+        'en' => 'Warp',
+        'ru' => 'Warp',
+    ],
     'wg_title'             => [
         'en' => 'Wireguard',
         'ru' => 'Wireguard',
