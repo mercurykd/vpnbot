@@ -36,7 +36,7 @@ if ($hash == substr(md5($c['key']), 0, 8)) {
 
         case 'te':
             if (!empty($_GET['te'])) {
-                $t = $bot->getPacConf()["{$_GET['ty']}templates"][urldecode($_GET['te'])];
+                $t = $bot->getPacConf()["{$_GET['ty']}templates"][$_GET['te']];
             } else {
                 $t = json_decode(file_get_contents("/config/{$_GET['ty']}.json"), true);
             }
