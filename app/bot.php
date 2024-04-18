@@ -3281,7 +3281,7 @@ DNS-over-HTTPS with IP:
                             'callback_data' => "/menu ss",
                         ],
                         [
-                            'text'          => $this->i18n('warp'),
+                            'text'          => $this->i18n('warp') . ': ' . $this->warpStatus(),
                             'callback_data' => "/warp",
                         ],
                     ],
@@ -3869,12 +3869,17 @@ DNS-over-HTTPS with IP:
         $this->warp();
     }
 
+    public function warpStatus()
+    {
+        $st = $this->ssh('curl -m 1 -x socks5://127.0.0.1:40000 https://cloudflare.com/cdn-cgi/trace', 'wp');
+        preg_match('~warp=(\w+)~', $st, $m);
+        return $m[1];
+    }
+
     public function warp()
     {
-        $st = $this->ssh('curl -x socks5://127.0.0.1:40000 https://cloudflare.com/cdn-cgi/trace', 'wp');
-        preg_match('~warp=(\w+)~', $st, $m);
         $text[] = "Menu -> " . $this->i18n('warp');
-        $text[] = "status: {$m['1']}";
+        $text[] = "status: " . $this->warpStatus();
         $data[] = [
             [
                 'text'          => $this->i18n('set key'),
