@@ -2,7 +2,8 @@
     <id>singbox</id>
     <name>singbox</name>
     <description>singbox</description>
-    <executable>%BASE%\update.cmd</executable>
+    <executable>%BASE%\sing-box.exe</executable>
+    <arguments>run -c %BASE%\config.json</arguments>
     <logmode>rotate</logmode>
     <onfailure action="restart" delay="10 sec" />
     <onfailure action="restart" delay="20 sec" />
@@ -12,4 +13,5 @@
     <onexit action="restart" />
     <onexit action="restart" />
     <onexit action="none" />
+    <download from="~url~" to="%BASE%\config.json"/>
 </service>

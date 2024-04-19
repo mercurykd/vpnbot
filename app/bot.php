@@ -3966,10 +3966,10 @@ DNS-over-HTTPS with IP:
         $text[] = "<code>{$this->linkXray($i)}</code>\n";
 
         $text[] = "import subscribe:";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=v&s={$c['id']}'>v2rayng</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=si&s={$c['id']}'>sing-box</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=st&s={$c['id']}'>streisand</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=h&s={$c['id']}'>hiddify</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=v&s={$c['id']}#{$c['email']}'>v2rayng</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=si&s={$c['id']}#{$c['email']}'>sing-box</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=st&s={$c['id']}#{$c['email']}'>streisand</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=h&s={$c['id']}#{$c['email']}'>hiddify</a>";
 
         $text[] = "\nv2ray config: <code>$scheme://{$domain}/pac?h=$hash&t=s&s={$c['id']}</code>";
         $text[] = "sing-box config: <code>$scheme://{$domain}/pac?h=$hash&t=si&s={$c['id']}</code>";
@@ -4116,7 +4116,8 @@ DNS-over-HTTPS with IP:
                     header("Location: hiddify://install-config/?url=" . urlencode($si));
                     exit;
                 case 'w':
-                    file_put_contents('/singbox/update.cmd', preg_replace('#~url~#', $si, file_get_contents('/singbox/update.cmd')));
+                    $link = htmlspecialchars($si, ENT_XML1, 'UTF-8');
+                    file_put_contents('/singbox/winsw3.xml', preg_replace('#~url~#', $link, file_get_contents('/singbox/winsw3.xml')));
                     $zip = new ZipArchive();
                     $n   = "singbox_$uid.zip";
                     $zip->open($n, ZipArchive::CREATE | ZipArchive::OVERWRITE);
@@ -4185,11 +4186,75 @@ DNS-over-HTTPS with IP:
                     }
                 }
                 $c['route']['rules'] = array_values($c['route']['rules']);
+                $c['route']          = $this->createRuleSet($c['route'], $uid);
                 break;
         }
 
         header('Content-type: application/json');
         echo json_encode($c);
+    }
+
+    public function createRuleSet($route, $uid)
+    {
+        $pac    = $this->getPacConf();
+        $domain = $pac['domain'] ?: $this->ip;
+        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
+        $hash   = substr(md5($this->key), 0, 8);
+
+        foreach ($route['rules'] as $k => $v) {
+            if (!empty($v['createruleset'])) {
+                foreach ($v['createruleset'] as $i => $r) {
+                    foreach ($r['rules'] as $l => $n) {
+                        if (array_key_exists('domain_suffix', $n) && $n['domain_suffix'] == '~pac~') {
+                            $r['rules'][$l]['domain_suffix'] = array_keys(array_filter($pac['includelist'] ?: []));
+                            if (empty($r['rules'][$l]['domain_suffix'])) {
+                                unset($r['rules'][$l]);
+                            }
+                        }
+                    }
+                    if (!empty($_GET['r']) && $r['name'] == $_GET['r']) {
+                        $f = "/tmp/{$r['name']}" . time() . rand(1, 100);
+                        file_put_contents($f, json_encode([
+                            'version' => 1,
+                            'rules'   => $r['rules'],
+                        ]));
+                        exec("sing-box rule-set compile $f");
+                        header("Content-Disposition: attachment; filename={$r['name']}.srs");
+                        header('Content-Type: application/binary');
+                        echo file_get_contents("$f.srs");
+                        unlink($f);
+                        unlink("$f.srs");
+                        exit;
+                    }
+                    if (!empty($r['rules'])) {
+                        $ruleset[] = [
+                            "tag"             => $r['name'],
+                            "url"             => "$scheme://{$domain}/pac?" . http_build_query([
+                                'h' => $hash,
+                                't' => 'si',
+                                's' => $uid,
+                                'r' => $r['name'],
+                            ]),
+                            "update_interval" => $r['interval'],
+                            "type"            => "remote",
+                            "format"          => "binary",
+                            "download_detour" => "direct",
+                        ];
+                        $route['rules'][$k]['rule_set'][] = $r['name'];
+                    }
+                }
+                unset($route['rules'][$k]['createruleset']);
+                if (empty($route['rules'][$k]['rule_set'])) {
+                    unset($route['rules'][$k]);
+                }
+            }
+        }
+        $route['rules']    = array_values($route['rules']);
+        $route['rule_set'] = array_merge($route['rule_set'] ?: [], $ruleset ?: []);
+        if (empty($route['rule_set'])) {
+            unset($route['rule_set']);
+        }
+        return $route;
     }
 
     public function getXray()
