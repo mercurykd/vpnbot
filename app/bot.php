@@ -1515,7 +1515,7 @@ class Bot
             curl_file_create($qr_file),
             "<code>$ss_link</code>"
         );
-        unlink();
+        unlink($qr_file);
         if ($this->getPacConf()['blinkmenu']) {
             $this->delete($this->input['chat'], $this->input['message_id']);
             $this->input['message_id'] = $this->send($this->input['chat'], '.')['result']['message_id'];
