@@ -1477,7 +1477,12 @@ class Bot
         $cl      = $client;
         $client  = $this->readClients()[$client];
         $name    = $this->getName($client['interface']);
-        $code    = $this->createConfig($client);
+        if ($this->getWGType() == 'awg') {
+            $sl     = $this->getAmneziaShortLink($client);
+            $code   = preg_replace('/^vpn:\/\//', '', $sl);
+        } else {
+            $code   = $this->createConfig($client);
+        }
         $qr      = preg_replace(['~\s+~', '~\(~', '~\)~'], ['_'], $name);
         $qr_file = __DIR__ . "/qr/$qr.png";
         exec("qrencode -t png -o $qr_file '$code'");
@@ -1510,7 +1515,7 @@ class Bot
             curl_file_create($qr_file),
             "<code>$ss_link</code>"
         );
-        unlink($qr_file);
+        unlink();
         if ($this->getPacConf()['blinkmenu']) {
             $this->delete($this->input['chat'], $this->input['message_id']);
             $this->input['message_id'] = $this->send($this->input['chat'], '.')['result']['message_id'];
