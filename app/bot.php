@@ -1489,7 +1489,7 @@ class Bot
         $r = $this->sendPhoto(
             $this->input['chat'],
             curl_file_create($qr_file),
-            $name,
+            ($this->getWGType() == 'awg') ? "$name for AmneziaVPN" : $name
         );
         unlink($qr_file);
         if ($this->getPacConf()['blinkmenu']) {
