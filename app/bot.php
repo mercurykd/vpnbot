@@ -3371,6 +3371,49 @@ DNS-over-HTTPS with IP:
         return "vless://{$c['inbounds'][0]['settings']['clients'][$i]['id']}@$domain:443?security=reality&sni={$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}&fp=chrome&pbk={$pac['xray']}&sid={$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}&type=tcp&flow=xtls-rprx-vision#vpnbot";
     }
 
+    public function dockerApi($url, $method = 'GET', $data = [])
+    {
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_CUSTOMREQUEST    => $method,
+            CURLOPT_POSTFIELDS       => !empty($data) ? json_encode($data) : null,
+            CURLOPT_URL              => "http://localhost$url",
+            CURLOPT_RETURNTRANSFER   => true,
+            CURLOPT_UNIX_SOCKET_PATH => '/var/run/docker.sock'
+        ]);
+        $r = json_decode(curl_exec($ch), true);
+        curl_close($ch);
+        return $r;
+    }
+
+    public function cleanDocker()
+    {
+        $r = $this->dockerApi('/images/json');
+        foreach ($r as $v) {
+            if (!empty($v['RepoTags'])) {
+                foreach ($v['RepoTags'] as $j) {
+                    if (preg_match('~^mercurykd/vpnbot~', $j)) {
+                        $i[] = $v['Id'];
+                        break;
+                    }
+                }
+            }
+        }
+        $r = $this->dockerApi('/containers/json?all=1');
+        foreach ($r as $v) {
+            if (preg_match('~^mercurykd/vpnbot~', $v['Image'])) {
+                $c[] = $v['ImageID'];
+            }
+        }
+        if (!empty($d = array_diff($i, $c))) {
+            foreach ($d as $v) {
+                $this->dockerApi("/images/$v", 'DELETE');
+            }
+        }
+        $this->dockerApi('/images/prune', 'POST', ['dangling' => true]);
+        $this->dockerApi('/build/prune', 'POST');
+    }
+
     public function naiveMenu()
     {
         $pac    = $this->getPacConf();

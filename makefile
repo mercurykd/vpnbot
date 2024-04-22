@@ -9,7 +9,7 @@ d: # остановка контейнеров
 	docker compose down --remove-orphans
 dv: # остановка контейнеров
 	docker compose down -v
-r: d cleanf u cleanf
+r: d u
 ps: # список контейнеров
 	docker compose ps
 l: # логи из контейнеров

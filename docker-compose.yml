@@ -116,6 +116,7 @@ services:
             - ./update:/update
             - ./.git:/.git
             - ./singbox_windows:/singbox
+            - /var/run/docker.sock:/var/run/docker.sock:ro
         environment:
             IP: ${IP}
             VER: ${VER}
@@ -157,6 +158,7 @@ services:
             - ./logs/:/logs/
             - ./update:/update
             - ./scripts/start_service.sh:/start_service.sh
+            - /var/run/docker.sock:/var/run/docker.sock:ro
         environment:
             IP: ${IP}
             VER: ${VER}
