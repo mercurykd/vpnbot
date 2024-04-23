@@ -36,8 +36,8 @@ proxy: # консоль сервиса
 	docker compose exec proxy /bin/sh
 tg: # консоль сервиса
 	docker compose exec tg /bin/sh
-xr: # консоль сервиса
-	docker compose exec xr /bin/sh
+si: # консоль сервиса
+	docker compose exec si /bin/sh
 oc: # консоль сервиса
 	docker compose exec oc /bin/sh
 clean:

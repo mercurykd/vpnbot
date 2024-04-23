@@ -10,7 +10,7 @@ networks:
         ipam:
             config:
                 - subnet: 10.10.0.0/24
-    xray:
+    singbox:
         ipam:
             config:
                 - subnet: 10.10.1.0/24
@@ -89,7 +89,7 @@ services:
         networks:
             default:
                 ipv4_address: 10.10.0.2
-            xray:
+            singbox:
                 ipv4_address: 10.10.1.2
         logging: *default-logging
     php:
@@ -187,7 +187,7 @@ services:
             - ad
             - ss
             - tg
-            - xr
+            - si
             - oc
             - np
     proxy:
@@ -398,20 +398,21 @@ services:
             default:
                 ipv4_address: 10.10.0.8
         logging: *default-logging
-    xr:
-        image: mercurykd/vpnbot-xr:1.2
+    si:
+        image: mercurykd/vpnbot-sb:1
         build:
-            dockerfile: dockerfile/xray.dockerfile
+            dockerfile: dockerfile/singbox.dockerfile
             args:
                 image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - ./ssh:/ssh
             - ./config/sshd_config:/etc/ssh/sshd_config
-            - ./config/xray.json:/xray.json
-            - ./scripts/start_xray.sh:/start_xray.sh
-        hostname: xray
-        container_name: xray-${VER}
+            - ./config:/config
+            - ./certs:/certs
+            - ./scripts/start_sing.sh:/start_sing.sh
+        hostname: singbox
+        container_name: singbox-${VER}
         depends_on:
             php:
                 condition: service_healthy
@@ -421,11 +422,11 @@ services:
             - path: ./override.env
               required: false
         stop_grace_period: 1s
-        command: ["/bin/sh", "/start_xray.sh"]
+        command: ["/bin/sh", "/start_sing.sh"]
         networks:
             default:
                 ipv4_address: 10.10.0.9
-            xray:
+            singbox:
                 ipv4_address: 10.10.1.9
         logging: *default-logging
     oc:
