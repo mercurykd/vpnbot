@@ -3344,7 +3344,7 @@ DNS-over-HTTPS with IP:
         $c      = $this->getXray();
         $pac    = $this->getPacConf();
         $domain = $pac['domain'] ?: $this->ip;
-        return "vless://{$c['inbounds'][0]['users'][$i]['id']}@$domain:443?security=reality&sni={$c['inbounds'][0]['tls']['reality']['handshake']['server']}&fp=chrome&pbk={$pac['xray']}&sid={$c['inbounds'][0]['tls']['reality']['short_id'][0]}&type=tcp&flow=xtls-rprx-vision#vpnbot";
+        return "vless://{$c['inbounds'][0]['users'][$i]['uuid']}@$domain:443?security=reality&sni={$c['inbounds'][0]['tls']['reality']['handshake']['server']}&fp=chrome&pbk={$pac['xray']}&sid={$c['inbounds'][0]['tls']['reality']['short_id'][0]}&type=tcp&flow=xtls-rprx-vision#vpnbot";
     }
 
     public function dockerApi($url, $method = 'GET', $data = [])
@@ -3580,9 +3580,9 @@ DNS-over-HTTPS with IP:
         $c    = $this->getXray();
         $uuid = trim($this->ssh('sing-box generate uuid', 'si'));
         $c['inbounds'][0]['users'][] = [
-            'id'    => $uuid,
-            'flow'  => 'xtls-rprx-vision',
-            'email' => $user,
+            'uuid' => $uuid,
+            'flow' => 'xtls-rprx-vision',
+            'name' => $user,
         ];
         $this->restartXray($c);
         $this->userXr(count($c['inbounds'][0]['users']) - 1);
@@ -3614,10 +3614,10 @@ DNS-over-HTTPS with IP:
         $c = $this->getXray();
         unset($c['inbounds'][0]['users'][$i]['time']);
         if (empty($c['inbounds'][0]['users'][$i]['off'])) {
-            $c['inbounds'][0]['users'][$i]['off'] = $c['inbounds'][0]['users'][$i]['id'];
-            $c['inbounds'][0]['users'][$i]['id']  = trim($this->ssh('sing-box generate uuid', 'si'));
+            $c['inbounds'][0]['users'][$i]['off'] = $c['inbounds'][0]['users'][$i]['uuid'];
+            $c['inbounds'][0]['users'][$i]['uuid']  = trim($this->ssh('sing-box generate uuid', 'si'));
         } else {
-            $c['inbounds'][0]['users'][$i]['id'] = $c['inbounds'][0]['users'][$i]['off'];
+            $c['inbounds'][0]['users'][$i]['uuid'] = $c['inbounds'][0]['users'][$i]['off'];
             unset($c['inbounds'][0]['users'][$i]['off']);
         }
         $this->restartXray($c);
@@ -3800,8 +3800,6 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/xtlswarp",
             ],
         ];
-        $data[] = [
-        ];
         foreach ($c['inbounds'][0]['users'] as $k => $v) {
             if (!empty($v['off'])) {
                 $off++;
@@ -3821,7 +3819,7 @@ DNS-over-HTTPS with IP:
             $time   = $v['time'] ? $this->getTime($v['time']) : '';
             $data[] = [
                 [
-                    'text'          => "{$v['email']}" . ($time ? ": $time" : ''),
+                    'text'          => "{$v['name']}" . ($time ? ": $time" : ''),
                     'callback_data' => "/userXr $k",
                 ],
             ];
@@ -3986,27 +3984,27 @@ DNS-over-HTTPS with IP:
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
 
-        $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['email']}\n";
+        $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['name']}\n";
         $text[] = "<code>{$this->linkXray($i)}</code>\n";
 
         $text[] = "import subscribe:";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=v&s={$c['id']}#{$c['email']}'>v2rayng</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=si&s={$c['id']}#{$c['email']}'>sing-box</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=st&s={$c['id']}#{$c['email']}'>streisand</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=h&s={$c['id']}#{$c['email']}'>hiddify</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=v&s={$c['uuid']}#{$c['name']}'>v2rayng</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=si&s={$c['uuid']}#{$c['name']}'>sing-box</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=st&s={$c['uuid']}#{$c['name']}'>streisand</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=h&s={$c['uuid']}#{$c['name']}'>hiddify</a>";
 
-        $text[] = "\nv2ray config: <code>$scheme://{$domain}/pac?h=$hash&t=s&s={$c['id']}</code>";
-        $text[] = "sing-box config: <code>$scheme://{$domain}/pac?h=$hash&t=si&s={$c['id']}</code>";
-        $text[] = "sing-box windows: <a href='$scheme://{$domain}/pac?h=$hash&t=si&r=w&s={$c['id']}'>windows service</a>";
+        $text[] = "\nv2ray config: <code>$scheme://{$domain}/pac?h=$hash&t=s&s={$c['uuid']}</code>";
+        $text[] = "sing-box config: <code>$scheme://{$domain}/pac?h=$hash&t=si&s={$c['uuid']}</code>";
+        $text[] = "sing-box windows: <a href='$scheme://{$domain}/pac?h=$hash&t=si&r=w&s={$c['uuid']}'>windows service</a>";
 
         $data[] = [
             [
                 'text'    => 'v2ray',
-                'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=s&s={$c['id']}"],
+                'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=s&s={$c['uuid']}"],
             ],
             [
                 'text'    => 'sing-box',
-                'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=si&s={$c['id']}"],
+                'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=si&s={$c['uuid']}"],
             ],
         ];
         $data[] = [
@@ -4069,7 +4067,7 @@ DNS-over-HTTPS with IP:
 
         $flag = true;
         foreach ($xr['inbounds'][0]['users'] as $k => $v) {
-            if ($v['id'] == $key) {
+            if ($v['uuid'] == $key) {
                 if (!empty($fs)) {
                     return $this->userXr($k);
                 }
@@ -4110,12 +4108,12 @@ DNS-over-HTTPS with IP:
 
         $flag = true;
         foreach ($xr['inbounds'][0]['users'] as $k => $v) {
-            if ($v['id'] == $_GET['s']) {
+            if ($v['uuid'] == $_GET['s']) {
                 if (empty($v['off'])) {
                     $flag = false;
                 }
                 $template = base64_decode($_GET['t'] == 's' ? $v['v2raytemplate'] : $v['singtemplate']);
-                $uid      = $v['id'];
+                $uid      = $v['uuid'];
                 break;
             }
         }
