@@ -3,6 +3,7 @@
         {
             "type": "vless",
             "tag": "vless",
+            "listen": "0.0.0.0",
             "listen_port": 443,
             "sniff": true,
             "sniff_override_destination": false,
