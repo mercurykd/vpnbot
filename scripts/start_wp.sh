@@ -1,6 +1,4 @@
 cat /ssh/key.pub > /root/.ssh/authorized_keys
-echo 'HostKeyAlgorithms +ssh-rsa' >> /etc/ssh/sshd_config
-echo 'PubkeyAcceptedKeyTypes +ssh-rsa' >> /etc/ssh/sshd_config
 service ssh start
 warp-svc > /dev/null &
 sleep 3
