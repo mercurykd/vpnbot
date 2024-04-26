@@ -1,5 +1,11 @@
 {
 	order forward_proxy before file_server
+	servers {
+		listener_wrappers {
+			proxy_protocol
+			tls
+		}
+	}
 }
 
 :443 {

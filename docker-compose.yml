@@ -23,9 +23,9 @@ services:
                 image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
-            - ./config/upstream.conf:/etc/nginx/nginx.conf
             - ./scripts/start_upstream.sh:/start_upstream.sh
             - ./ssh:/ssh
+            - ./config:/config
             - ./config/sshd_config:/etc/ssh/sshd_config
             - ./logs/:/logs/
         ports:
@@ -59,9 +59,7 @@ services:
                 image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
-            - ./config/nginx.conf:/etc/nginx/nginx.conf
-            - ./config/include.conf:/etc/nginx/include.conf
-            - ./config/nginx_default.conf:/nginx_default.conf
+            - ./config:/config
             - ./scripts/start_ng.sh:/start_ng.sh
             - ./certs/:/certs/
             - ./ssh:/ssh
