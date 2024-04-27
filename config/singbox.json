@@ -41,5 +41,9 @@
             "server": "10.10.0.13",
             "server_port": 4000
         }
-    ]
+    ],
+    "route" : {
+        "rules": [],
+        "final": "direct"
+    }
 }

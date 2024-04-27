@@ -498,9 +498,18 @@ class Bot
         }
     }
 
-    public function restartXray($c)
+    public function restartXray($c = false)
     {
-        $c['inbounds'][0]['users'] = array_values($c['inbounds'][0]['users']);
+        $c  = $c ?: $this->getXray();
+        $cl = array_filter($this->getPacConf()['xrusers'], fn ($e) => empty($e['off']) && (empty($e['time']) || $e['time'] >= time()));
+        foreach ($cl as $v) {
+            $t[] = [
+                "uuid" => $v['uuid'],
+                "flow" => $v['flow'],
+                "name" => $v['name'],
+            ];
+        }
+        $c['inbounds'][0]['users'] = $t ?: [];
         $this->ssh('pkill sing-box', 'si');
         file_put_contents('/config/singbox.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         $this->ssh('sing-box run -c /config/singbox.json > /dev/null 2>&1 &', 'si');
@@ -3344,7 +3353,7 @@ DNS-over-HTTPS with IP:
         $c      = $this->getXray();
         $pac    = $this->getPacConf();
         $domain = $pac['domain'] ?: $this->ip;
-        return "vless://{$c['inbounds'][0]['users'][$i]['uuid']}@$domain:443?security=reality&sni={$c['inbounds'][0]['tls']['reality']['handshake']['server']}&fp=chrome&pbk={$pac['xray']}&sid={$c['inbounds'][0]['tls']['reality']['short_id'][0]}&type=tcp&flow=xtls-rprx-vision#vpnbot";
+        return "vless://{$pac['xrusers'][$i]['uuid']}@$domain:443?security=reality&sni={$c['inbounds'][0]['tls']['reality']['handshake']['server']}&fp=chrome&pbk={$pac['xray']}&sid={$c['inbounds'][0]['tls']['reality']['short_id'][0]}&type=tcp&flow=xtls-rprx-vision#vpnbot";
     }
 
     public function dockerApi($url, $method = 'GET', $data = [])
@@ -3551,14 +3560,10 @@ DNS-over-HTTPS with IP:
 
     public function delxr($i)
     {
-        $r = $this->getXray();
-        foreach ($r['inbounds'][0]['users'] as $k => $v) {
-            if ($i == $k) {
-                unset($r['inbounds'][0]['users'][$k]);
-                $this->restartXray($r);
-                break;
-            }
-        }
+        $p = $this->getPacConf();
+        unset($p['xrusers'][$i]);
+        $this->setPacConf($p);
+        $this->restartXray();
         $this->xray();
     }
 
@@ -3577,50 +3582,51 @@ DNS-over-HTTPS with IP:
 
     public function addxrus($user)
     {
-        $c    = $this->getXray();
         $uuid = trim($this->ssh('sing-box generate uuid', 'si'));
-        $c['inbounds'][0]['users'][] = [
+        $pac  = $this->getPacConf();
+
+        $pac['xrusers'][] = [
             'uuid' => $uuid,
             'flow' => 'xtls-rprx-vision',
             'name' => $user,
         ];
-        $this->restartXray($c);
-        $this->userXr(count($c['inbounds'][0]['users']) - 1);
+        $this->setPacConf($pac);
+        $this->restartXray($this->getXray());
+        $this->userXr(count($pac['xrusers']) - 1);
     }
 
     public function setTimerXr($time, $i)
     {
-        $time = strtotime($time);
-        if ($time === false) {
-            $this->send($this->input['chat'], 'wrong format');
-            return;
-        }
-        $c = $this->getXray();
-        if (empty($time)) {
-            unset($c['inbounds'][0]['users'][$i]['time']);
+        $c = $this->getPacConf();
+        if ($time === '0') {
+            unset($c['xrusers'][$i]['time']);
         } else {
-            if (!empty($c['inbounds'][0]['users'][$i]['off'])) {
-                $this->switchXr($i, 1);
-                $c = $this->getXray();
+            $time = strtotime($time);
+            if ($time === false) {
+                $this->send($this->input['chat'], 'wrong format');
+                return;
             }
-            $c['inbounds'][0]['users'][$i]['time'] = $time;
+            if (!empty($c['xrusers'][$i]['off'])) {
+                unset($c['xrusers'][$i]['off']);
+            }
+            $c['xrusers'][$i]['time'] = $time;
         }
-        file_put_contents('/config/singbox.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $this->setPacConf($c);
+        $this->restartXray();
         $this->userXr($i);
     }
 
     public function switchXr($i, $nm = 0)
     {
-        $c = $this->getXray();
-        unset($c['inbounds'][0]['users'][$i]['time']);
-        if (empty($c['inbounds'][0]['users'][$i]['off'])) {
-            $c['inbounds'][0]['users'][$i]['off'] = $c['inbounds'][0]['users'][$i]['uuid'];
-            $c['inbounds'][0]['users'][$i]['uuid']  = trim($this->ssh('sing-box generate uuid', 'si'));
+        $p = $this->getPacConf();
+        unset($p['xrusers'][$i]['time']);
+        if (empty($p['xrusers'][$i]['off'])) {
+            $p['xrusers'][$i]['off'] = 1;
         } else {
-            $c['inbounds'][0]['users'][$i]['uuid'] = $c['inbounds'][0]['users'][$i]['off'];
-            unset($c['inbounds'][0]['users'][$i]['off']);
+            unset($p['xrusers'][$i]['off']);
         }
-        $this->restartXray($c);
+        $this->setPacConf($p);
+        $this->restartXray();
         if (empty($nm)) {
             $this->userXr($i);
         }
@@ -3628,9 +3634,9 @@ DNS-over-HTTPS with IP:
 
     public function renXrUs($name, $i)
     {
-        $c = $this->getXray();
-        $c['inbounds'][0]['users'][$i]['email'] = $name;
-        $this->restartXray($c);
+        $c = $this->getPacConf();
+        $c['xrusers'][$i]['name'] = $name;
+        $this->setPacConf($c);
         $this->userXr($i);
     }
 
@@ -3768,16 +3774,13 @@ DNS-over-HTTPS with IP:
             $this->generateSecretXray();
         }
         $c      = $this->getXray();
+        $pac    = $this->getPacConf();
         $text[] = "Menu -> " . $this->i18n('xray');
         $text[] = "fake domain: <code>{$c['inbounds'][0]['tls']['reality']['handshake']['server']}</code>";
         $data[] = [
             [
                 'text'          => $this->i18n('changeFakeDomain'),
                 'callback_data' => "/changeFakeDomain",
-            ],
-            [
-                'text'          => $this->i18n('selfFakeDomain'),
-                'callback_data' => "/selfFakeDomain",
             ],
         ];
         $data[] = [
@@ -3800,15 +3803,15 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/xtlswarp",
             ],
         ];
-        foreach ($c['inbounds'][0]['users'] as $k => $v) {
+        $cl = $pac['xrusers'] ?: [];
+        foreach ($cl as $k => $v) {
             if (!empty($v['off'])) {
                 $off++;
             } else {
                 $on++;
             }
         }
-        $type   = $this->getPacConf()['xtlslist'];
-        $clients = array_filter($c['inbounds'][0]['users'], fn($e) => !$type ? empty($e['off']) : !empty($e['off']));
+        $clients = array_filter($cl, fn($e) => !$pac['xtlslist'] ? empty($e['off']) : !empty($e['off']));
         uasort($clients, fn($a, $b) => ($a['time'] ?: PHP_INT_MAX) <=> ($b['time'] ?: PHP_INT_MAX));
 
         $all     = (int) ceil(count($clients) / $this->limit);
@@ -3842,11 +3845,11 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/addXrUser",
             ],
             [
-                'text'          => $this->i18n('on') . " $on " . (!$type ? "✅" : ''),
+                'text'          => $this->i18n('on') . " $on " . (!$pac['xtlslist'] ? "✅" : ''),
                 'callback_data' => "/listXr 0",
             ],
             [
-                'text'          => $this->i18n('off') . " $off " . ($type ? "✅" : ''),
+                'text'          => $this->i18n('off') . " $off " . ($pac['xtlslist'] ? "✅" : ''),
                 'callback_data' => "/listXr 1",
             ],
         ];
@@ -3926,13 +3929,13 @@ DNS-over-HTTPS with IP:
     public function choiceTemplate($arg)
     {
         $arg = explode('_', $arg);
-        $c   = $this->getXray();
+        $c   = $this->getPacConf();
         if (!empty($arg[2])) {
-            $c['inbounds'][0]['users'][$arg[1]]["{$arg[0]}template"] = $arg[2];
+            $c['xrusers'][$arg[1]]["{$arg[0]}template"] = $arg[2];
         } else {
-            unset($c['inbounds'][0]['users'][$arg[1]]["{$arg[0]}template"]);
+            unset($c['xrusers'][$arg[1]]["{$arg[0]}template"]);
         }
-        file_put_contents('/config/singbox.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $this->setPacConf($c);
         $this->userXr($arg[1]);
     }
 
@@ -3940,7 +3943,7 @@ DNS-over-HTTPS with IP:
     {
         $c         = $this->getXray();
         $pac       = $this->getPacConf();
-        $text[]    = "Menu -> " . $this->i18n('xray') . " -> {$c['inbounds'][0]['users'][$i]['email']}\n";
+        $text[]    = "Menu -> " . $this->i18n('xray') . " -> {$pac['xrusers'][$i]['name']}\n";
         $templates = $pac["{$type}templates"];
         $data[]    = [
             [
@@ -3978,8 +3981,8 @@ DNS-over-HTTPS with IP:
 
     public function userXr($i)
     {
-        $c      = $this->getXray()['inbounds'][0]['users'][$i];
         $pac    = $this->getPacConf();
+        $c      = $pac['xrusers'][$i];
         $domain = $pac['domain'] ?: $this->ip;
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
@@ -4059,45 +4062,6 @@ DNS-over-HTTPS with IP:
         );
     }
 
-    public function v2raySubscription($key, $fs = 0)
-    {
-        $pac    = $this->getPacConf();
-        $domain = $pac['domain'] ?: $this->ip;
-        $xr     = $this->getXray();
-
-        $flag = true;
-        foreach ($xr['inbounds'][0]['users'] as $k => $v) {
-            if ($v['uuid'] == $key) {
-                if (!empty($fs)) {
-                    return $this->userXr($k);
-                }
-                if (empty($v['off'])) {
-                    $flag = false;
-                }
-                break;
-            }
-        }
-        if ($flag) {
-            return;
-        }
-
-        $c = json_decode(file_get_contents('/config/v2ray.json'), true);
-
-        $c['outbounds'][0]['settings']['vnext'][0]['address']                 = $domain;
-        $c['outbounds'][0]['settings']['vnext'][0]['users'][0]['id']          = $key;
-        $c['outbounds'][0]['streamSettings']['realitySettings']['serverName'] = $xr['inbounds'][0]['tls']['reality']['handshake']['server'];
-        $c['outbounds'][0]['streamSettings']['realitySettings']['publicKey']  = $pac['xray'];
-        $c['outbounds'][0]['streamSettings']['realitySettings']['shortId']    = $xr['inbounds'][0]['tls']['reality']['short_id'][0];
-        $c['routing']['rules'][0]['domain']                                   = array_keys(array_filter($pac['includelist']));
-
-        if (empty($c['routing']['rules'][0]['domain'])) {
-            unset($c['routing']['rules'][0]);
-            $c['routing']['rules'] = array_values($c['routing']['rules']);
-
-        }
-        echo json_encode($c);
-    }
-
     public function subscription()
     {
         $pac    = $this->getPacConf();
@@ -4107,7 +4071,7 @@ DNS-over-HTTPS with IP:
         $hash   = substr(md5($this->key), 0, 8);
 
         $flag = true;
-        foreach ($xr['inbounds'][0]['users'] as $k => $v) {
+        foreach ($pac['xrusers'] as $k => $v) {
             if ($v['uuid'] == $_GET['s']) {
                 if (empty($v['off'])) {
                     $flag = false;

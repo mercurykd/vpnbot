@@ -15,7 +15,7 @@ volumes:
 
 services:
     up:
-        image: mercurykd/vpnbot-up:1.1
+        image: mercurykd/vpnbot-ng:1.1
         build:
             context: dockerfile
             dockerfile: nginx.dockerfile
