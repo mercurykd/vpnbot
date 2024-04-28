@@ -404,9 +404,6 @@ class Bot
             case preg_match('~^/changeFakeDomain$~', $this->input['callback'], $m):
                 $this->changeFakeDomain();
                 break;
-            case preg_match('~^/selfFakeDomain$~', $this->input['callback'], $m):
-                $this->selfFakeDomain();
-                break;
             case preg_match('~^/changeTGDomain$~', $this->input['callback'], $m):
                 $this->changeTGDomain();
                 break;
@@ -501,7 +498,8 @@ class Bot
     public function restartXray($c = false)
     {
         $c  = $c ?: $this->getXray();
-        $cl = array_filter($this->getPacConf()['xrusers'], fn ($e) => empty($e['off']) && (empty($e['time']) || $e['time'] >= time()));
+        $p  = $this->getPacConf();
+        $cl = array_filter($p['xrusers'], fn ($e) => empty($e['off']) && (empty($e['time']) || $e['time'] >= time()));
         foreach ($cl as $v) {
             $t[] = [
                 "uuid" => $v['uuid'],
@@ -509,7 +507,11 @@ class Bot
                 "name" => $v['name'],
             ];
         }
-        $c['inbounds'][0]['users'] = $t ?: [];
+        $c['inbounds'][0]['users']                                 = $t ?: [];
+        $c['inbounds'][0]['tls']['server_name']                    = $p['xray']['domain'];
+        $c['inbounds'][0]['tls']['reality']['handshake']['server'] = $p['xray']['domain'];
+        $c['inbounds'][0]['tls']['reality']['private_key']         = $p['xray']['private'];
+        $c['inbounds'][0]['tls']['reality']['short_id'][0]         = $p['xray']['shortid'];
         $this->ssh('pkill sing-box', 'si');
         file_put_contents('/config/singbox.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         $this->ssh('sing-box run -c /config/singbox.json > /dev/null 2>&1 &', 'si');
@@ -1159,7 +1161,6 @@ class Bot
             ] : false,
             'mtproto'       => file_get_contents('/config/mtprotosecret'),
             'mtprotodomain' => file_get_contents('/config/mtprotodomain'),
-            'xray'          => $this->getXray(),
             'oc'            => file_get_contents('/config/ocserv.conf'),
             'ocu'           => file_get_contents('/config/ocserv.passwd'),
 
@@ -1226,6 +1227,27 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->restartNaive();
                 $this->pacUpdate('1');
+                // xray
+                if (!empty($json['xray']['inbounds'][0]['settings']['clients'])) {
+                    $out[] = 'migrate xray to singbox';
+                    $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                    $pac = $this->getPacConf();
+                    foreach ($json['xray']['inbounds'][0]['settings']['clients'] as $k => $v) {
+                        $pac['xrusers'][] = [
+                            'name' => $v['email'],
+                            'uuid' => $v['id'],
+                            'flow' => $v['flow'],
+                        ];
+                    }
+                    $pac['xray'] = [
+                        "domain"  => $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0] != $pac['domain'] ? $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0] : 'vk.com',
+                        "public"  => $json['xray'],
+                        "private" => $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['privateKey'],
+                        "shortid" => $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
+                    ];
+                    $this->setPacConf($pac);
+                }
+                $this->xrayUpdateRules();
             }
             // wg
             if (!empty($json['wg'])) {
@@ -1276,13 +1298,6 @@ class Bot
                 file_put_contents('/config/mtprotosecret', $json['mtproto']);
                 file_put_contents('/config/mtprotodomain', $json['mtprotodomain'] ?: '');
                 $this->restartTG();
-            }
-            // xray
-            if (!empty($json['xray'])) {
-                $out[] = 'update xray';
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $this->restartXray($json['xray']);
-                $this->setUpstreamDomain($json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]);
             }
             // ocserv
             if (!empty($json['oc'])) {
@@ -3353,7 +3368,7 @@ DNS-over-HTTPS with IP:
         $c      = $this->getXray();
         $pac    = $this->getPacConf();
         $domain = $pac['domain'] ?: $this->ip;
-        return "vless://{$pac['xrusers'][$i]['uuid']}@$domain:443?security=reality&sni={$c['inbounds'][0]['tls']['reality']['handshake']['server']}&fp=chrome&pbk={$pac['xray']}&sid={$c['inbounds'][0]['tls']['reality']['short_id'][0]}&type=tcp&flow=xtls-rprx-vision#vpnbot";
+        return "vless://{$pac['xrusers'][$i]['uuid']}@$domain:443?security=reality&sni={$c['inbounds'][0]['tls']['reality']['handshake']['server']}&fp=chrome&pbk={$pac['xray']['public']}&sid={$c['inbounds'][0]['tls']['reality']['short_id'][0]}&type=tcp&flow=xtls-rprx-vision#vpnbot";
     }
 
     public function dockerApi($url, $method = 'GET', $data = [])
@@ -3779,6 +3794,10 @@ DNS-over-HTTPS with IP:
         $text[] = "fake domain: <code>{$c['inbounds'][0]['tls']['reality']['handshake']['server']}</code>";
         $data[] = [
             [
+                'text'          => $this->i18n('generateSecret'),
+                'callback_data' => "/generateSecretXray",
+            ],
+            [
                 'text'          => $this->i18n('changeFakeDomain'),
                 'callback_data' => "/changeFakeDomain",
             ],
@@ -4140,7 +4159,7 @@ DNS-over-HTTPS with IP:
                 $c['outbounds'][0]['settings']['vnext'][0]['address']                 = $domain;
                 $c['outbounds'][0]['settings']['vnext'][0]['users'][0]['id']          = $uid;
                 $c['outbounds'][0]['streamSettings']['realitySettings']['serverName'] = $xr['inbounds'][0]['tls']['reality']['handshake']['server'];
-                $c['outbounds'][0]['streamSettings']['realitySettings']['publicKey']  = $pac['xray'];
+                $c['outbounds'][0]['streamSettings']['realitySettings']['publicKey']  = $pac['xray']['public'];
                 $c['outbounds'][0]['streamSettings']['realitySettings']['shortId']    = $xr['inbounds'][0]['tls']['reality']['short_id'][0];
 
                 foreach ($c['routing']['rules'] as $k => $v) {
@@ -4160,7 +4179,7 @@ DNS-over-HTTPS with IP:
 
                 $c['outbounds'][0]['server']                       = $domain;
                 $c['outbounds'][0]['uuid']                         = $uid;
-                $c['outbounds'][0]['tls']['reality']['public_key'] = $pac['xray'];
+                $c['outbounds'][0]['tls']['reality']['public_key'] = $pac['xray']['public'];
                 $c['outbounds'][0]['tls']['server_name']           = $xr['inbounds'][0]['tls']['reality']['handshake']['server'];
                 $c['outbounds'][0]['tls']['reality']['short_id']   = $xr['inbounds'][0]['tls']['reality']['short_id'][0];
                 foreach ($c['route']['rules'] as $k => $v) {
@@ -4257,10 +4276,14 @@ DNS-over-HTTPS with IP:
         $private = trim($m[1]);
         preg_match('~^PublicKey:\s([^\s]+)~m', $keys, $m);
         $public = trim($m[1]);
-        $c['inbounds'][0]['tls']['reality']['private_key'] = $private;
-        $c['inbounds'][0]['tls']['reality']['short_id'][0] = $shortId;
-        $pac         = $this->getPacConf();
-        $pac['xray'] = $public;
+        $pac    = $this->getPacConf();
+
+        $pac['xray'] = [
+            'domain'  => !empty($pac['xray']['domain']) ? $pac['xray']['domain'] : 'vk.com',
+            'public'  => $public,
+            'private' => $private,
+            'shortid' => $shortId,
+        ];
         $this->setPacConf($pac);
         $this->restartXray($c);
     }
@@ -4825,33 +4848,18 @@ DNS-over-HTTPS with IP:
         ];
     }
 
-    public function setFakeDomain($domain, $self = false)
+    public function setFakeDomain($domain)
     {
-        $c = $this->getXray();
-        if (!empty($self)) {
-            $c['inbounds'][0]['tls'] = [
-                "enabled"          => true,
-                "server_name"      => $domain,
-                "certificate_path" => "/certs/cert_public",
-                "key_path"         => "/certs/cert_private",
-            ];
-        } else {
-            $c['inbounds'][0]['tls']['server_name'] = $domain;
-            $c['inbounds'][0]['tls']['reality']['handshake']['server'] = $domain;
+        $pac = $this->getPacConf();
+        if ($pac['domain'] == $domain) {
+            $this->send($this->input['from'], 'wrong domain');
+            return;
         }
-        $this->restartXray($c);
+        $pac['xray']['domain'] = $domain;
+        $this->setPacConf($pac);
         $this->setUpstreamDomain($domain);
+        $this->restartXray();
         $this->xray();
-    }
-
-    public function selfFakeDomain()
-    {
-        $c = $this->getPacConf();
-        if (!empty($c['domain'])) {
-            $this->setFakeDomain($c['domain'], 1);
-        } else{
-            $this->answer($this->input['callback_id'], 'empty domain', true);
-        }
     }
 
     public function setBackup($text)
@@ -4932,7 +4940,7 @@ DNS-over-HTTPS with IP:
 
     public function nginxGetTypeCert()
     {
-        $conf = $this->ssh('cat /etc/nginx/nginx.conf', 'ng');
+        $conf = file_get_contents('/config/nginx.conf');
         preg_match("/#~([^\s]+)/", $conf, $m);
         return $m[1];
     }
@@ -5224,6 +5232,12 @@ DNS-over-HTTPS with IP:
             die('нет айпи');
         }
         echo "$ip\n";
+        $this->request('deleteWebhook', []);
+        $this->request('getUpdates', [
+            'offset'  => -1,
+            'limit'   => 1,
+            'timeout' => 5,
+        ]);
         var_dump($r = $this->request('setWebhook', [
             'url'         => "https://$ip/tlgrm?k={$this->key}",
             'certificate' => curl_file_create('/certs/self_public'),
