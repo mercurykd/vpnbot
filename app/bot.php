@@ -1106,8 +1106,8 @@ class Bot
     public function shutdownClientXr()
     {
         try {
-            $c = $this->getXray();
-            foreach ($c['inbounds'][0]['users'] as $k => $v) {
+            $p = $this->getPacConf();
+            foreach ($p['xrusers'] as $k => $v) {
                 if (!empty($v['time']) && ($v['time'] < time())) {
                     $this->switchXr($k, 1);
                 }
