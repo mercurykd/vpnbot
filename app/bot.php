@@ -3791,7 +3791,10 @@ DNS-over-HTTPS with IP:
         $c      = $this->getXray();
         $pac    = $this->getPacConf();
         $text[] = "Menu -> " . $this->i18n('xray');
-        $text[] = "fake domain: <code>{$c['inbounds'][0]['tls']['reality']['handshake']['server']}</code>";
+        $text[] = "\nfake domain: <code>{$pac['xray']['domain']}</code>";
+        $text[] = "public: <code>{$pac['xray']['public']}</code>";
+        $text[] = "private: <code>{$pac['xray']['private']}</code>";
+        $text[] = "shortId: <code>{$pac['xray']['shortid']}</code>";
         $data[] = [
             [
                 'text'          => $this->i18n('generateSecret'),
