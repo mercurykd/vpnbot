@@ -1222,6 +1222,10 @@ class Bot
                 if ($this->getPacConf()['wg1_amnezia'] != $json['pac']['wg1_amnezia']) {
                     $switch_wg1amnezia = 1;
                 }
+                unset($json['pac']['subzoneslist']);
+                unset($json['pac']['reverselist']);
+                unset($json['pac']['excludelist']);
+                unset($json['pac']['zapret']);
                 $this->setPacConf($json['pac']);
                 $out[] = 'update naiveproxy';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
@@ -1232,7 +1236,7 @@ class Bot
                     $out[] = 'migrate xray to singbox';
                     $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                     $pac = $this->getPacConf();
-                    foreach ($json['xray']['inbounds'][0]['settings']['clients'] as $k => $v) {
+                    foreach ($json['xray']['inbounds'][0]['settings']['clients'] as $v) {
                         $pac['xrusers'][] = [
                             'name' => $v['email'],
                             'uuid' => $v['id'],
@@ -1241,7 +1245,7 @@ class Bot
                     }
                     $pac['xray'] = [
                         "domain"  => $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0] != $pac['domain'] ? $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0] : 'vk.com',
-                        "public"  => $json['xray'],
+                        "public"  => $json['pac']['xray'],
                         "private" => $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['privateKey'],
                         "shortid" => $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
                     ];
