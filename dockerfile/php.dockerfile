@@ -1,6 +1,5 @@
 ARG image
 FROM $image
-RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
 RUN apk add --no-cache --update php81 \
     php81-mbstring \
     php81-session \
