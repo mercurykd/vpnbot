@@ -271,6 +271,9 @@ class Bot
             case preg_match('~^/setSSL (\w+)$~', $this->input['callback'], $m):
                 $this->setSSL($m[1]);
                 break;
+            case preg_match('~^/setSingboxType (\w+)$~', $this->input['callback'], $m):
+                $this->setSingboxType($m[1]);
+                break;
             case preg_match('~^/lang (\w+)$~', $this->input['callback'], $m):
                 $this->setLang($m[1]);
                 break;
@@ -500,18 +503,86 @@ class Bot
         $c  = $c ?: $this->getXray();
         $p  = $this->getPacConf();
         $cl = array_filter($p['xrusers'], fn ($e) => empty($e['off']) && (empty($e['time']) || $e['time'] >= time()));
-        foreach ($cl as $v) {
-            $t[] = [
-                "uuid" => $v['uuid'],
-                "flow" => $v['flow'],
-                "name" => $v['name'],
-            ];
+        switch ($p['xtlsmode']) {
+            case 'shadow':
+                foreach ($cl as $v) {
+                    $t[] = [
+                        "name"     => $v['name'],
+                        "password" => $v['uuid'],
+                    ];
+                }
+                $c['inbounds'] = [
+                    [
+                        "type"                       => "shadowtls",
+                        "tag"                        => "ss-tls-in",
+                        "listen"                     => "0.0.0.0",
+                        "detour"                     => "ss-in",
+                        "sniff"                      => true,
+                        "sniff_override_destination" => false,
+                        "listen_port"                => 443,
+                        "version"                    => 3,
+                        "strict_mode"                => true,
+                        "users"                      => $t ?: [],
+                        "handshake" => [
+                            "server"          => $p['xray']['domain'],
+                            "server_port"     => 443,
+                            "domain_strategy" => "ipv4_only"
+                        ]
+                    ],
+                    [
+                        "type"                       => "shadowsocks",
+                        "tag"                        => "ss-in",
+                        "listen"                     => "127.0.0.1",
+                        "network"                    => "tcp",
+                        "sniff"                      => false,
+                        "sniff_override_destination" => false,
+                        "method"                     => "2022-blake3-aes-128-gcm",
+                        "password"                   => $p['xray']['sspwd'],
+                        "multiplex"                  => [
+                            "enabled" => true
+                        ]
+                    ]
+                ];
+                break;
+            case 'trojan':
+                break;
+
+            default:
+                foreach ($cl as $v) {
+                    $t[] = [
+                        "uuid" => $v['uuid'],
+                        "flow" => 'xtls-rprx-vision',
+                        "name" => $v['name'],
+                    ];
+                }
+                $c['inbounds'] = [
+                    [
+                        "type"                       => "vless",
+                        "tag"                        => "vless",
+                        "listen"                     => "0.0.0.0",
+                        "listen_port"                => 443,
+                        "sniff"                      => true,
+                        "sniff_override_destination" => false,
+                        "users"                      => $t ?: [],
+                        "tls" => [
+                            "enabled"     => true,
+                            "server_name" => $p['xray']['domain'],
+                            "reality"     => [
+                                "enabled"   => true,
+                                "handshake" => [
+                                    "server"      => $p['xray']['domain'],
+                                    "server_port" => 443
+                                ],
+                                "private_key" => $p['xray']['private'],
+                                "short_id" => [
+                                    $p['xray']['shortid']
+                                ]
+                            ]
+                        ]
+                    ]
+                ];
+                break;
         }
-        $c['inbounds'][0]['users']                                 = $t ?: [];
-        $c['inbounds'][0]['tls']['server_name']                    = $p['xray']['domain'];
-        $c['inbounds'][0]['tls']['reality']['handshake']['server'] = $p['xray']['domain'];
-        $c['inbounds'][0]['tls']['reality']['private_key']         = $p['xray']['private'];
-        $c['inbounds'][0]['tls']['reality']['short_id'][0]         = $p['xray']['shortid'];
         $this->ssh('pkill sing-box', 'si');
         file_put_contents('/config/singbox.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         $this->ssh('sing-box run -c /config/singbox.json > /dev/null 2>&1 &', 'si');
@@ -1240,7 +1311,6 @@ class Bot
                         $pac['xrusers'][] = [
                             'name' => $v['email'],
                             'uuid' => $v['id'],
-                            'flow' => $v['flow'],
                         ];
                     }
                     $pac['xray'] = [
@@ -1248,6 +1318,7 @@ class Bot
                         "public"  => $json['pac']['xray'],
                         "private" => $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['privateKey'],
                         "shortid" => $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
+                        "sspwd"   => trim($this->ssh('sing-box generate rand --base64 16', 'si')),
                     ];
                     $this->setPacConf($pac);
                 }
@@ -3787,6 +3858,18 @@ DNS-over-HTTPS with IP:
         );
     }
 
+    public function setSingboxType($type)
+    {
+        $p = $this->getPacConf();
+        $p['xtlsmode'] = $type;
+        if (empty($p['xray']['sspwd'])) {
+            $p['xray']['sspwd'] = trim($this->ssh('sing-box generate rand --base64 16', 'si'));
+        }
+        $this->setPacConf($p);
+        $this->restartXray();
+        $this->xray();
+    }
+
     public function xray($page = 0)
     {
         if (!$this->ssh('pgrep sing-box', 'si')) {
@@ -3795,10 +3878,12 @@ DNS-over-HTTPS with IP:
         $c      = $this->getXray();
         $pac    = $this->getPacConf();
         $text[] = "Menu -> " . $this->i18n('xray');
+        $text[] = "\nprotocol: {$pac['singboxtype']}";
         $text[] = "\nfake domain: <code>{$pac['xray']['domain']}</code>";
         $text[] = "public: <code>{$pac['xray']['public']}</code>";
         $text[] = "private: <code>{$pac['xray']['private']}</code>";
         $text[] = "shortId: <code>{$pac['xray']['shortid']}</code>";
+        $text[] = "sspwd: <code>{$pac['xray']['sspwd']}</code>";
         $data[] = [
             [
                 'text'          => $this->i18n('generateSecret'),
@@ -3807,6 +3892,20 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('changeFakeDomain'),
                 'callback_data' => "/changeFakeDomain",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('reality') . ' ' . ((empty($pac['xtlsmode']) || $pac['xtlsmode'] == 'reality') ? '✅' : ''),
+                'callback_data' => "/setSingboxType reality",
+            ],
+            [
+                'text'          => $this->i18n('shadow') . ' ' . ($pac['xtlsmode'] == 'shadow' ? '✅' : ''),
+                'callback_data' => "/setSingboxType shadow",
+            ],
+            [
+                'text'          => $this->i18n('trojan') . ' ' . ($pac['xtlsmode'] == 'trojan' ? '✅' : ''),
+                'callback_data' => "/setSingboxType trojan",
             ],
         ];
         $data[] = [
@@ -4283,6 +4382,7 @@ DNS-over-HTTPS with IP:
         $private = trim($m[1]);
         preg_match('~^PublicKey:\s([^\s]+)~m', $keys, $m);
         $public = trim($m[1]);
+        $sspwd  = trim($this->ssh('sing-box generate rand --base64 16', 'si'));
         $pac    = $this->getPacConf();
 
         $pac['xray'] = [
@@ -4290,6 +4390,7 @@ DNS-over-HTTPS with IP:
             'public'  => $public,
             'private' => $private,
             'shortid' => $shortId,
+            'sspwd'   => $sspwd,
         ];
         $this->setPacConf($pac);
         $this->restartXray($c);

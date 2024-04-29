@@ -1,28 +1,5 @@
 {
-    "inbounds": [
-        {
-            "type": "vless",
-            "tag": "vless",
-            "listen": "0.0.0.0",
-            "listen_port": 443,
-            "sniff": true,
-            "sniff_override_destination": false,
-            "users": [],
-            "tls": {
-                "enabled": true,
-                "server_name": "vk.com",
-                "reality": {
-                    "enabled": true,
-                    "handshake": {
-                        "server": "vk.com",
-                        "server_port": 443
-                    },
-                    "private_key": "",
-                    "short_id": []
-                }
-            }
-        }
-    ],
+    "inbounds": [],
     "log": {
         "level": "info"
     },
