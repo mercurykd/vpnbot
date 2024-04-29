@@ -3878,7 +3878,6 @@ DNS-over-HTTPS with IP:
         $c      = $this->getXray();
         $pac    = $this->getPacConf();
         $text[] = "Menu -> " . $this->i18n('xray');
-        $text[] = "\nprotocol: {$pac['singboxtype']}";
         $text[] = "\nfake domain: <code>{$pac['xray']['domain']}</code>";
         $text[] = "public: <code>{$pac['xray']['public']}</code>";
         $text[] = "private: <code>{$pac['xray']['private']}</code>";
@@ -4113,7 +4112,6 @@ DNS-over-HTTPS with IP:
         $hash   = substr(md5($this->key), 0, 8);
 
         $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['name']}\n";
-        $text[] = "<code>{$this->linkXray($i)}</code>\n";
 
         $text[] = "import subscribe:";
         $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=v&s={$c['uuid']}#{$c['name']}'>v2rayng</a>";
@@ -4145,8 +4143,8 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/switchXr $i",
             ],
         ];
-        $singtemplate  = $c['singtemplate'] ? base64_decode($c['singtemplate']) : 'default(' . ($pac['defaultsingtemplate'] && !empty($pac['singtemplates'][base64_decode($pac['defaultsingtemplate'])]) ? base64_decode($pac['defaultsingtemplate']) : 'origin') . ')';
-        $v2raytemplate = $c['v2raytemplate'] ? base64_decode($c['v2raytemplate']) : 'default(' . ($pac['defaultv2raytemplate'] && !empty($pac['v2raytemplates'][base64_decode($pac['defaultv2raytemplate'])]) ? base64_decode($pac['defaultv2raytemplate']) : 'origin') . ')';
+        $singtemplate  = $c['singtemplate'] && !empty($pac['singtemplates'][base64_decode($c['singtemplate'])]) ? base64_decode($c['singtemplate']) : 'default(' . ($pac['defaultsingtemplate'] && !empty($pac['singtemplates'][base64_decode($pac['defaultsingtemplate'])]) ? base64_decode($pac['defaultsingtemplate']) : 'origin') . ')';
+        $v2raytemplate = $c['v2raytemplate'] && !empty($pac['v2raytemplates'][base64_decode($c['v2raytemplate'])]) ? base64_decode($c['v2raytemplate']) : 'default(' . ($pac['defaultv2raytemplate'] && !empty($pac['v2raytemplates'][base64_decode($pac['defaultv2raytemplate'])]) ? base64_decode($pac['defaultv2raytemplate']) : 'origin') . ')';
         $data[]        = [
             [
                 'text'          => $this->i18n('v2ray') . ": $v2raytemplate",
@@ -4244,11 +4242,11 @@ DNS-over-HTTPS with IP:
                     exit;
             }
         }
-
         switch (true) {
             case !empty($template) && $template == 'origin':
             case empty($template) && empty($pac['default' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'template']):
             case empty($template) && !empty($pac['default' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'template']) && empty($pac[($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'templates'][$pac['default' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'template']]):
+            case !empty($template) && empty($pac[$_GET['t'] == 's' ? 'v2raytemplates' : 'singtemplates'][$template]):
                 $c = json_decode(file_get_contents('/config/' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . '.json'), true);
                 break;
             case !empty($template):
@@ -4264,9 +4262,9 @@ DNS-over-HTTPS with IP:
             case 's':
                 $c['outbounds'][0]['settings']['vnext'][0]['address']                 = $domain;
                 $c['outbounds'][0]['settings']['vnext'][0]['users'][0]['id']          = $uid;
-                $c['outbounds'][0]['streamSettings']['realitySettings']['serverName'] = $xr['inbounds'][0]['tls']['reality']['handshake']['server'];
+                $c['outbounds'][0]['streamSettings']['realitySettings']['serverName'] = $pac['xray']['domain'];
                 $c['outbounds'][0]['streamSettings']['realitySettings']['publicKey']  = $pac['xray']['public'];
-                $c['outbounds'][0]['streamSettings']['realitySettings']['shortId']    = $xr['inbounds'][0]['tls']['reality']['short_id'][0];
+                $c['outbounds'][0]['streamSettings']['realitySettings']['shortId']    = $pac['xray']['shortid'];
 
                 foreach ($c['routing']['rules'] as $k => $v) {
                     if (array_key_exists('domain', $v) && $v['domain'] == '~pac~') {
@@ -4283,11 +4281,24 @@ DNS-over-HTTPS with IP:
                     $c['dns']['servers'][0]['address'] = "tls://" . ($pac['adguardkey'] ? "{$pac['adguardkey']}." : '') . "$domain";
                 }
 
-                $c['outbounds'][0]['server']                       = $domain;
-                $c['outbounds'][0]['uuid']                         = $uid;
-                $c['outbounds'][0]['tls']['reality']['public_key'] = $pac['xray']['public'];
-                $c['outbounds'][0]['tls']['server_name']           = $xr['inbounds'][0]['tls']['reality']['handshake']['server'];
-                $c['outbounds'][0]['tls']['reality']['short_id']   = $xr['inbounds'][0]['tls']['reality']['short_id'][0];
+                switch ($pac['xtlsmode']) {
+                    case 'shadow':
+                        $c['outbounds'][0]['server']             = $domain;
+                        $c['outbounds'][0]['password']           = $uid;
+                        $c['outbounds'][0]['tls']['server_name'] = $pac['xray']['domain'];
+                        $c['outbounds'][1]['password']           = $pac['xray']['sspwd'];
+                        break;
+                    case 'trojan':
+                        break;
+
+                    default:
+                        $c['outbounds'][0]['server']                       = $domain;
+                        $c['outbounds'][0]['uuid']                         = $uid;
+                        $c['outbounds'][0]['tls']['reality']['public_key'] = $pac['xray']['public'];
+                        $c['outbounds'][0]['tls']['server_name']           = $pac['xray']['domain'];
+                        $c['outbounds'][0]['tls']['reality']['short_id']   = $pac['xray']['shortid'];
+                        break;
+                }
                 foreach ($c['route']['rules'] as $k => $v) {
                     if (array_key_exists('domain_suffix', $v) && $v['domain_suffix'] == '~pac~') {
                         $c['route']['rules'][$k]['domain_suffix'] = array_keys(array_filter($pac['includelist'] ?: []));
@@ -4535,7 +4546,7 @@ DNS-over-HTTPS with IP:
                     ],
                 ],
                 [
-                    'text'          => $this->i18n('third party browser') . ': ' . $this->i18n($conf['adgbrowser'] ? 'on' : 'off'),
+                    'text'          => $this->i18n($conf['adgbrowser'] ? 'on' : 'off') . ' ' . $this->i18n('third party browser'),
                     'callback_data' => '/adguardChBr'
                 ],
             ],
