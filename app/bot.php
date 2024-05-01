@@ -4187,6 +4187,7 @@ DNS-over-HTTPS with IP:
 
     public function subscription()
     {
+        $type   = $_GET['t'] == 's' ? 'v2ray' : 'sing';
         $pac    = $this->getPacConf();
         $domain = $pac['domain'] ?: $this->ip;
         $xr     = $this->getXray();
@@ -4199,8 +4200,8 @@ DNS-over-HTTPS with IP:
                 if (empty($v['off'])) {
                     $flag = false;
                 }
-                $template = base64_decode($_GET['t'] == 's' ? $v['v2raytemplate'] : $v['singtemplate']);
                 $uid      = $v['uuid'];
+                $template = base64_decode($v["{$type}template"]);
                 break;
             }
         }
@@ -4244,17 +4245,17 @@ DNS-over-HTTPS with IP:
         }
         switch (true) {
             case !empty($template) && $template == 'origin':
-            case empty($template) && empty($pac['default' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'template']):
-            case empty($template) && !empty($pac['default' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'template']) && empty($pac[($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'templates'][$pac['default' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'template']]):
-            case !empty($template) && empty($pac[$_GET['t'] == 's' ? 'v2raytemplates' : 'singtemplates'][$template]):
-                $c = json_decode(file_get_contents('/config/' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . '.json'), true);
+            case empty($template) && empty($pac["default{$type}template"]):
+            case empty($template) && empty($pac["{$type}templates"][base64_decode($pac["default{$type}template"])]):
+            case !empty($template) && empty($pac["{$type}templates"][$template]):
+                $c = json_decode(file_get_contents("/config/{$type}.json"), true);
                 break;
             case !empty($template):
-                $c = $pac[$_GET['t'] == 's' ? 'v2raytemplates' : 'singtemplates'][$template];
+                $c = $pac["{$type}templates"][$template];
                 break;
 
             default:
-                $c = $pac[$_GET['t'] == 's' ? 'v2raytemplates' : 'singtemplates'][base64_decode($pac['default' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'template'])];
+                $c = $pac["{$type}templates"][base64_decode($pac["default{$type}template"])];
                 break;
         }
 
