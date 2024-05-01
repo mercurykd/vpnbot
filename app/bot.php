@@ -4181,19 +4181,19 @@ DNS-over-HTTPS with IP:
                     exit;
             }
         }
-
+        $type = $_GET['t'] == 's' ? 'v2ray' : 'sing';
         switch (true) {
             case !empty($template) && $template == 'origin':
-            case empty($template) && empty($pac['default' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'template']):
-            case empty($template) && !empty($pac['default' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'template']) && empty($pac[($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'templates'][$pac['default' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'template']]):
-                $c = json_decode(file_get_contents('/config/' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . '.json'), true);
+            case empty($template) && empty($pac["default{$type}template"]):
+            case empty($template) && empty($pac["{$type}templates"][base64_decode($pac["default{$type}template"])]):
+                $c = json_decode(file_get_contents("/config/{$type}.json"), true);
                 break;
             case !empty($template):
-                $c = $pac[$_GET['t'] == 's' ? 'v2raytemplates' : 'singtemplates'][$template];
+                $c = $pac["{$type}templates"][$template];
                 break;
 
             default:
-                $c = $pac[$_GET['t'] == 's' ? 'v2raytemplates' : 'singtemplates'][base64_decode($pac['default' . ($_GET['t'] == 's' ? 'v2ray' : 'sing') . 'template'])];
+                $c = $pac["{$type}templates"][base64_decode($pac["default{$type}template"])];
                 break;
         }
 
