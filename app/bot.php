@@ -4126,6 +4126,7 @@ DNS-over-HTTPS with IP:
 
     public function subscription()
     {
+        $type   = $_GET['t'] == 's' ? 'v2ray' : 'sing';
         $pac    = $this->getPacConf();
         $domain = $pac['domain'] ?: $this->ip;
         $xr     = $this->getXray();
@@ -4138,7 +4139,7 @@ DNS-over-HTTPS with IP:
                 if (empty($v['off'])) {
                     $flag = false;
                 }
-                $template = base64_decode($_GET['t'] == 's' ? $v['v2raytemplate'] : $v['singtemplate']);
+                $template = base64_decode($v["{$type}template"]);
                 $uid      = $v['id'];
                 break;
             }
@@ -4181,11 +4182,11 @@ DNS-over-HTTPS with IP:
                     exit;
             }
         }
-        $type = $_GET['t'] == 's' ? 'v2ray' : 'sing';
         switch (true) {
             case !empty($template) && $template == 'origin':
             case empty($template) && empty($pac["default{$type}template"]):
             case empty($template) && empty($pac["{$type}templates"][base64_decode($pac["default{$type}template"])]):
+            case !empty($template) && empty($pac["{$type}templates"][$template]):
                 $c = json_decode(file_get_contents("/config/{$type}.json"), true);
                 break;
             case !empty($template):
