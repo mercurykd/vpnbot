@@ -3819,7 +3819,7 @@ DNS-over-HTTPS with IP:
                 'web_app' => ['url' => "https://$domain/pac?h=$hash&t=te&ty=$type"],
             ],
             [
-                'text'          => $this->i18n($pac["default{$type}template"] && !empty($pac["{$type}templates"][$pac["default{$type}template"]]) ? 'off' : 'on'),
+                'text'          => $this->i18n($pac["default{$type}template"] && !empty($pac["{$type}templates"][base64_decode($pac["default{$type}template"])]) ? 'off' : 'on'),
                 'callback_data' => "/defaultTemplate $type",
             ],
         ];
