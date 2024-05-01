@@ -3902,10 +3902,10 @@ DNS-over-HTTPS with IP:
                 'text'          => $this->i18n('shadow') . ' ' . ($pac['xtlsmode'] == 'shadow' ? '✅' : ''),
                 'callback_data' => "/setSingboxType shadow",
             ],
-            [
-                'text'          => $this->i18n('trojan') . ' ' . ($pac['xtlsmode'] == 'trojan' ? '✅' : ''),
-                'callback_data' => "/setSingboxType trojan",
-            ],
+            // [
+            //     'text'          => $this->i18n('trojan') . ' ' . ($pac['xtlsmode'] == 'trojan' ? '✅' : ''),
+            //     'callback_data' => "/setSingboxType trojan",
+            // ],
         ];
         $data[] = [
             [

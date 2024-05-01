@@ -54,13 +54,6 @@
                 "detour": "direct"
             }
         ],
-        "rules": [
-            {
-                "outbound": "any",
-                "server": "dns-direct",
-                "disable_cache": false
-            }
-        ],
         "strategy": "ipv4_only",
         "independent_cache": true
     },
