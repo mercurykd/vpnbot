@@ -492,3 +492,33 @@ services:
             default:
                 ipv4_address: 10.10.0.12
         logging: *default-logging
+    # wp:
+    #     image: mercurykd/vpnbot-wp:1.1
+    #     build:
+    #         dockerfile: dockerfile/warp.dockerfile
+    #         args:
+    #             image: ${IMAGE}
+    #     cap_add:
+    #         - NET_ADMIN
+    #     devices:
+    #         - /dev/net/tun:/dev/net/tun
+    #     volumes:
+    #         - ./config/.profile:/root/.bashrc:ro
+    #         - ./ssh:/ssh
+    #         - ./config/sshd_config:/etc/ssh/sshd_config
+    #         - ./config:/config
+    #         - ./certs:/certs
+    #         - ./scripts/start_wp.sh:/start_wp.sh
+    #     hostname: warp
+    #     container_name: warp-${VER}
+    #     depends_on:
+    #         php:
+    #             condition: service_healthy
+    #     environment:
+    #         TZ: ${TZ}
+    #     stop_grace_period: 1s
+    #     command: ["/bin/sh", "/start_wp.sh"]
+    #     networks:
+    #         default:
+    #             ipv4_address: 10.10.0.13
+    #     logging: *default-logging
