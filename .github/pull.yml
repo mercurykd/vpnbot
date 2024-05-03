@@ -1,0 +1,8 @@
+
+
+version: "1"
+rules:
+  - base: master
+    upstream: mercurykd:master    # change `wei` to the owner of upstream repo
+    mergeMethod: merge
+
