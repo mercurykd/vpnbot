@@ -1,5 +1,6 @@
 cat /ssh/key.pub > /root/.ssh/authorized_keys
-service ssh start
+ssh-keygen -A
+exec /usr/sbin/sshd -D -e "$@" &
 warp-svc > /dev/null &
 sleep 3
 warp-cli --accept-tos registration new
