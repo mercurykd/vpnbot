@@ -1,7 +1,6 @@
 cat /ssh/key.pub > /root/.ssh/authorized_keys
-echo 'HostKeyAlgorithms +ssh-rsa' >> /etc/ssh/sshd_config
-echo 'PubkeyAcceptedKeyTypes +ssh-rsa' >> /etc/ssh/sshd_config
-service ssh start
+ssh-keygen -A
+exec /usr/sbin/sshd -D -e "$@" &
 warp-svc > /dev/null &
 sleep 3
 warp-cli --accept-tos registration new
