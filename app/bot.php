@@ -3872,11 +3872,10 @@ DNS-over-HTTPS with IP:
 
     public function xray($page = 0)
     {
-        if (!$this->ssh('pgrep sing-box', 'si')) {
+        $pac = $this->getPacConf();
+        if (!$this->ssh('pgrep sing-box', 'si') || empty($pac['xray']['private'])) {
             $this->generateSecretXray();
         }
-        $c      = $this->getXray();
-        $pac    = $this->getPacConf();
         $text[] = "Menu -> " . $this->i18n('xray');
         $text[] = "\nfake domain: <code>{$pac['xray']['domain']}</code>";
         $text[] = "public: <code>{$pac['xray']['public']}</code>";
