@@ -57,44 +57,7 @@
         "strategy": "ipv4_only",
         "independent_cache": true
     },
-    "outbounds": [
-        {
-            "flow": "xtls-rprx-vision",
-            "packet_encoding": "",
-            "server": "",
-            "server_port": 443,
-            "tls": {
-                "enabled": true,
-                "insecure": false,
-                "reality": {
-                    "enabled": true,
-                    "public_key": "",
-                    "short_id": ""
-                },
-                "server_name": "",
-                "utls": {
-                    "enabled": true,
-                    "fingerprint": "chrome"
-                }
-            },
-            "uuid": "",
-            "type": "vless",
-            "domain_strategy": "ipv4_only",
-            "tag": "proxy"
-        },
-        {
-            "type": "direct",
-            "tag": "direct"
-        },
-        {
-            "type": "block",
-            "tag": "block"
-        },
-        {
-            "type": "dns",
-            "tag": "dns-out"
-        }
-    ],
+    "outbounds": [],
     "route": {
         "auto_detect_interface": true,
         "override_android_vpn": true,

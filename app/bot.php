@@ -539,7 +539,8 @@ class Bot
                         "method"                     => "2022-blake3-aes-128-gcm",
                         "password"                   => $p['xray']['sspwd'],
                         "multiplex"                  => [
-                            "enabled" => true
+                            "enabled" => true,
+                            "padding" => true,
                         ]
                     ]
                 ];
@@ -3780,10 +3781,14 @@ DNS-over-HTTPS with IP:
         $this->templates($type);
     }
 
-    public function downloadTemplate($type, $name)
+    public function downloadTemplate($type, $name = false)
     {
         $pac = $this->getPacConf();
-        $f = new \CURLStringFile(json_encode($pac["{$type}templates"][base64_decode($name)], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), base64_decode($name) . '.json', 'application/json');
+        if (!empty($name)) {
+            $f = new \CURLStringFile(json_encode($pac["{$type}templates"][base64_decode($name)], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), base64_decode($name) . '.json', 'application/json');
+        } else {
+            $f = new \CURLFile("/config/{$type}.json", 'application/json', "$type.json");
+        }
         $this->sendFile($this->input['chat'], $f);
     }
 
@@ -3817,6 +3822,10 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => "origin",
                 'web_app' => ['url' => "https://$domain/pac?h=$hash&t=te&ty=$type"],
+            ],
+            [
+                'text'          => $this->i18n('download'),
+                'callback_data' => "/downloadTemplate $type",
             ],
             [
                 'text'          => $this->i18n($pac["default{$type}template"] && !empty($pac["{$type}templates"][base64_decode($pac["default{$type}template"])]) ? 'off' : 'on'),
@@ -4283,22 +4292,84 @@ DNS-over-HTTPS with IP:
 
                 switch ($pac['xtlsmode']) {
                     case 'shadow':
-                        $c['outbounds'][0]['server']             = $domain;
-                        $c['outbounds'][0]['password']           = $uid;
-                        $c['outbounds'][0]['tls']['server_name'] = $pac['xray']['domain'];
-                        $c['outbounds'][1]['password']           = $pac['xray']['sspwd'];
+                        $o = [
+                            [
+                                "type"        => "shadowtls",
+                                "tag"         => "ss-tls-out",
+                                "server"      => $domain,
+                                "server_port" => 443,
+                                "version"     => 3,
+                                "password"    => $uid,
+                                "tls"         => [
+                                    "enabled"     => true,
+                                    "server_name" => $pac['xray']['domain'],
+                                    "utls"        => [
+                                        "enabled"     => true,
+                                        "fingerprint" => "randomized"
+                                    ]
+                                ]
+                            ],
+                            [
+                                "type"         => "shadowsocks",
+                                "tag"          => "proxy",
+                                "detour"       => "ss-tls-out",
+                                "method"       => "2022-blake3-aes-128-gcm",
+                                "password"     => $pac['xray']['sspwd'],
+                                "network"      => "tcp",
+                                "udp_over_tcp" => true,
+                                "multiplex"    => [
+                                    "enabled" => true,
+                                    "padding" => true
+                                ]
+                            ]
+                        ];
                         break;
                     case 'trojan':
                         break;
 
                     default:
-                        $c['outbounds'][0]['server']                       = $domain;
-                        $c['outbounds'][0]['uuid']                         = $uid;
-                        $c['outbounds'][0]['tls']['reality']['public_key'] = $pac['xray']['public'];
-                        $c['outbounds'][0]['tls']['server_name']           = $pac['xray']['domain'];
-                        $c['outbounds'][0]['tls']['reality']['short_id']   = $pac['xray']['shortid'];
+                        $o = [
+                            [
+                                "flow"            => "xtls-rprx-vision",
+                                "packet_encoding" => "",
+                                "server"          => $domain,
+                                "server_port"     => 443,
+                                "tls"             => [
+                                    "enabled"  => true,
+                                    "insecure" => false,
+                                    "reality"  => [
+                                        "enabled"    => true,
+                                        "public_key" => $pac['xray']['public'],
+                                        "short_id"   => $pac['xray']['shortid']
+                                    ],
+                                    "server_name" => $pac['xray']['domain'],
+                                    "utls"        => [
+                                        "enabled"     => true,
+                                        "fingerprint" => "chrome"
+                                    ]
+                                ],
+                                "uuid"            => $uid,
+                                "type"            => "vless",
+                                "domain_strategy" => "ipv4_only",
+                                "tag"             => "proxy"
+                            ]
+                        ];
                         break;
                 }
+                $c['outbounds'] = array_merge($o, [
+                    [
+                        "type" => "direct",
+                        "tag"  => "direct"
+                    ],
+                    [
+                        "type" => "block",
+                        "tag"  => "block"
+                    ],
+                    [
+                        "type" => "dns",
+                        "tag"  => "dns-out"
+                    ]
+                ]);
                 foreach ($c['route']['rules'] as $k => $v) {
                     if (array_key_exists('domain_suffix', $v) && $v['domain_suffix'] == '~pac~') {
                         $c['route']['rules'][$k]['domain_suffix'] = array_keys(array_filter($pac['includelist'] ?: []));
