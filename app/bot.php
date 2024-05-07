@@ -1088,7 +1088,14 @@ class Bot
                     $diff       = array_slice($diff, 0, 10);
                     if (!empty($diff)) {
                         foreach ($c['admin'] as $k => $v) {
-                            $this->send($v, implode("\n", $diff));
+                            $this->send($v, implode("\n", $diff), 0, [
+                                [
+                                    [
+                                        'text' => 'changelog',
+                                        'web_app' => ['url' => "https://raw.githubusercontent.com/mercurykd/vpnbot/$b/version"],
+                                    ]
+                                ]
+                            ]);
                         }
                     }
                 }
