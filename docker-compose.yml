@@ -183,7 +183,7 @@ services:
             - oc
             - np
     proxy:
-        image: mercurykd/vpnbot-ss:1.1
+        image: mercurykd/vpnbot-ss:1.2
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
             args:
@@ -330,7 +330,7 @@ services:
         entrypoint: ["/bin/sh", "/start_ad.sh"]
         logging: *default-logging
     ss:
-        image: mercurykd/vpnbot-ss:1.1
+        image: mercurykd/vpnbot-ss:1.2
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
             args:
