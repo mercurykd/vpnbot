@@ -948,22 +948,17 @@ class Bot
 
     public function checkBackup()
     {
-        $c    = time();
-        $conf = $this->getPacConf();
-        $time = $conf['backup'];
-        if ($time) {
-            preg_match('~(\d+\s\w+)(?:\s+)?/(?:\s+)?(\d{2}:\d{2})~', $time, $m);
-            $period = strtotime($m[1]) - $c;
-            $start  = strtotime($m[2]);
-            $last   = $conf['pinbackup'];
-            if ($last) {
-                [$pin, $time] = explode('/', $last);
-                if ($c - $time >= $period) {
-                    $this->pinAdmin($pin, 1);
-                    $this->pinBackup();
-                    return;
+        $c   = $this->getPacConf();
+        $now = strtotime(date('Y-m-d H:i'));
+        if (!empty($c['backup'])) {
+            [$start, $period] = explode('/', $c['backup']);
+            $start  = strtotime($start);
+            $period = strtotime($period, 0);
+            (var_dump($now, $start, $period, ($now - $start) % $period));
+            if ($now - $start >= $period && ($now - $start) % $period == 0) {
+                if (!empty($c['pinbackup'])) {
+                    $this->pinAdmin($c['pinbackup'], 1);
                 }
-            } elseif ($c - $start > 0 && $c - $start < 30) {
                 $this->pinBackup();
             }
         }
@@ -984,10 +979,10 @@ class Bot
         require __DIR__ . '/config.php';
         $conf              = $this->getPacConf();
         $bot               = $this->request('getMyName', [])['result']['name'];
-        $pin               = $this->upload("{$bot}_export_" . date('d_m_Y_H_i') . '.json', $this->export(), $c['admin'][0])['result']['message_id'];
-        $conf['pinbackup'] = "$pin/" . time();
+        $conf['pinbackup'] = $this->upload("{$bot}_export_" . date('d_m_Y_H_i') . '.json', $this->export(), $c['admin'][0])['result']['message_id'];
+        $conf['backup']    = implode(' / ', [date('Y-m-d H:i'), trim(explode('/', $conf['backup'])[1])]);
         $this->setPacConf($conf);
-        $this->pinAdmin($pin);
+        $this->pinAdmin($conf['pinbackup']);
     }
 
     public function checkVersion()
@@ -1005,7 +1000,14 @@ class Bot
                     $diff       = array_slice($diff, 0, 10);
                     if (!empty($diff)) {
                         foreach ($c['admin'] as $k => $v) {
-                            $this->send($v, implode("\n", $diff));
+                            $this->send($v, implode("\n", $diff), 0, [
+                                [
+                                    [
+                                        'text' => 'changelog',
+                                        'web_app' => ['url' => "https://raw.githubusercontent.com/mercurykd/vpnbot/$b/version"],
+                                    ]
+                                ]
+                            ]);
                         }
                     }
                 }
@@ -4701,12 +4703,14 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/export",
             ],
             [
-                'text'          => $this->i18n('backup') . ': ' . (implode(' / ', explode('/', $conf['backup'])) ?: $this->i18n('off')),
-                'callback_data' => "/backup",
-            ],
-            [
                 'text'          => $this->i18n('import'),
                 'callback_data' => "/import",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('backup') . ': ' . (implode(' / ', explode('/', $conf['backup'])) ?: $this->i18n('off')),
+                'callback_data' => "/backup",
             ],
         ];
         $data[] = [
@@ -4911,16 +4915,15 @@ DNS-over-HTTPS with IP:
     public function setBackup($text)
     {
         $text = trim($text);
-        $c = $this->getPacConf();
+        $c    = $this->getPacConf();
         if (empty($text)) {
             $c['backup'] = '';
-        } elseif (preg_match('~(\d+\s\w+)(?:\s+)?/(?:\s+)?(\d{2}:\d{2})~', $text, $m)) {
-            $period = $m[1];
-            $start  = $m[2];
-            $c['backup'] = $text;
+        } else {
+            [$start, $period] = explode('/', $text);
+            $c['backup'] = implode(' / ', [date('Y-m-d H:i', strtotime($start)), trim($period)]);
         }
-        if ($pin = explode('/', $c['pinbackup'])[0]) {
-            $this->pinAdmin($pin, 1);
+        if ($c['pinbackup']) {
+            $this->pinAdmin($c['pinbackup'], 1);
             $c['pinbackup'] = '';
         }
         $this->setPacConf($c);
