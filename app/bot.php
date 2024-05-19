@@ -954,7 +954,6 @@ class Bot
             [$start, $period] = explode('/', $c['backup']);
             $start  = strtotime($start);
             $period = strtotime($period, 0);
-            (var_dump($now, $start, $period, ($now - $start) % $period));
             if ($now - $start >= $period && ($now - $start) % $period == 0) {
                 if (!empty($c['pinbackup'])) {
                     $this->pinAdmin($c['pinbackup'], 1);
