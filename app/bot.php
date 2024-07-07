@@ -4706,9 +4706,13 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/import",
             ],
         ];
+        $backup = array_filter(explode('/', $conf['backup']));
+        if (!empty($backup)) {
+            $backup = "{$backup[0]} start / {$backup[1]} period";
+        }
         $data[] = [
             [
-                'text'          => $this->i18n('backup') . ': ' . (implode(' / ', explode('/', $conf['backup'])) ?: $this->i18n('off')),
+                'text'          => $this->i18n('backup') . ': ' . ($backup ?: $this->i18n('off')),
                 'callback_data' => "/backup",
             ],
         ];
@@ -4847,9 +4851,9 @@ DNS-over-HTTPS with IP:
     {
         $r = $this->send(
             $this->input['chat'],
-            "@{$this->input['username']} enter like 1 day/00:00",
+            "@{$this->input['username']} enter like start / period",
             $this->input['message_id'],
-            reply: 'enter like 1 day/00:00',
+            reply: 'enter like now / 12:00',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message'  => $this->input['message_id'],
