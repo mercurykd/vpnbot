@@ -9,6 +9,8 @@ class Bot
     public $limit;
     public $key;
     public $file;
+    public $dns;
+    public $mtu;
 
     public function __construct($key, $i18n)
     {
@@ -22,6 +24,7 @@ class Bot
         $this->i18n     = $i18n;
         $this->language = $this->getPacConf()['language'] ?: 'en';
         $this->dns      = '1.1.1.1, 8.8.8.8';
+        $this->mtu      = 1350;
         $this->limit    = $this->getPacConf()['limitpage'] ?: 5;
         $this->adguard  = '/config/AdGuardHome.yaml';
         $this->update   = '/update/json';
@@ -184,6 +187,9 @@ class Bot
             case preg_match('~^/defaultDNS (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->defaultDNS(...explode('_', $m['arg']));
                 break;
+            case preg_match('~^/defaultMTU (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->defaultMTU(...explode('_', $m['arg']));
+                break;
             case preg_match('~^/subnet (?P<arg>-?\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->subnet(...explode('_', $m['arg']));
                 break;
@@ -198,6 +204,9 @@ class Bot
                 break;
             case preg_match('~^/changeAllowedIps (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->changeAllowedIps(...explode('_', $m['arg']));
+                break;
+            case preg_match('~^/changeMTU (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
+                $this->changeMTU(...explode('_', $m['arg']));
                 break;
             case preg_match('~^/calc$~', $this->input['callback'], $m):
                 $this->calc();
@@ -2437,6 +2446,7 @@ DNS-over-HTTPS with IP:
         $bt      = $c[$this->getInstanceWG(1) . 'blocktorrent'];
         $ex      = $c[$this->getInstanceWG(1) . 'exchange'];
         $dns     = $c[$this->getInstanceWG(1) . 'dns'];
+        $mtu     = $c[$this->getInstanceWG(1) . 'mtu'] ?: $this->mtu;
         $am      = $c[$this->getInstanceWG(1) . 'amnezia'];
         $data    = [
             [
@@ -2463,6 +2473,10 @@ DNS-over-HTTPS with IP:
                 [
                     'text'          =>  $this->i18n('defaultDNS') . ': ' . ($dns ?: $this->dns),
                     'callback_data' => "/defaultDNS $page",
+                ],
+                [
+                    'text'          =>  $this->i18n('defaultMTU') . ': ' . $mtu,
+                    'callback_data' => "/defaultMTU $page",
                 ],
             ],
             [
@@ -2551,6 +2565,38 @@ DNS-over-HTTPS with IP:
         ];
     }
 
+    public function defaultMTU($page = 0)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter MTU",
+            $this->input['message_id'],
+            reply: 'enter MTU',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'setMTU',
+            'args'           => [$page],
+        ];
+    }
+
+    public function changeMTU($client, $page = 0)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter MTU",
+            $this->input['message_id'],
+            reply: 'enter MTU',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'changeClientMTU',
+            'args'           => [$client, $page],
+        ];
+    }
+
     public function setDNS($text, $page = 0)
     {
         $c = $this->getPacConf();
@@ -2561,6 +2607,30 @@ DNS-over-HTTPS with IP:
         }
         $this->setPacConf($c);
         $this->menu('wg', $page);
+    }
+
+    public function setMTU($text, $page = 0)
+    {
+        $c = $this->getPacConf();
+        if ($text) {
+            $c[$this->getInstanceWG(1) . 'mtu'] = $text;
+        } else {
+            unset($c[$this->getInstanceWG(1) . 'mtu']);
+        }
+        $this->setPacConf($c);
+        $this->menu('wg', $page);
+    }
+
+    public function changeClientMTU($text, $client, $page = 0)
+    {
+        $clients = $this->readClients();
+        if (!empty((int) $text)) {
+            $clients[$client]['interface']['MTU'] = $text;
+        } else {
+            unset($clients[$client]['interface']['MTU']);
+        }
+        $this->saveClients($clients);
+        $this->menu('client', "{$client}_$page");
     }
 
     public function subnetAdd($wgpage, $page)
@@ -2879,6 +2949,12 @@ DNS-over-HTTPS with IP:
                         [
                             'text'          => $this->i18n('AllowedIPs'),
                             'callback_data' => "/changeAllowedIps {$client}_$page",
+                        ],
+                    ],
+                    [
+                        [
+                            'text'          => $this->i18n('MTU') . " " . ($clients[$client]['interface']['MTU'] ?: $this->getPacConf()[$this->getInstanceWG(1) . 'mtu'] ?: $this->mtu),
+                            'callback_data' => "/changeMTU {$client}_$page",
                         ],
                     ],
                     [
@@ -5046,6 +5122,9 @@ DNS-over-HTTPS with IP:
             if (empty($data['interface']['DNS'])) {
                 $data['interface']['DNS'] = $this->getPacConf()[$this->getInstanceWG(1) . 'dns'] ?: $this->dns;
             }
+            if (empty($data['interface']['MTU'])) {
+                $data['interface']['MTU'] = $this->getPacConf()[$this->getInstanceWG(1) . 'mtu'] ?: $this->mtu;
+            }
         }
         foreach ($data['interface'] as $k => $v) {
             $conf[] = "$k = $v";
@@ -5135,7 +5214,6 @@ DNS-over-HTTPS with IP:
                     '## name'    => $name,
                     'PrivateKey' => $private_peer_key,
                     'Address'    => "$client_ip/32",
-                    'MTU'        => 1350,
                 ],
                 $this->getPacConf()[$this->getInstanceWG(1) . 'amnezia'] ? $this->amneziaKeys() : []
             ),

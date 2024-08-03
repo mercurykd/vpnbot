@@ -241,6 +241,10 @@ $i = [
         'en' => 'defaultDNS',
         'ru' => 'дефолтный днс',
     ],
+    'defaultMTU'  => [
+        'en' => 'defaultMTU',
+        'ru' => 'дефолтный MTU',
+    ],
     'debug'  => [
         'en' => 'debug mode',
         'ru' => 'режим отладки',
