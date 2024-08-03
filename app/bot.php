@@ -1482,26 +1482,30 @@ class Bot
         $this->menu('config');
     }
 
-    public function qrPeer($client)
+    public function sendQr($name, $code, $title = false)
     {
-        $cl      = $client;
-        $client  = $this->readClients()[$client];
-        $name    = $this->getName($client['interface']);
-        if ($this->getWGType() == 'awg') {
-            $sl     = $this->getAmneziaShortLink($client);
-            $code   = preg_replace('/^vpn:\/\//', '', $sl);
-        } else {
-            $code   = $this->createConfig($client);
-        }
         $qr      = preg_replace(['~\s+~', '~\(~', '~\)~'], ['_'], $name);
         $qr_file = __DIR__ . "/qr/$qr.png";
         exec("qrencode -t png -o $qr_file '$code'");
         $r = $this->sendPhoto(
             $this->input['chat'],
             curl_file_create($qr_file),
-            ($this->getWGType() == 'awg') ? "$name for AmneziaVPN" : $name
+            $title ?: $name
         );
         unlink($qr_file);
+    }
+
+    public function qrPeer($client)
+    {
+        $cl      = $client;
+        $client  = $this->readClients()[$client];
+        $name    = $this->getName($client['interface']);
+        if ($this->getWGType() == 'awg') {
+            $this->sendQr($name, preg_replace('/^vpn:\/\//', '', $this->getAmneziaShortLink($client)), "$name for AmneziaVPN");
+            $this->sendQr($name, $this->createConfig($client), "$name for AmneziaWG");
+        } else {
+            $this->sendQr($name, $this->createConfig($client), "$name for Wireguard");
+        }
         if ($this->getPacConf()['blinkmenu']) {
             $this->delete($this->input['chat'], $this->input['message_id']);
             $this->input['message_id'] = $this->send($this->input['chat'], '.')['result']['message_id'];
