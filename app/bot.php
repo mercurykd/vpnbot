@@ -3671,12 +3671,13 @@ DNS-over-HTTPS with IP:
         preg_match('~^camouflage_secret[^\n]+?"([^"]+)*"~sm', $ocserv, $m);
         $cs = $m[1];
         preg_match('~^dns = ([^\n]+)~sm', $ocserv, $m);
-        $dns = $m[1];
+        $dns    = $m[1];
+        $pass   = htmlspecialchars($pac['ocserv']);
         $text[] = "Menu -> OpenConnect";
         if (!empty($m[1])) {
             $text[] = "<code>https://oc.{$pac['domain']}/?$cs</code>";
         }
-        $text[] = "password: <span class='tg-spoiler'>{$pac['ocserv']}</span>";
+        $text[] = "password: <span class='tg-spoiler'>$pass</span>";
         $data[] = [
             [
                 'text'          => $this->i18n('change secret'),
