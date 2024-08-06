@@ -142,6 +142,12 @@ class Bot
             case preg_match('~^/mtproto$~', $this->input['callback'], $m):
                 $this->mtproto();
                 break;
+            case preg_match('~^/deletePac$~', $this->input['callback'], $m):
+                $this->deletePac();
+                break;
+            case preg_match('~^/deletePacYes$~', $this->input['callback'], $m):
+                $this->deletePacYes();
+                break;
             case preg_match('~^/addCommunityFilter$~', $this->input['callback'], $m):
                 $this->addCommunityFilter();
                 break;
@@ -3215,6 +3221,40 @@ DNS-over-HTTPS with IP:
         );
     }
 
+    public function deletePacYes()
+    {
+        $c = $this->getPacConf();
+        unset($c['includelist']);
+        $this->setPacConf($c);
+        $this->pacUpdate();
+        $this->menu('pac');
+    }
+
+    public function deletePac($page = 0)
+    {
+        $text   = <<<text
+                Menu -> PAC -> delete all
+                text;
+        $data[] = [
+            [
+                'text'          => $this->i18n('yes'),
+                'callback_data' => "/deletePacYes",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/pacMenu 0",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            $text,
+            $data ?: false,
+        );
+    }
+
     public function xtlsblock($page = 0)
     {
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> block list';
@@ -3292,6 +3332,12 @@ DNS-over-HTTPS with IP:
                     ]
                 ];
             }
+            $data[] = [
+                [
+                    'text'          => $this->i18n('delete all'),
+                    'callback_data' => "/deletePac",
+                ],
+            ];
         }
         return $data;
     }
