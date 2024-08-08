@@ -391,7 +391,7 @@ services:
                 ipv4_address: 10.10.0.8
         logging: *default-logging
     si:
-        image: mercurykd/vpnbot-sb:1.1
+        image: mercurykd/vpnbot-sb:1.2
         build:
             dockerfile: dockerfile/singbox.dockerfile
             args:

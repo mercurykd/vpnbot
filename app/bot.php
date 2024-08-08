@@ -517,14 +517,18 @@ class Bot
     {
         $c  = $c ?: $this->getXray();
         $p  = $this->getPacConf();
-        $cl = array_filter($p['xrusers'], fn ($e) => empty($e['off']) && (empty($e['time']) || $e['time'] >= time()));
+        if (!empty($p['xrusers'])) {
+            $cl = array_filter($p['xrusers'], fn ($e) => empty($e['off']) && (empty($e['time']) || $e['time'] >= time()));
+        }
         switch ($p['xtlsmode']) {
             case 'shadow':
-                foreach ($cl as $v) {
-                    $t[] = [
-                        "name"     => $v['name'],
-                        "password" => $v['uuid'],
-                    ];
+                if (!empty($cl)) {
+                    foreach ($cl as $v) {
+                        $t[] = [
+                            "name"     => $v['name'],
+                            "password" => $v['uuid'],
+                        ];
+                    }
                 }
                 $c['inbounds'] = [
                     [
@@ -564,12 +568,14 @@ class Bot
                 break;
 
             default:
-                foreach ($cl as $v) {
-                    $t[] = [
-                        "uuid" => $v['uuid'],
-                        "flow" => 'xtls-rprx-vision',
-                        "name" => $v['name'],
-                    ];
+                if (!empty($cl)) {
+                    foreach ($cl as $v) {
+                        $t[] = [
+                            "uuid" => $v['uuid'],
+                            "flow" => 'xtls-rprx-vision',
+                            "name" => $v['name'],
+                        ];
+                    }
                 }
                 $c['inbounds'] = [
                     [
@@ -4012,6 +4018,7 @@ DNS-over-HTTPS with IP:
         $pac = $this->getPacConf();
         if (!$this->ssh('pgrep sing-box', 'si') || empty($pac['xray']['private'])) {
             $this->generateSecretXray();
+            $pac = $this->getPacConf();
         }
         $text[] = "Menu -> " . $this->i18n('xray');
         $text[] = "\nfake domain: <code>{$pac['xray']['domain']}</code>";
