@@ -133,6 +133,9 @@ class Bot
             case preg_match('~^/changeWG (\d+)$~', $this->input['callback'], $m):
                 $this->changeWG($m[1]);
                 break;
+            case preg_match('~^/mirror$~', $this->input['message'], $m):
+                $this->menu('mirror');
+                break;
             case preg_match('~^/id$~', $this->input['message'], $m):
                 $this->send($this->input['chat'], $this->input['from'], $this->input['message_id']);
                 break;
