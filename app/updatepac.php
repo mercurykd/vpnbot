@@ -89,11 +89,14 @@ function start()
 
     $conf = $bot->getPacConf();
 
-    $subzones = array_keys(array_filter($conf['subzoneslist'], fn($x) => $x == true));
+    if (!empty($conf['subzoneslist'])) {
+        $subzones = array_keys(array_filter($conf['subzoneslist'], fn($x) => $x == true));
+    }
 
     // check && exclude
-    $include = array_filter($conf['includelist'], fn($x) => $x == true);
-    $domains = $include;
+    if (!empty($conf['includelist'])) {
+        $domains = array_filter($conf['includelist'], fn($x) => $x == true);
+    }
     if (empty($domains)) {
         $text = "Empty domains. Delete pac files";
         unlink(__DIR__ . '/zapretlists/mpac');
@@ -146,10 +149,13 @@ function start()
         file_put_contents(__DIR__ . '/zapretlists/pac', $pac);
         $text .= "Create minified pac 100%\n";
     }
-
     // create reverse PAC
-    $domains = array_filter($conf['reverselist'], fn($x) => $x == true);
+    unset($domains);
+    if (!empty($conf['reverselist'])) {
+        $domains = array_filter($conf['reverselist'], fn($x) => $x == true);
+    }
     if (empty($domains)) {
+
         // $text .= "Empty reverse domains. Delete reverse pac files";
         unlink(__DIR__ . '/zapretlists/rmpac');
         unlink(__DIR__ . '/zapretlists/rpac');
@@ -197,6 +203,7 @@ function start()
         file_put_contents(__DIR__ . '/zapretlists/rpac', $pac);
         $text .= 'Create minified reverse pac 100%';
     }
+
     endScript($text);
 }
 
@@ -242,7 +249,6 @@ $load = [
     '-',
     '\\',
 ];
-
 switch ($_SERVER['argv'][1]) {
     case 'start':
         $bot                       = new Bot($c['key'], $i);
