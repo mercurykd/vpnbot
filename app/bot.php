@@ -145,11 +145,11 @@ class Bot
             case preg_match('~^/mtproto$~', $this->input['callback'], $m):
                 $this->mtproto();
                 break;
-            case preg_match('~^/deletePac$~', $this->input['callback'], $m):
-                $this->deletePac();
+            case preg_match('~^/deleteAll (\w+)$~', $this->input['callback'], $m):
+                $this->deleteAll($m[1]);
                 break;
-            case preg_match('~^/deletePacYes$~', $this->input['callback'], $m):
-                $this->deletePacYes();
+            case preg_match('~^/deleteYes (\w+)$~', $this->input['callback'], $m):
+                $this->deleteYes($m[1]);
                 break;
             case preg_match('~^/addCommunityFilter$~', $this->input['callback'], $m):
                 $this->addCommunityFilter();
@@ -3230,32 +3230,72 @@ DNS-over-HTTPS with IP:
         );
     }
 
-    public function deletePacYes()
+    public function deleteYes($type)
     {
         $c = $this->getPacConf();
-        unset($c['includelist']);
+        unset($c[$type]);
         $this->setPacConf($c);
-        $this->pacUpdate();
-        $this->menu('pac');
+        switch ($type) {
+            case 'includelist':
+                $this->pacUpdate();
+                break;
+            case 'blocklist':
+                $this->xtlsblock();
+                break;
+            case 'warplist':
+                $this->xtlswarp();
+                break;
+        }
     }
 
-    public function deletePac($page = 0)
+    public function deleteAll($type)
     {
+        switch ($type) {
+            case 'includelist':
+                $dir = 'PAC';
+                break;
+            case 'warplist':
+                $dir = 'WARP';
+                break;
+            case 'blocklist':
+                $dir = 'BLOCK';
+                break;
+        }
         $text   = <<<text
-                Menu -> PAC -> delete all
+                Menu -> $dir -> delete all
                 text;
         $data[] = [
             [
                 'text'          => $this->i18n('yes'),
-                'callback_data' => "/deletePacYes",
+                'callback_data' => "/deleteYes $type",
             ],
         ];
-        $data[] = [
-            [
-                'text'          => $this->i18n('back'),
-                'callback_data' => "/pacMenu 0",
-            ],
-        ];
+        switch ($type) {
+            case 'includelist':
+                $data[] = [
+                    [
+                        'text'          => $this->i18n('back'),
+                        'callback_data' => "/pacMenu 0",
+                    ],
+                ];
+                break;
+            case 'warplist':
+                $data[] = [
+                    [
+                        'text'          => $this->i18n('back'),
+                        'callback_data' => "/xtlswarp",
+                    ],
+                ];
+                break;
+            case 'blocklist':
+                $data[] = [
+                    [
+                        'text'          => $this->i18n('back'),
+                        'callback_data' => "/xtlsblock",
+                    ],
+                ];
+                break;
+        }
         $this->update(
             $this->input['chat'],
             $this->input['message_id'],
@@ -3344,7 +3384,7 @@ DNS-over-HTTPS with IP:
             $data[] = [
                 [
                     'text'          => $this->i18n('delete all'),
-                    'callback_data' => "/deletePac",
+                    'callback_data' => "/deleteAll $type",
                 ],
             ];
         }
