@@ -4437,35 +4437,33 @@ DNS-over-HTTPS with IP:
                         }
                     }
                     if (!empty($_GET['r']) && $r['name'] == $_GET['r']) {
+                        header("Content-Disposition: attachment; filename={$r['name']}.srs");
+                        header('Content-Type: application/binary');
                         $f = "/tmp/{$r['name']}" . time() . rand(1, 100);
                         file_put_contents($f, json_encode([
                             'version' => 1,
-                            'rules'   => $r['rules'],
+                            'rules'   => $r['rules'] ?: [],
                         ]));
                         exec("sing-box rule-set compile $f");
-                        header("Content-Disposition: attachment; filename={$r['name']}.srs");
-                        header('Content-Type: application/binary');
                         echo file_get_contents("$f.srs");
                         unlink($f);
                         unlink("$f.srs");
                         exit;
                     }
-                    if (!empty($r['rules'])) {
-                        $ruleset[] = [
-                            "tag"             => $r['name'],
-                            "url"             => "$scheme://{$domain}/pac?" . http_build_query([
-                                'h' => $hash,
-                                't' => 'si',
-                                's' => $uid,
-                                'r' => $r['name'],
-                            ]),
-                            "update_interval" => $r['interval'],
-                            "type"            => "remote",
-                            "format"          => "binary",
-                            "download_detour" => "direct",
-                        ];
-                        $route['rules'][$k]['rule_set'][] = $r['name'];
-                    }
+                    $ruleset[] = [
+                        "tag"             => $r['name'],
+                        "url"             => "$scheme://{$domain}/pac?" . http_build_query([
+                            'h' => $hash,
+                            't' => 'si',
+                            's' => $uid,
+                            'r' => $r['name'],
+                        ]),
+                        "update_interval" => $r['interval'],
+                        "type"            => "remote",
+                        "format"          => "binary",
+                        "download_detour" => "direct",
+                    ];
+                    $route['rules'][$k]['rule_set'][] = $r['name'];
                 }
                 unset($route['rules'][$k]['createruleset']);
                 if (empty($route['rules'][$k]['rule_set'])) {
