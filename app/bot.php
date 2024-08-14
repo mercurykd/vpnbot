@@ -4320,11 +4320,15 @@ DNS-over-HTTPS with IP:
         }
 
         if (!empty($_GET['r'])) {
-            $si = "$scheme://{$domain}/pac?h=$hash&t=si&s=$uid";
+            $si = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+                'h' => $hash,
+                't' => 'si',
+                's' => $uid,
+            ]));
             $v2 = "$scheme://{$domain}/pac?h=$hash&t=s&s=$uid";
             switch ($_GET['r']) {
                 case 'si':
-                    header("Location: sing-box://import-remote-profile/?url=" . urlencode($si));
+                    header("Location: sing-box://import-remote-profile/?url=" . $si);
                     exit;
                 case 'st':
                     header("Location: streisand://import/$v2");
@@ -4333,7 +4337,7 @@ DNS-over-HTTPS with IP:
                     header("Location: v2rayng://install-config?url=" . urlencode($v2));
                     exit;
                 case 'h':
-                    header("Location: hiddify://install-config/?url=" . urlencode($si));
+                    header("Location: hiddify://install-config/?url=" . $si);
                     exit;
                 case 'w':
                     $link = htmlspecialchars($si, ENT_XML1, 'UTF-8');
