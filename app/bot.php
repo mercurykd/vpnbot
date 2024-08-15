@@ -4622,11 +4622,22 @@ DNS-over-HTTPS with IP:
                 $c['route']          = $this->addRuleSet($c['route']);
                 $c['route']          = $this->addPackageRule($c['route']);
                 $c['route']          = $this->createRuleSet($c['route'], $uid);
+                $c['route']          = $this->clearEmptyRules($c['route']);
                 break;
         }
 
         header('Content-type: application/json');
         echo json_encode($c);
+    }
+
+    public function clearEmptyRules($route)
+    {
+        foreach ($route['rules'] as $k => $v) {
+            if (count($v) == 1) {
+                unset($route['rules'][$k]);
+            }
+        }
+        return $route;
     }
 
     public function addPackageRule($route)
