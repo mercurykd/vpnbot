@@ -148,6 +148,9 @@ class Bot
             case preg_match('~^/deleteAll (\w+)$~', $this->input['callback'], $m):
                 $this->deleteAll($m[1]);
                 break;
+            case preg_match('~^/exportList (\w+)$~', $this->input['callback'], $m):
+                $this->exportList($m[1]);
+                break;
             case preg_match('~^/deleteYes (\w+)$~', $this->input['callback'], $m):
                 $this->deleteYes($m[1]);
                 break;
@@ -457,6 +460,9 @@ class Bot
                 break;
             case preg_match('~^/import$~', $this->input['callback'], $m):
                 $this->import();
+                break;
+            case preg_match('~^/importList (\w+)$~', $this->input['callback'], $m):
+                $this->importList($m[1]);
                 break;
             case preg_match('~^/rename (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->rename(...explode('_', $m['arg']));
@@ -918,6 +924,40 @@ class Bot
             'callback'       => 'timerClient',
             'args'           => [$client, $page],
         ];
+    }
+
+    public function importList($type)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} send the export file:",
+            $this->input['message_id'],
+            reply: 'send the export file:',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'importListFile',
+            'args'           => [$type],
+        ];
+    }
+
+    public function importListFile($text = '', $type)
+    {
+        $r = $this->request('getFile', ['file_id' => $this->input['file_id']]);
+        $f = file_get_contents($this->file . $r['result']['file_path']);
+        if (!empty($f)) {
+            foreach (explode("\n", $f) as $v) {
+                if (!empty($s = trim($v))) {
+                    $t = explode(';', $s);
+                    $list[$t[0]] = (bool) $t[1];
+                }
+            }
+            $p = $this->getPacConf();
+            $p[$type] = $list;
+            $this->setPacConf($p);
+        }
+        $this->backXtlsList($type);
     }
 
     public function timerClient(string $time, int $client)
@@ -3222,6 +3262,21 @@ DNS-over-HTTPS with IP:
         );
     }
 
+    public function exportList($type)
+    {
+        $domains = $this->getPacConf()[$type];
+        if (!empty($domains)) {
+            foreach ($domains as $k => $v) {
+                $text .= "$k;$v\n";
+            }
+            $this->sendFile(
+                $this->input['chat'],
+                new CURLStringFile($text, "$type.csv", 'application/csv'),
+                to: $this->input['message_id'],
+            );
+        }
+    }
+
     public function xtlsblock($page = 0)
     {
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> block list';
@@ -3303,6 +3358,21 @@ DNS-over-HTTPS with IP:
                 [
                     'text'          => $this->i18n('delete all'),
                     'callback_data' => "/deleteAll $type",
+                ],
+                [
+                    'text'          => $this->i18n('export'),
+                    'callback_data' => "/exportList $type",
+                ],
+                [
+                    'text'          => $this->i18n('import'),
+                    'callback_data' => "/importList $type",
+                ],
+            ];
+        } else {
+            $data[] = [
+                [
+                    'text'          => $this->i18n('import'),
+                    'callback_data' => "/importList $type",
                 ],
             ];
         }
