@@ -17,10 +17,13 @@ if ('POST' == $_SERVER['REQUEST_METHOD'] && $_GET['k'] == $c['key']) {
 }
 
 // pac
-$type = $_GET['t'] ?? 'pac';
+if (!empty($t = unserialize(base64_decode(explode('/', $_SERVER['REQUEST_URI'])[2])))) { // fix sing-box import
+    $_GET = array_merge($_GET, $t);
+}
+$type    = $_GET['t'] ?? 'pac';
 $address = $_GET['a'] ?: '127.0.0.1';
-$port = $_GET['p'] ?: '1080';
-$hash = $_GET['h'];
+$port    = $_GET['p'] ?: '1080';
+$hash    = $_GET['h'];
 if ($hash == substr(md5($c['key']), 0, 8)) {
     require __DIR__ . '/bot.php';
     require __DIR__ . '/i18n.php';

@@ -148,6 +148,9 @@ class Bot
             case preg_match('~^/deleteAll (\w+)$~', $this->input['callback'], $m):
                 $this->deleteAll($m[1]);
                 break;
+            case preg_match('~^/exportList (\w+)$~', $this->input['callback'], $m):
+                $this->exportList($m[1]);
+                break;
             case preg_match('~^/deleteYes (\w+)$~', $this->input['callback'], $m):
                 $this->deleteYes($m[1]);
                 break;
@@ -371,8 +374,8 @@ class Bot
             case preg_match('~^/deldomain$~', $this->input['callback'], $m):
                 $this->delDomain();
                 break;
-            case preg_match('~^/(?P<action>change|delete)(?P<typelist>\w+) (?P<arg>[^\s]+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
-                $this->listPacChange($m['typelist'], $m['action'], ...explode('_', $m['arg']));
+            case preg_match('~^/(?P<action>change|delete)(?P<typelist>\w+) (?P<arg>\d+)$~', $this->input['callback'], $m):
+                $this->listPacChange($m['typelist'], $m['action'], $m['arg']);
                 break;
             case preg_match('~^/paczapret$~', $this->input['callback'], $m):
                 $this->pacZapret();
@@ -401,8 +404,17 @@ class Bot
             case preg_match('~^/xtlsblock(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->xtlsblock($m[1] ?: 0);
                 break;
+            case preg_match('~^/routes(?: (\d+))?$~', $this->input['callback'], $m):
+                $this->routes($m[1] ?: 0);
+                break;
             case preg_match('~^/xtlswarp(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->xtlswarp($m[1] ?: 0);
+                break;
+            case preg_match('~^/xtlsapp(?: (\d+))?$~', $this->input['callback'], $m):
+                $this->xtlsapp($m[1] ?: 0);
+                break;
+            case preg_match('~^/xtlsrulesset(?: (\d+))?$~', $this->input['callback'], $m):
+                $this->xtlsrulesset($m[1] ?: 0);
                 break;
             case preg_match('~^/delTemplate (\w+)(?: (.+))?$~', $this->input['callback'], $m):
                 $this->delTemplate($m[1], $m[2]);
@@ -457,6 +469,9 @@ class Bot
                 break;
             case preg_match('~^/import$~', $this->input['callback'], $m):
                 $this->import();
+                break;
+            case preg_match('~^/importList (\w+)$~', $this->input['callback'], $m):
+                $this->importList($m[1]);
                 break;
             case preg_match('~^/rename (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->rename(...explode('_', $m['arg']));
@@ -1007,6 +1022,46 @@ class Bot
             'callback'       => 'timerClient',
             'args'           => [$client, $page],
         ];
+    }
+
+    public function importList($type)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} send the export file:",
+            $this->input['message_id'],
+            reply: 'send the export file:',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'importListFile',
+            'args'           => [$type],
+        ];
+    }
+
+    public function importListFile($text = '', $type)
+    {
+        $r = $this->request('getFile', ['file_id' => $this->input['file_id']]);
+        $f = file_get_contents($this->file . $r['result']['file_path']);
+        if (!empty($f)) {
+            foreach (explode("\n", $f) as $v) {
+                if (!empty($s = trim($v))) {
+                    $t = explode(';', $s);
+                    if ($type == 'rulessetlist') {
+                        if (preg_match('~^(?:direct|block|proxy):.+:https?://.+~', $t[0])) {
+                            $list[$t[0]] = (bool) $t[1];
+                        }
+                    } else {
+                        $list[$t[0]] = (bool) $t[1];
+                    }
+                }
+            }
+            $p = $this->getPacConf();
+            $p[$type] = $list;
+            $this->setPacConf($p);
+        }
+        $this->backXtlsList($type);
     }
 
     public function timerClient(string $time, int $client)
@@ -2264,12 +2319,25 @@ DNS-over-HTTPS with IP:
 
     public function include($type)
     {
-        $r = $this->send(
-            $this->input['chat'],
-            "@{$this->input['username']} list domains separated by commas",
-            $this->input['message_id'],
-            reply: 'list domains separated by commas',
-        );
+        switch ($type) {
+            case 'rulessetlist':
+                $r = $this->send(
+                    $this->input['chat'],
+                    "@{$this->input['username']} [direct | block | proxy]:time:URL",
+                    $this->input['message_id'],
+                    reply: '[direct | block | proxy]:time:URL',
+                );
+                break;
+
+            default:
+                $r = $this->send(
+                    $this->input['chat'],
+                    "@{$this->input['username']} list domains separated by commas",
+                    $this->input['message_id'],
+                    reply: 'list domains separated by commas',
+                );
+                break;
+        }
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message' => $this->input['message_id'],
             'callback'      => 'addInclude',
@@ -2279,6 +2347,10 @@ DNS-over-HTTPS with IP:
 
     public function addInclude(string $domains, $type)
     {
+        if ($type == 'rulessetlist' && !preg_match('~^(?:direct|block|proxy):.+:https?://.+~', $domains)) {
+            $this->send($this->input['from'], 'wrong pattern, enter [direct|block|proxy]:time:URL');
+            return;
+        }
         $domains = explode(',', $domains);
         $domains = array_filter($domains, fn($x) => !empty(trim($x)));
         if (!empty($domains)) {
@@ -2307,6 +2379,14 @@ DNS-over-HTTPS with IP:
             case 'warplist':
                 $this->xrayUpdateRules();
                 $this->xtlswarp();
+                break;
+            case 'packagelist':
+                $this->xrayUpdateRules();
+                $this->xtlsapp();
+                break;
+            case 'rulessetlist':
+                $this->xrayUpdateRules();
+                $this->xtlsrulesset();
                 break;
         }
     }
@@ -3245,6 +3325,12 @@ DNS-over-HTTPS with IP:
             case 'warplist':
                 $this->xtlswarp();
                 break;
+            case 'packagelist':
+                $this->xtlsapp();
+                break;
+            case 'rulessetlist':
+                $this->xtlsrulesset();
+                break;
         }
     }
 
@@ -3259,6 +3345,12 @@ DNS-over-HTTPS with IP:
                 break;
             case 'blocklist':
                 $dir = 'BLOCK';
+                break;
+            case 'packagelist':
+                $dir = 'PACKAGE';
+                break;
+            case 'rulessetlist':
+                $dir = 'rulesset';
                 break;
         }
         $text   = <<<text
@@ -3295,6 +3387,22 @@ DNS-over-HTTPS with IP:
                     ],
                 ];
                 break;
+            case 'packagelist':
+                $data[] = [
+                    [
+                        'text'          => $this->i18n('back'),
+                        'callback_data' => "/xtlsapp",
+                    ],
+                ];
+                break;
+            case 'rulessetlist':
+                $data[] = [
+                    [
+                        'text'          => $this->i18n('back'),
+                        'callback_data' => "/xtlsrulesset",
+                    ],
+                ];
+                break;
         }
         $this->update(
             $this->input['chat'],
@@ -3304,15 +3412,30 @@ DNS-over-HTTPS with IP:
         );
     }
 
+    public function exportList($type)
+    {
+        $domains = $this->getPacConf()[$type];
+        if (!empty($domains)) {
+            foreach ($domains as $k => $v) {
+                $text .= "$k;$v\n";
+            }
+            $this->sendFile(
+                $this->input['chat'],
+                new CURLStringFile($text, "$type.csv", 'application/csv'),
+                to: $this->input['message_id'],
+            );
+        }
+    }
+
     public function xtlsblock($page = 0)
     {
-        $text[] = "Menu -> " . $this->i18n('xray') . ' -> block list';
+        $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> block list';
 
         $data   = $this->listPac('blocklist', $page, 'xtlsblock');
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
-                'callback_data' => "/xray",
+                'callback_data' => "/routes",
             ],
         ];
         $this->update(
@@ -3325,13 +3448,13 @@ DNS-over-HTTPS with IP:
 
     public function xtlswarp($page = 0)
     {
-        $text[] = "Menu -> " . $this->i18n('xray') . ' -> warp list';
+        $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> warp list';
 
         $data   = $this->listPac('warplist', $page, 'xtlswarp');
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
-                'callback_data' => "/xray",
+                'callback_data' => "/routes",
             ],
         ];
         $this->update(
@@ -3342,7 +3465,45 @@ DNS-over-HTTPS with IP:
         );
     }
 
-    public function listPac($type, $page, $menu)
+    public function xtlsapp($page = 0)
+    {
+        $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> package list';
+
+        $data   = $this->listPac('packagelist', $page, 'xtlsapp');
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/routes",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
+    public function xtlsrulesset($page = 0)
+    {
+        $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> rulesset list';
+
+        $data   = $this->listPac('rulessetlist', $page, 'xtlsrulesset', 1);
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/routes",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
+    public function listPac($type, $page, $menu, $basename = false)
     {
         $data[] = [
             [
@@ -3352,22 +3513,23 @@ DNS-over-HTTPS with IP:
         ];
         $domains = $this->getPacConf()[$type];
         if (!empty($domains)) {
-            ksort($domains);
             $all     = (int) ceil(count($domains) / $this->limit);
             $page    = min($page, $all - 1);
             $page    = $page < 0 ? $all - 1 : $page;
             $domains = array_slice($domains, $page * $this->limit, $this->limit, true);
+            $i = 0;
             foreach ($domains as $k => $v) {
                 $data[] = [
                     [
-                        'text'          => $this->i18n($v ? 'on' : 'off') . ' ' . idn_to_utf8($k),
-                        'callback_data' => "/change$type {$k}_{$this->limit}",
+                        'text'          => $this->i18n($v ? 'on' : 'off') . ' ' . ($basename ? basename($k) . ' ' : '') . idn_to_utf8($k),
+                        'callback_data' => "/change$type $i",
                     ],
                     [
                         'text'          => 'delete',
-                        'callback_data' => "/delete$type {$k}_{$this->limit}",
+                        'callback_data' => "/delete$type $i",
                     ],
                 ];
+                $i++;
             }
             if ($all > 1) {
                 $data[] = [
@@ -3386,6 +3548,21 @@ DNS-over-HTTPS with IP:
                     'text'          => $this->i18n('delete all'),
                     'callback_data' => "/deleteAll $type",
                 ],
+                [
+                    'text'          => $this->i18n('export'),
+                    'callback_data' => "/exportList $type",
+                ],
+                [
+                    'text'          => $this->i18n('import'),
+                    'callback_data' => "/importList $type",
+                ],
+            ];
+        } else {
+            $data[] = [
+                [
+                    'text'          => $this->i18n('import'),
+                    'callback_data' => "/importList $type",
+                ],
             ];
         }
         return $data;
@@ -3394,14 +3571,20 @@ DNS-over-HTTPS with IP:
     public function listPacChange($type, $action, $key)
     {
         $conf = $this->getPacConf();
-        ksort($conf[$type]);
-        switch ($action) {
-            case 'change':
-                $conf[$type][$key] = !$conf[$type][$key];
+        $i = 0;
+        foreach ($conf[$type] as $k => $v) {
+            if ($key == $i) {
+                switch ($action) {
+                    case 'change':
+                        $conf[$type][$k] = !$v;
+                        break;
+                    case 'delete':
+                        unset($conf[$type][$k]);
+                        break;
+                }
                 break;
-            case 'delete':
-                unset($conf[$type][$key]);
-                break;
+            }
+            $i++;
         }
         $this->setPacConf($conf);
         $this->backXtlsList($type);
@@ -4105,12 +4288,8 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
-                'text'          => $this->i18n('block'),
-                'callback_data' => "/xtlsblock",
-            ],
-            [
-                'text'          => $this->i18n('warp'),
-                'callback_data' => "/xtlswarp",
+                'text'          => $this->i18n('routes'),
+                'callback_data' => "/routes",
             ],
         ];
         $cl = $pac['xrusers'] ?: [];
@@ -4168,6 +4347,42 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('back'),
                 'callback_data' => "/menu",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
+    public function routes($page = 0)
+    {
+        $text[] = "Menu -> " . $this->i18n('xray') . ' -> routes';
+
+        $data = [
+            [[
+                'text'          => $this->i18n('block'),
+                'callback_data' => "/xtlsblock",
+            ]],
+            [[
+                'text'          => $this->i18n('warp'),
+                'callback_data' => "/xtlswarp",
+            ]],
+            [[
+                'text'          => $this->i18n('package'),
+                'callback_data' => "/xtlsapp",
+            ]],
+            [[
+                'text'          => $this->i18n('rulesset'),
+                'callback_data' => "/xtlsrulesset",
+            ]],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/xray",
             ],
         ];
         $this->update(
@@ -4396,11 +4611,15 @@ DNS-over-HTTPS with IP:
         }
 
         if (!empty($_GET['r'])) {
-            $si = "$scheme://{$domain}/pac?h=$hash&t=si&s=$uid";
+            $si = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+                'h' => $hash,
+                't' => 'si',
+                's' => $uid,
+            ]));
             $v2 = "$scheme://{$domain}/pac?h=$hash&t=s&s=$uid";
             switch ($_GET['r']) {
                 case 'si':
-                    header("Location: sing-box://import-remote-profile/?url=" . urlencode($si));
+                    header("Location: sing-box://import-remote-profile/?url=" . $si);
                     exit;
                 case 'st':
                     header("Location: streisand://import/$v2");
@@ -4409,7 +4628,7 @@ DNS-over-HTTPS with IP:
                     header("Location: v2rayng://install-config?url=" . urlencode($v2));
                     exit;
                 case 'h':
-                    header("Location: hiddify://install-config/?url=" . urlencode($si));
+                    header("Location: hiddify://install-config/?url=" . $si);
                     exit;
                 case 'w':
                     $link = htmlspecialchars($si, ENT_XML1, 'UTF-8');
@@ -4557,12 +4776,66 @@ DNS-over-HTTPS with IP:
                     }
                 }
                 $c['route']['rules'] = array_values($c['route']['rules']);
+                $c['route']          = $this->addRuleSet($c['route']);
+                $c['route']          = $this->addPackageRule($c['route']);
                 $c['route']          = $this->createRuleSet($c['route'], $uid);
+                $c['route']          = $this->clearEmptyRules($c['route']);
                 break;
         }
 
         header('Content-type: application/json');
         echo json_encode($c);
+    }
+
+    public function clearEmptyRules($route)
+    {
+        foreach ($route['rules'] as $k => $v) {
+            if (count($v) == 1) {
+                unset($route['rules'][$k]);
+            }
+        }
+        return $route;
+    }
+
+    public function addPackageRule($route)
+    {
+        foreach ($route['rules'] as $k => $v) {
+            $t[$v['outbound']] = $k;
+        }
+        $p = $this->getPacConf();
+        if (!empty($p['packagelist'])) {
+            foreach ($p['packagelist'] as $k => $v) {
+                if (!empty($v)) {
+                    $route['rules'][$t['proxy']]['package_name'][] = $k;
+                }
+            }
+        }
+        return $route;
+    }
+
+    public function addRuleSet($route)
+    {
+        foreach ($route['rules'] as $k => $v) {
+            $t[$v['outbound']] = $k;
+        }
+        $p = $this->getPacConf();
+        if (!empty($p['rulessetlist'])) {
+            foreach ($p['rulessetlist'] as $k => $v) {
+                if (!empty($v)) {
+                    [$type, $time, $url] = explode(':', $k, 3);
+                    $route['rule_set'][] = [
+                        "tag"             => $k,
+                        "type"            => "remote",
+                        "format"          => "binary",
+                        "url"             => $url,
+                        "download_detour" => "direct",
+                        "update_interval" => $time
+                    ];
+                    $route['rules'][$t[$type]]['rule_set'][] = $k;
+                }
+            }
+        }
+        return $route;
     }
 
     public function createRuleSet($route, $uid)
@@ -4582,37 +4855,47 @@ DNS-over-HTTPS with IP:
                                 unset($r['rules'][$l]);
                             }
                         }
+                        if (array_key_exists('domain_suffix', $n) && $n['domain_suffix'] == '~warp~') {
+                            $r['rules'][$l]['domain_suffix'] = array_keys(array_filter($pac['warplist'] ?: []));
+                            if (empty($r['rules'][$l]['domain_suffix'])) {
+                                unset($r['rules'][$l]);
+                            }
+                        }
+                        if (array_key_exists('domain_suffix', $n) && $n['domain_suffix'] == '~block~') {
+                            $r['rules'][$l]['domain_suffix'] = array_keys(array_filter($pac['blocklist'] ?: []));
+                            if (empty($r['rules'][$l]['domain_suffix'])) {
+                                unset($r['rules'][$l]);
+                            }
+                        }
                     }
                     if (!empty($_GET['r']) && $r['name'] == $_GET['r']) {
+                        header("Content-Disposition: attachment; filename={$r['name']}.srs");
+                        header('Content-Type: application/binary');
                         $f = "/tmp/{$r['name']}" . time() . rand(1, 100);
                         file_put_contents($f, json_encode([
                             'version' => 1,
-                            'rules'   => $r['rules'],
+                            'rules'   => $r['rules'] ?: [],
                         ]));
                         exec("sing-box rule-set compile $f");
-                        header("Content-Disposition: attachment; filename={$r['name']}.srs");
-                        header('Content-Type: application/binary');
                         echo file_get_contents("$f.srs");
                         unlink($f);
                         unlink("$f.srs");
                         exit;
                     }
-                    if (!empty($r['rules'])) {
-                        $ruleset[] = [
-                            "tag"             => $r['name'],
-                            "url"             => "$scheme://{$domain}/pac?" . http_build_query([
-                                'h' => $hash,
-                                't' => 'si',
-                                's' => $uid,
-                                'r' => $r['name'],
-                            ]),
-                            "update_interval" => $r['interval'],
-                            "type"            => "remote",
-                            "format"          => "binary",
-                            "download_detour" => "direct",
-                        ];
-                        $route['rules'][$k]['rule_set'][] = $r['name'];
-                    }
+                    $ruleset[] = [
+                        "tag"             => $r['name'],
+                        "url"             => "$scheme://{$domain}/pac?" . http_build_query([
+                            'h' => $hash,
+                            't' => 'si',
+                            's' => $uid,
+                            'r' => $r['name'],
+                        ]),
+                        "update_interval" => $r['interval'],
+                        "type"            => "remote",
+                        "format"          => "binary",
+                        "download_detour" => "direct",
+                    ];
+                    $route['rules'][$k]['rule_set'][] = $r['name'];
                 }
                 unset($route['rules'][$k]['createruleset']);
                 if (empty($route['rules'][$k]['rule_set'])) {

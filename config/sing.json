@@ -69,16 +69,42 @@
             {
                 "createruleset": [
                     {
-                        "name": "selfpac",
+                        "name": "pac",
                         "interval": "15s",
                         "rules": [
                             {
                                 "domain_suffix": "~pac~"
                             }
                         ]
+                    },
+                    {
+                        "name": "warp",
+                        "interval": "15s",
+                        "rules": [
+                            {
+                                "domain_suffix": "~warp~"
+                            }
+                        ]
                     }
                 ],
                 "outbound": "proxy"
+            },
+            {
+                "createruleset": [
+                    {
+                        "name": "block",
+                        "interval": "15s",
+                        "rules": [
+                            {
+                                "domain_suffix": "~block~"
+                            }
+                        ]
+                    }
+                ],
+                "outbound": "block"
+            },
+            {
+                "outbound": "direct"
             }
         ],
         "final": "direct"

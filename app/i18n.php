@@ -2,8 +2,8 @@
 
 $i = [
     'warp'             => [
-        'en' => 'Warp',
-        'ru' => 'Warp',
+        'en' => 'warp',
+        'ru' => 'warp',
     ],
     'wg_title'             => [
         'en' => 'Wireguard',
