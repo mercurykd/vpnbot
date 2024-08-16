@@ -2250,7 +2250,7 @@ DNS-over-HTTPS with IP:
         if (!empty($domains)) {
             $conf = $this->getPacConf();
             foreach ($domains as $k => $v) {
-                $conf[$type][idn_to_ascii(trim($v))] = true;
+                $conf[$type][$type == 'rulessetlist' ? trim($v) : idn_to_ascii(trim($v))] = true;
             }
             ksort($conf[$type]);
             $this->setPacConf($conf);
