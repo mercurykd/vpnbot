@@ -3406,7 +3406,7 @@ DNS-over-HTTPS with IP:
     {
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> rulesset list';
 
-        $data   = $this->listPac('rulessetlist', $page, 'xtlsrulesset');
+        $data   = $this->listPac('rulessetlist', $page, 'xtlsrulesset', 1);
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -3421,7 +3421,7 @@ DNS-over-HTTPS with IP:
         );
     }
 
-    public function listPac($type, $page, $menu)
+    public function listPac($type, $page, $menu, $basename = false)
     {
         $data[] = [
             [
@@ -3431,22 +3431,23 @@ DNS-over-HTTPS with IP:
         ];
         $domains = $this->getPacConf()[$type];
         if (!empty($domains)) {
-            ksort($domains);
             $all     = (int) ceil(count($domains) / $this->limit);
             $page    = min($page, $all - 1);
             $page    = $page < 0 ? $all - 1 : $page;
             $domains = array_slice($domains, $page * $this->limit, $this->limit, true);
+            $i = 0;
             foreach ($domains as $k => $v) {
                 $data[] = [
                     [
-                        'text'          => $this->i18n($v ? 'on' : 'off') . ' ' . idn_to_utf8($k),
-                        'callback_data' => "/change$type {$k}_{$this->limit}",
+                        'text'          => $this->i18n($v ? 'on' : 'off') . ' ' . ($basename ? basename($k) . ' ' : '') . idn_to_utf8($k),
+                        'callback_data' => "/change$type " . $i,
                     ],
                     [
                         'text'          => 'delete',
-                        'callback_data' => "/delete$type {$k}_{$this->limit}",
+                        'callback_data' => "/delete$type " . $i,
                     ],
                 ];
+                $i++;
             }
             if ($all > 1) {
                 $data[] = [
@@ -3488,14 +3489,19 @@ DNS-over-HTTPS with IP:
     public function listPacChange($type, $action, $key)
     {
         $conf = $this->getPacConf();
-        ksort($conf[$type]);
-        switch ($action) {
-            case 'change':
-                $conf[$type][$key] = !$conf[$type][$key];
+        $i = 0;
+        foreach ($conf[$type] as $k => $v) {
+            if ($key == $i) {
+                switch ($action) {
+                    case 'change':
+                        $conf[$type][$k] = !$v;
+                        break;
+                    case 'delete':
+                        unset($conf[$type][$k]);
+                        break;
+                }
                 break;
-            case 'delete':
-                unset($conf[$type][$key]);
-                break;
+            }
         }
         $this->setPacConf($conf);
         $this->backXtlsList($type);
