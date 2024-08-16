@@ -371,8 +371,8 @@ class Bot
             case preg_match('~^/deldomain$~', $this->input['callback'], $m):
                 $this->delDomain();
                 break;
-            case preg_match('~^/(?P<action>change|delete)(?P<typelist>\w+) (?P<arg>[^\s]+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
-                $this->listPacChange($m['typelist'], $m['action'], ...explode('_', $m['arg']));
+            case preg_match('~^/(?P<action>change|delete)(?P<typelist>\w+) (?P<arg>\d+)$~', $this->input['callback'], $m):
+                $this->listPacChange($m['typelist'], $m['action'], $m['arg']);
                 break;
             case preg_match('~^/paczapret$~', $this->input['callback'], $m):
                 $this->pacZapret();
@@ -3440,11 +3440,11 @@ DNS-over-HTTPS with IP:
                 $data[] = [
                     [
                         'text'          => $this->i18n($v ? 'on' : 'off') . ' ' . ($basename ? basename($k) . ' ' : '') . idn_to_utf8($k),
-                        'callback_data' => "/change$type " . $i,
+                        'callback_data' => "/change$type $i",
                     ],
                     [
                         'text'          => 'delete',
-                        'callback_data' => "/delete$type " . $i,
+                        'callback_data' => "/delete$type $i",
                     ],
                 ];
                 $i++;
@@ -3502,6 +3502,7 @@ DNS-over-HTTPS with IP:
                 }
                 break;
             }
+            $i++;
         }
         $this->setPacConf($conf);
         $this->backXtlsList($type);
