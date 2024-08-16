@@ -4174,9 +4174,6 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/routes",
             ],
         ];
-
-        $data[] = [
-        ];
         foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
             if (!empty($v['off'])) {
                 $off++;
