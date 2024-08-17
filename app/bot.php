@@ -136,6 +136,9 @@ class Bot
             case preg_match('~^/mirror$~', $this->input['message'], $m):
                 $this->menu('mirror');
                 break;
+            case preg_match('~^/appOutbound$~', $this->input['callback'], $m):
+                $this->appOutbound();
+                break;
             case preg_match('~^/id$~', $this->input['message'], $m):
                 $this->send($this->input['chat'], $this->input['from'], $this->input['message_id']);
                 break;
@@ -3383,11 +3386,26 @@ DNS-over-HTTPS with IP:
         );
     }
 
+    public function appOutbound()
+    {
+        $p = $this->getPacConf();
+        $p['app_outbound'] = !$p['app_outbound'];
+        $p = $this->setPacConf($p);
+        $this->xtlsapp();
+    }
+
     public function xtlsapp($page = 0)
     {
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> package list';
 
         $data   = $this->listPac('packagelist', $page, 'xtlsapp');
+        $p      = $this->getPacConf();
+        $data[] = [
+            [
+                'text'          => 'set to ' . ($p['app_outbound'] ? 'proxy' : 'direct'),
+                'callback_data' => "/appOutbound",
+            ],
+        ];
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -4641,21 +4659,18 @@ DNS-over-HTTPS with IP:
                 unset($route['rules'][$k]);
             }
         }
+        $route['rules'] = array_values($route['rules']);
         return $route;
     }
 
     public function addPackageRule($route)
     {
-        foreach ($route['rules'] as $k => $v) {
-            $t[$v['outbound']] = $k;
-        }
         $p = $this->getPacConf();
-        if (!empty($p['packagelist'])) {
-            foreach ($p['packagelist'] as $k => $v) {
-                if (!empty($v)) {
-                    $route['rules'][$t['proxy']]['package_name'][] = $k;
-                }
-            }
+        if (!empty($t = array_filter($p['packagelist']))) {
+            $route['rules'][] = [
+                'package_name' => array_keys($t),
+                'outbound'     => $p['app_outbound'] ? 'direct' : 'proxy',
+            ];
         }
         return $route;
     }
