@@ -4819,7 +4819,7 @@ DNS-over-HTTPS with IP:
     public function addPackageRule($route)
     {
         $p = $this->getPacConf();
-        if (!empty($t = array_filter($p['packagelist']))) {
+        if (!empty($t = array_filter($p['packagelist'] ?: []))) {
             $route['rules'][] = [
                 'package_name' => array_keys($t),
                 'outbound'     => $p['app_outbound'] ? 'direct' : 'proxy',
