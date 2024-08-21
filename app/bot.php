@@ -1052,7 +1052,7 @@ class Bot
                 if (!empty($s = trim($v))) {
                     $t = explode(';', $s);
                     if ($type == 'rulessetlist') {
-                        if (preg_match('~^(?:direct|block|proxy):.+:https?://.+~', $t[0])) {
+                        if (preg_match('~^.+:.+:https?://.+~', $t[0])) {
                             $list[$t[0]] = (bool) $t[1];
                         }
                     } else {
@@ -2350,8 +2350,8 @@ DNS-over-HTTPS with IP:
 
     public function addInclude(string $domains, $type)
     {
-        if ($type == 'rulessetlist' && !preg_match('~^(?:direct|block|proxy):.+:https?://.+~', $domains)) {
-            $this->send($this->input['from'], 'wrong pattern, enter [direct|block|proxy]:time:URL');
+        if ($type == 'rulessetlist' && !preg_match('~^.+:.+:https?://.+~', $domains)) {
+            $this->send($this->input['from'], 'wrong pattern, enter [direct|block|proxy|custom outbound]:time:URL');
             return;
         }
         $domains = explode(',', $domains);
