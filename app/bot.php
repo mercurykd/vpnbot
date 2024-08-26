@@ -356,8 +356,8 @@ class Bot
             case preg_match('~^/qrSS$~', $this->input['callback'], $m):
                 $this->qrSS();
                 break;
-            case preg_match('~^/qrXray (\d+)$~', $this->input['callback'], $m):
-                $this->qrXray($m[1]);
+            case preg_match('~^/qrXray (\d+)(?:_(\d+))?$~', $this->input['callback'], $m):
+                $this->qrXray($m[1], $m[2] ?: false);
                 break;
             case preg_match('~^/qrMtproto$~', $this->input['callback'], $m):
                 $this->qrMtproto();
@@ -1710,9 +1710,9 @@ class Bot
         }
     }
 
-    public function qrXray($i)
+    public function qrXray($i, $s = false)
     {
-        $link    = $this->linkXray($i);
+        $link    = $this->linkXray($i, $s);
         $qr_file = __DIR__ . "/qr/xray.png";
         exec("qrencode -t png -o $qr_file '$link'");
         $r = $this->sendPhoto(
@@ -3540,11 +3540,11 @@ DNS-over-HTTPS with IP:
                 $data[] = [
                     [
                         'text'          => $this->i18n($v ? 'on' : 'off') . ' ' . ($basename ? basename($k) . ' ' : '') . idn_to_utf8($k),
-                        'callback_data' => "/change$type $i",
+                        'callback_data' => "/change$type " . ($i + $page * $this->limit),
                     ],
                     [
                         'text'          => 'delete',
-                        'callback_data' => "/delete$type $i",
+                        'callback_data' => "/delete$type " . ($i + $page * $this->limit),
                     ],
                 ];
                 $i++;
@@ -3811,17 +3811,28 @@ DNS-over-HTTPS with IP:
         }
     }
 
-    public function geodb()
-    {
-        $this->answer($this->input['callback_id'], 'in developing...');
-    }
-
-    public function linkXray($i)
+    public function linkXray($i, $s = false)
     {
         $c      = $this->getXray();
         $pac    = $this->getPacConf();
         $domain = $pac['domain'] ?: $this->ip;
-        return "vless://{$pac['xrusers'][$i]['uuid']}@$domain:443?security=reality&sni={$c['inbounds'][0]['tls']['reality']['handshake']['server']}&fp=chrome&pbk={$pac['xray']['public']}&sid={$c['inbounds'][0]['tls']['reality']['short_id'][0]}&type=tcp&flow=xtls-rprx-vision#{$pac['xrusers'][$i]['name']}";
+        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
+        $hash   = substr(md5($this->key), 0, 8);
+        $si     = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+            'h' => $hash,
+            't' => 'si',
+            's' => $pac['xrusers'][$i]['uuid'],
+        ]));
+
+        switch ($s) {
+            case 1:
+                return "$scheme://{$domain}/pac?h=$hash&t=s&s={$pac['xrusers'][$i]['uuid']}";
+            case 2:
+                return "sing-box://import-remote-profile/?url={$si}#{$pac['xrusers'][$i]['name']}";
+
+            default:
+                return "vless://{$pac['xrusers'][$i]['uuid']}@$domain:443?security=reality&sni={$c['inbounds'][0]['tls']['reality']['handshake']['server']}&fp=chrome&pbk={$pac['xray']['public']}&sid={$c['inbounds'][0]['tls']['reality']['short_id'][0]}&type=tcp&flow=xtls-rprx-vision#{$pac['xrusers'][$i]['name']}";
+        }
     }
 
     public function dockerApi($url, $method = 'GET', $data = [])
@@ -4576,8 +4587,16 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
-                'text'          => $this->i18n('show QR'),
+                'text'          => $this->i18n('qr short'),
                 'callback_data' => "/qrXray $i",
+            ],
+            [
+                'text'          => $this->i18n('qr v2ray'),
+                'callback_data' => "/qrXray {$i}_1",
+            ],
+            [
+                'text'          => $this->i18n('qr singbox'),
+                'callback_data' => "/qrXray {$i}_2",
             ],
         ];
         $data[] = [
