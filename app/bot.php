@@ -3458,11 +3458,11 @@ DNS-over-HTTPS with IP:
                 $data[] = [
                     [
                         'text'          => $this->i18n($v ? 'on' : 'off') . ' ' . ($basename ? basename($k) . ' ' : '') . idn_to_utf8($k),
-                        'callback_data' => "/change$type $i",
+                        'callback_data' => "/change$type " . ($i + $page * $this->limit),
                     ],
                     [
                         'text'          => 'delete',
-                        'callback_data' => "/delete$type $i",
+                        'callback_data' => "/delete$type " . ($i + $page * $this->limit),
                     ],
                 ];
                 $i++;
@@ -3729,11 +3729,6 @@ DNS-over-HTTPS with IP:
         }
     }
 
-    public function geodb()
-    {
-        $this->answer($this->input['callback_id'], 'in developing...');
-    }
-
     public function linkXray($i, $s = false)
     {
         $c      = $this->getXray();
@@ -3741,7 +3736,7 @@ DNS-over-HTTPS with IP:
         $domain = $pac['domain'] ?: $this->ip;
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
-        $si = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+        $si     = "$scheme://{$domain}/pac/" . base64_encode(serialize([
             'h' => $hash,
             't' => 'si',
             's' => $c['inbounds'][0]['settings']['clients'][$i]['id'],
