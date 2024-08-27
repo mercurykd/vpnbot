@@ -4341,6 +4341,7 @@ DNS-over-HTTPS with IP:
     {
         $text[] = "Menu -> " . $this->i18n('warp');
         $text[] = "status: " . $this->warpStatus();
+        $text[] = "key: " . $this->getPacConf()['warp'];
         $data[] = [
             [
                 'text'          => $this->i18n('set key'),
