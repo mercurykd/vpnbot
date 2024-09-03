@@ -133,6 +133,9 @@ class Bot
             case preg_match('~^/changeWG (\d+)$~', $this->input['callback'], $m):
                 $this->changeWG($m[1]);
                 break;
+            case preg_match('~^/changeTransport(?: (\d+))?$~', $this->input['callback'], $m):
+                $this->changeTransport($m[1] ?: false);
+                break;
             case preg_match('~^/mirror$~', $this->input['message'], $m):
                 $this->menu('mirror');
                 break;
@@ -4175,18 +4178,32 @@ DNS-over-HTTPS with IP:
             $this->generateSecretXray();
         }
         $c      = $this->getXray();
+        $p      = $this->getPacConf();
         $text[] = "Menu -> " . $this->i18n('xray');
         $text[] = "fake domain: <code>{$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}</code>";
+        $text[] = 'transport: ' . ($p['transport'] ?: 'Reality');
         $data[] = [
             [
-                'text'          => $this->i18n('changeFakeDomain'),
-                'callback_data' => "/changeFakeDomain",
+                'text'          => $this->i18n('Reality') . ' ' . ($p['transport'] != 'Websocket' ? $this->i18n('on') : $this->i18n('off')),
+                'callback_data' => "/changeTransport",
             ],
             [
-                'text'          => $this->i18n('selfFakeDomain'),
-                'callback_data' => "/selfFakeDomain",
+                'text'          => $this->i18n('Websocket') . ' ' . ($p['transport'] == 'Websocket' ? $this->i18n('on') : $this->i18n('off')),
+                'callback_data' => "/changeTransport 1",
             ],
         ];
+        if ($p['transport'] != 'Websocket') {
+            $data[] = [
+                [
+                    'text'          => $this->i18n('changeFakeDomain'),
+                    'callback_data' => "/changeFakeDomain",
+                ],
+                [
+                    'text'          => $this->i18n('selfFakeDomain'),
+                    'callback_data' => "/selfFakeDomain",
+                ],
+            ];
+        }
         $data[] = [
             [
                 'text'          => $this->i18n('v2ray templates'),
@@ -4627,10 +4644,41 @@ DNS-over-HTTPS with IP:
         switch ($_GET['t']) {
             case 's':
                 $c['outbounds'][0]['settings']['vnext'][0]['address']                 = $domain;
-                $c['outbounds'][0]['settings']['vnext'][0]['users'][0]['id']          = $uid;
-                $c['outbounds'][0]['streamSettings']['realitySettings']['serverName'] = $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
-                $c['outbounds'][0]['streamSettings']['realitySettings']['publicKey']  = $pac['xray'];
-                $c['outbounds'][0]['streamSettings']['realitySettings']['shortId']    = $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
+                $c['outbounds'][0]['settings']['vnext'][0]['users'][0] = [
+                    'id'         => $uid,
+                    'encryption' => 'none',
+                ];
+                if ($pac['transport'] == 'Websocket') {
+                    $c['outbounds'][0]['streamSettings'] = [
+                        "network"    => "ws",
+                        "security"   => "tls",
+                        "wsSettings" => [
+                            "path" => "/ws?ed=2560"
+                        ],
+                        "tlsSettings" => [
+                            "allowInsecure" => false,
+                            "serverName"    => $domain,
+                            "fingerprint"   => "chrome"
+                        ]
+                    ];
+                    unset($c['outbounds'][0]['mux']);
+                } else {
+                    $c['outbounds'][0]['settings']['vnext'][0]['users'][0]["flow"]        = "xtls-rprx-vision";
+                    $c['outbounds'][0]['streamSettings'] = [
+                        "network"         => "tcp",
+                        "security"        => "reality",
+                        "realitySettings" => [
+                            "serverName"  => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
+                            "fingerprint" => "chrome",
+                            "publicKey"   => $pac['xray'],
+                            "shortId"     => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
+                        ]
+                    ];
+                    $c['outbounds'][0]['mux'] = [
+                        "enabled"     => false,
+                        "concurrency" => -1
+                    ];
+                }
 
                 foreach ($c['routing']['rules'] as $k => $v) {
                     if (array_key_exists('domain', $v) && $v['domain'] == '~pac~') {
@@ -4647,11 +4695,24 @@ DNS-over-HTTPS with IP:
                     $c['dns']['servers'][0]['address'] = "tls://" . ($pac['adguardkey'] ? "{$pac['adguardkey']}." : '') . "$domain";
                 }
 
-                $c['outbounds'][0]['server']                       = $domain;
-                $c['outbounds'][0]['uuid']                         = $uid;
-                $c['outbounds'][0]['tls']['reality']['public_key'] = $pac['xray'];
-                $c['outbounds'][0]['tls']['server_name']           = $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
-                $c['outbounds'][0]['tls']['reality']['short_id']   = $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
+                $c['outbounds'][0]['server'] = $domain;
+                $c['outbounds'][0]['uuid']   = $uid;
+                if ($pac['transport'] == 'Websocket') {
+                    unset($c['outbounds'][0]['tls']['reality']);
+                    unset($c['outbounds'][0]['flow']);
+                    $c['outbounds'][0]["transport"] = [
+                        "type" => "ws",
+                        "path" => "/ws"
+                    ];
+                    $c['outbounds'][0]['tls']['server_name'] = $domain;
+                } else {
+                    unset($c['outbounds'][0]["transport"]);
+                    $c['outbounds'][0]['flow']                         = 'xtls-rprx-vision';
+                    $c['outbounds'][0]['tls']['reality']['public_key'] = $pac['xray'];
+                    $c['outbounds'][0]['tls']['server_name']           = $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
+                    $c['outbounds'][0]['tls']['reality']['short_id']   = $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
+                }
+
                 foreach ($c['route']['rules'] as $k => $v) {
                     if (array_key_exists('domain_suffix', $v) && $v['domain_suffix'] == '~pac~') {
                         $c['route']['rules'][$k]['domain_suffix'] = array_keys(array_filter($pac['includelist'] ?: []));
@@ -4811,6 +4872,8 @@ DNS-over-HTTPS with IP:
         $c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0] = $shortId;
         $pac         = $this->getPacConf();
         $pac['xray'] = $public;
+        $pac['reality']['shortId'] = $shortId;
+        $pac['reality']['privateKey'] = $$p['reality']['shortId'];
         $this->setPacConf($pac);
         $this->restartXray($c);
     }
@@ -5384,8 +5447,12 @@ DNS-over-HTTPS with IP:
     public function setFakeDomain($domain, $self = false)
     {
         $c = $this->getXray();
+        $p = $this->getPacConf();
         $c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0] = $domain;
         $c['inbounds'][0]['streamSettings']['realitySettings']['dest'] = $self ? "10.10.1.2:443" : "$domain:443";
+        $p['reality']['domain'] = $domain;
+        $p['reality']['destination'] = $self ? "10.10.1.2:443" : "$domain:443";
+        $this->setPacConf($p);
         $this->restartXray($c);
         $this->setUpstreamDomain($domain);
         $this->xray();
@@ -5399,6 +5466,57 @@ DNS-over-HTTPS with IP:
         } else{
             $this->answer($this->input['callback_id'], 'empty domain', true);
         }
+    }
+
+    public function changeTransport($ws = null)
+    {
+        $p              = $this->getPacConf();
+        $x              = $this->getXray();
+        $p['transport'] = $ws ? 'Websocket' : 'Reality';
+        if (!empty($ws)) {
+            $p['reality']['domain']      = $x['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
+            $p['reality']['destination'] = $x['inbounds'][0]['streamSettings']['realitySettings']['dest'];
+            $p['reality']['shortId']     = $x['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
+            foreach ($x['inbounds'][0]['settings']['clients'] as $k => $v) {
+                unset($x['inbounds'][0]['settings']['clients'][$k]['flow']);
+            }
+            $x['inbounds'][0]['streamSettings'] = [
+                "network"    => "ws",
+                "wsSettings" => [
+                    "path" => "/ws"
+                    ]
+                ];
+        } else {
+            foreach ($x['inbounds'][0]['settings']['clients'] as $k => $v) {
+                $x['inbounds'][0]['settings']['clients'][$k]['flow'] = 'xtls-rprx-vision';
+            }
+            $x['inbounds'][0]['streamSettings'] = [
+                "network"         => "tcp",
+                "realitySettings" => [
+                    "dest"         => $p['reality']['destination'],
+                    "maxClientVer" => "",
+                    "maxTimeDiff"  => 0,
+                    "minClientVer" => "",
+                    "privateKey"   => $p['reality']['privateKey'],
+                    "serverNames"  => [
+                        $p['reality']['domain']
+                    ],
+                    "shortIds" => [$p['reality']['shortId']],
+                    "show"     => false,
+                    "xver"     => 0
+                ],
+                "tcpSettings" => [
+                    "acceptProxyProtocol" => true
+                ],
+                "sockopt" => [
+                    "acceptProxyProtocol" => true
+                ],
+                "security" => "reality"
+            ];
+        }
+        $this->setPacConf($p);
+        $this->restartXray($x);
+        $this->xray();
     }
 
     public function setBackup($text)
