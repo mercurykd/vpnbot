@@ -142,6 +142,9 @@ class Bot
             case preg_match('~^/appOutbound$~', $this->input['callback'], $m):
                 $this->appOutbound();
                 break;
+            case preg_match('~^/addSubdomain$~', $this->input['callback'], $m):
+                $this->addSubdomain();
+                break;
             case preg_match('~^/id$~', $this->input['message'], $m):
                 $this->send($this->input['chat'], $this->input['from'], $this->input['message_id']);
                 break;
@@ -1693,7 +1696,7 @@ class Bot
             $conf = $this->getPacConf();
             $conf['domain'] = idn_to_ascii($domain);
             $nginx = file_get_contents('/config/nginx.conf');
-            $t = preg_replace('/server_name ([^\n]+)?/', "server_name {$conf['domain']};", $nginx);
+            $t = preg_replace('/server_name ([^\n]+)?/', "server_name {$conf['domain']} *.{$conf['domain']};", $nginx);
             preg_match_all('~#-domain.+?#-domain~s', $t, $m);
             foreach ($m[0] as $k => $v) {
                 $t = preg_replace('~#-domain.+?#-domain~s', $this->uncomment($v, 'domain'), $t, 1);
@@ -1803,9 +1806,9 @@ class Bot
             case 'letsencrypt':
                 $out[] = 'Install certificate:';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $adguardClient = $this->getPacConf()['adguardkey'];
-                $adguardClient = $adguardClient ? "-d $adguardClient.{$conf['domain']}" : '';
-                exec("certbot certonly --force-renew --preferred-chain 'ISRG Root X1' -n --agree-tos --email mail@{$conf['domain']} -d {$conf['domain']} -d oc.{$conf['domain']} -d np.{$conf['domain']} $adguardClient --webroot -w /certs/ --logs-dir /logs --max-log-backups 0 2>&1", $out, $code);
+                $adguardClient = $conf['adguardkey'] ? "-d {$conf['adguardkey']}.{$conf['domain']}" : '';
+                $custom = $conf['subdomain'] ? "-d {$conf['subdomain']}.{$conf['domain']}" : '';
+                exec("certbot certonly --force-renew --preferred-chain 'ISRG Root X1' -n --agree-tos --email mail@{$conf['domain']} -d {$conf['domain']} -d oc.{$conf['domain']} -d np.{$conf['domain']} $adguardClient $custom --webroot -w /certs/ --logs-dir /logs --max-log-backups 0 2>&1", $out, $code);
                 if ($code > 0) {
                     $this->send($this->input['chat'], "ERROR\n" . implode("\n", $out));
                     break;
@@ -2054,6 +2057,30 @@ class Bot
             'args'          => [],
         ];
     }
+
+    public function addSubdomain()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter subdomain",
+            $this->input['message_id'],
+            reply: 'enter subdomain',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'setSubdomain',
+            'args'          => [],
+        ];
+    }
+
+    public function setSubdomain($text)
+    {
+        $c = $this->getPacConf();
+        $c['subdomain'] = $text;
+        $this->setPacConf($c);
+        $this->menu('config');
+    }
+
     public function enterPage()
     {
         $r = $this->send(
@@ -5159,7 +5186,7 @@ DNS-over-HTTPS with IP:
     {
         exec('git -C / fetch');
         $conf   = $this->getPacConf();
-        $text[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\nnp.{$conf['domain']}\noc.{$conf['domain']}" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']}" : '') : $this->i18n('domain explain');
+        $text[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\nnp.{$conf['domain']} (for naiveproxy)\noc.{$conf['domain']} (for openconnect)" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']} (for adguard DoT)" : '') . ($conf['subdomain'] ? "\n{$conf['subdomain']}.{$conf['domain']} (custom)" : '') : $this->i18n('domain explain');
         $ssl    = $this->expireCert();
         $text[] = $conf['domain'] ? "\nSSL: " . ($ssl ? date('Y-m-d H:i:s', $this->expireCert()) : 'none') : '';
 
@@ -5168,6 +5195,10 @@ DNS-over-HTTPS with IP:
                 [
                     'text'          => $conf['domain'] ? "{$this->i18n('delete')} {$conf['domain']}" : $this->i18n('install domain'),
                     'callback_data' => $conf['domain'] ? '/deldomain' : '/domain',
+                ],
+                [
+                    'text'          => $this->i18n('subdomain') . ($conf['subdomain'] ? ": {$conf['subdomain']}" : ''),
+                    'callback_data' => '/addSubdomain',
                 ],
             ],
         ];
