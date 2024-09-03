@@ -3771,14 +3771,22 @@ DNS-over-HTTPS with IP:
             't' => 'si',
             's' => $c['inbounds'][0]['settings']['clients'][$i]['id'],
         ]));
+        $v2     = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+            'h' => $hash,
+            't' => 's',
+            's' => $c['inbounds'][0]['settings']['clients'][$i]['id'],
+        ]));
 
         switch ($s) {
             case 1:
-                return "$scheme://{$domain}/pac?h=$hash&t=s&s={$c['inbounds'][0]['settings']['clients'][$i]['id']}";
+                return "v2rayng://install-config?url=$v2#{$c['inbounds'][0]['settings']['clients'][$i]['id']}";
             case 2:
                 return "sing-box://import-remote-profile/?url={$si}#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
 
             default:
+                if ($pac['transport'] == 'Websocket') {
+                    return "vless://{$c['inbounds'][0]['settings']['clients'][$i]['id']}@$domain:443?flow=&path=%2Fws&security=tls&sni=$domain&fp=chrome&type=ws#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
+                }
                 return "vless://{$c['inbounds'][0]['settings']['clients'][$i]['id']}@$domain:443?security=reality&sni={$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}&fp=chrome&pbk={$pac['xray']}&sid={$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}&type=tcp&flow=xtls-rprx-vision#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
         }
     }
@@ -4469,7 +4477,7 @@ DNS-over-HTTPS with IP:
         $hash   = substr(md5($this->key), 0, 8);
 
         $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['email']}\n";
-        $text[] = "<code>{$this->linkXray($i)}</code>\n";
+        $text[] = "<pre><code>{$this->linkXray($i)}</code></pre>\n";
 
         $text[] = "import subscribe:";
         $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=v&s={$c['id']}#{$c['email']}'>v2rayng</a>";
@@ -4477,8 +4485,8 @@ DNS-over-HTTPS with IP:
         $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=st&s={$c['id']}#{$c['email']}'>streisand</a>";
         $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=h&s={$c['id']}#{$c['email']}'>hiddify</a>";
 
-        $text[] = "\nv2ray config: <code>$scheme://{$domain}/pac?h=$hash&t=s&s={$c['id']}</code>";
-        $text[] = "sing-box config: <code>$scheme://{$domain}/pac?h=$hash&t=si&s={$c['id']}</code>";
+        $text[] = "\nv2ray config: <pre><code>$scheme://{$domain}/pac?h=$hash&t=s&s={$c['id']}</code></pre>";
+        $text[] = "sing-box config: <pre><code>$scheme://{$domain}/pac?h=$hash&t=si&s={$c['id']}</code></pre>";
         $text[] = "sing-box windows: <a href='$scheme://{$domain}/pac?h=$hash&t=si&r=w&s={$c['id']}'>windows service</a>";
 
         $data[] = [
@@ -4620,19 +4628,23 @@ DNS-over-HTTPS with IP:
                 't' => 'si',
                 's' => $uid,
             ]));
-            $v2 = "$scheme://{$domain}/pac?h=$hash&t=s&s=$uid";
+            $v2 = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+                'h' => $hash,
+                't' => 's',
+                's' => $uid,
+            ]));
             switch ($_GET['r']) {
                 case 'si':
-                    header("Location: sing-box://import-remote-profile/?url=" . $si);
+                    header("Location: sing-box://import-remote-profile/?url=$si");
                     exit;
                 case 'st':
                     header("Location: streisand://import/$v2");
                     exit;
                 case 'v':
-                    header("Location: v2rayng://install-config?url=" . urlencode($v2));
+                    header("Location: v2rayng://install-config?url=$v2");
                     exit;
                 case 'h':
-                    header("Location: hiddify://install-config/?url=" . $si);
+                    header("Location: hiddify://install-config/?url=$si");
                     exit;
                 case 'w':
                     $link = htmlspecialchars($si, ENT_XML1, 'UTF-8');
@@ -5505,7 +5517,7 @@ DNS-over-HTTPS with IP:
         $x              = $this->getXray();
         $p['transport'] = $ws ? 'Websocket' : 'Reality';
         if (!empty($ws)) {
-            $this->setUpstreamDomain('');
+            $this->setUpstreamDomain('t');
             $p['reality']['domain']      = $x['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
             $p['reality']['destination'] = $x['inbounds'][0]['streamSettings']['realitySettings']['dest'];
             $p['reality']['shortId']     = $x['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
