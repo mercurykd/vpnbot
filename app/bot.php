@@ -4215,7 +4215,9 @@ DNS-over-HTTPS with IP:
         $c      = $this->getXray();
         $p      = $this->getPacConf();
         $text[] = "Menu -> " . $this->i18n('xray');
-        $text[] = "fake domain: <code>{$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}</code>";
+        if (!empty($fake = $c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0])) {
+            $text[] = "fake domain: <code>$fake</code>";
+        }
         $text[] = 'transport: ' . ($p['transport'] ?: 'Reality');
         $data[] = [
             [
@@ -5517,7 +5519,6 @@ DNS-over-HTTPS with IP:
         $x              = $this->getXray();
         $p['transport'] = $ws ? 'Websocket' : 'Reality';
         if (!empty($ws)) {
-            $this->setUpstreamDomain('t');
             $p['reality']['domain']      = $x['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
             $p['reality']['destination'] = $x['inbounds'][0]['streamSettings']['realitySettings']['dest'];
             $p['reality']['shortId']     = $x['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
@@ -5558,6 +5559,7 @@ DNS-over-HTTPS with IP:
                 "security" => "reality"
             ];
         }
+        $this->setUpstreamDomain($ws ? 't' : $p['reality']['domain']);
         $this->setPacConf($p);
         $this->restartXray($x);
         $this->xray();
