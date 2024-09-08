@@ -4612,7 +4612,7 @@ DNS-over-HTTPS with IP:
     {
         $type   = $_GET['t'] == 's' ? 'v2ray' : 'sing';
         $pac    = $this->getPacConf();
-        $domain = $pac['domain'] ?: $this->ip;
+        $domain = $_GET['cdn'] ?: ($pac['domain'] ?: $this->ip);
         $xr     = $this->getXray();
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
