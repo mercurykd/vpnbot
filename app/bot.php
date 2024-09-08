@@ -4027,11 +4027,15 @@ DNS-over-HTTPS with IP:
     public function addxrus($user)
     {
         $c    = $this->getXray();
+        $p    = $this->getPacConf();
         $uuid = trim($this->ssh('xray uuid', 'xr'));
-        $c['inbounds'][0]['settings']['clients'][] = [
-            'id'    => $uuid,
-            'flow'  => 'xtls-rprx-vision',
-            'email' => $user,
+        $c['inbounds'][0]['settings']['clients'][] = $p['transport'] == 'Websocket' ? [
+                'id'    => $uuid,
+                'email' => $user,
+            ] : [
+                'id'    => $uuid,
+                'flow'  => 'xtls-rprx-vision',
+                'email' => $user,
         ];
         $this->restartXray($c);
         $this->userXr(count($c['inbounds'][0]['settings']['clients']) - 1);
