@@ -4612,7 +4612,7 @@ DNS-over-HTTPS with IP:
     {
         $type   = $_GET['t'] == 's' ? 'v2ray' : 'sing';
         $pac    = $this->getPacConf();
-        $domain = $_GET['cdn'] ?: ($pac['domain'] ?: $this->ip);
+        $domain = $pac['domain'] ?: $this->ip;
         $xr     = $this->getXray();
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
@@ -4692,7 +4692,7 @@ DNS-over-HTTPS with IP:
 
         switch ($_GET['t']) {
             case 's':
-                $c['outbounds'][0]['settings']['vnext'][0]['address']                 = $domain;
+                $c['outbounds'][0]['settings']['vnext'][0]['address']  = $_GET['cdn'] ?: $domain;
                 $c['outbounds'][0]['settings']['vnext'][0]['users'][0] = [
                     'id'         => $uid,
                     'encryption' => 'none',
@@ -4706,14 +4706,14 @@ DNS-over-HTTPS with IP:
                         ],
                         "tlsSettings" => [
                             "allowInsecure" => false,
-                            "serverName"    => $domain,
+                            "serverName"    => $_GET['cdn'] ?: $domain,
                             "fingerprint"   => "chrome"
                         ]
                     ];
                     unset($c['outbounds'][0]['mux']);
                 } else {
-                    $c['outbounds'][0]['settings']['vnext'][0]['users'][0]["flow"]        = "xtls-rprx-vision";
-                    $c['outbounds'][0]['streamSettings'] = [
+                    $c['outbounds'][0]['settings']['vnext'][0]['users'][0]["flow"] = "xtls-rprx-vision";
+                    $c['outbounds'][0]['streamSettings']                           = [
                         "network"         => "tcp",
                         "security"        => "reality",
                         "realitySettings" => [
@@ -4744,7 +4744,7 @@ DNS-over-HTTPS with IP:
                     $c['dns']['servers'][0]['address'] = "tls://" . ($pac['adguardkey'] ? "{$pac['adguardkey']}." : '') . "$domain";
                 }
 
-                $c['outbounds'][0]['server'] = $domain;
+                $c['outbounds'][0]['server'] = $_GET['cdn'] ?: $domain;
                 $c['outbounds'][0]['uuid']   = $uid;
                 if ($pac['transport'] == 'Websocket') {
                     unset($c['outbounds'][0]['tls']['reality']);
@@ -4753,7 +4753,7 @@ DNS-over-HTTPS with IP:
                         "type" => "ws",
                         "path" => "/ws"
                     ];
-                    $c['outbounds'][0]['tls']['server_name'] = $domain;
+                    $c['outbounds'][0]['tls']['server_name'] = $_GET['cdn'] ?: $domain;
                 } else {
                     unset($c['outbounds'][0]["transport"]);
                     $c['outbounds'][0]['flow']                         = 'xtls-rprx-vision';
