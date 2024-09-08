@@ -1807,7 +1807,11 @@ class Bot
                 $out[] = 'Install certificate:';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $adguardClient = $conf['adguardkey'] ? "-d {$conf['adguardkey']}.{$conf['domain']}" : '';
-                $custom = $conf['subdomain'] ? "-d {$conf['subdomain']}.{$conf['domain']}" : '';
+                if (!empty($conf['subdomain'])) {
+                    foreach ($conf['subdomain'] as $v) {
+                        $custom .= " -d $v";
+                    }
+                }
                 exec("certbot certonly --force-renew --preferred-chain 'ISRG Root X1' -n --agree-tos --email mail@{$conf['domain']} -d {$conf['domain']} -d oc.{$conf['domain']} -d np.{$conf['domain']} $adguardClient $custom --webroot -w /certs/ --logs-dir /logs --max-log-backups 0 2>&1", $out, $code);
                 if ($code > 0) {
                     $this->send($this->input['chat'], "ERROR\n" . implode("\n", $out));
@@ -2076,7 +2080,7 @@ class Bot
     public function setSubdomain($text)
     {
         $c = $this->getPacConf();
-        $c['subdomain'] = $text;
+        $c['subdomain'] = array_filter(explode(',', $text), fn($e) => !empty(trim($e)));
         $this->setPacConf($c);
         $this->menu('config');
     }
@@ -4914,7 +4918,7 @@ DNS-over-HTTPS with IP:
         $pac         = $this->getPacConf();
         $pac['xray'] = $public;
         $pac['reality']['shortId'] = $shortId;
-        $pac['reality']['privateKey'] = $$p['reality']['shortId'];
+        $pac['reality']['privateKey'] = $private;
         $this->setPacConf($pac);
         $this->restartXray($c);
     }
@@ -5199,8 +5203,14 @@ DNS-over-HTTPS with IP:
     public function configMenu()
     {
         exec('git -C / fetch');
-        $conf   = $this->getPacConf();
-        $text[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\nnp.{$conf['domain']} (for naiveproxy)\noc.{$conf['domain']} (for openconnect)" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']} (for adguard DoT)" : '') . ($conf['subdomain'] ? "\n{$conf['subdomain']}.{$conf['domain']} (custom)" : '') : $this->i18n('domain explain');
+        $conf = $this->getPacConf();
+        if (!empty($conf['subdomain'])) {
+            $custom = "\ncustom:\n";
+            foreach ($conf['subdomain'] as $v) {
+                $custom .= "$v\n";
+            }
+        }
+        $text[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\nnp.{$conf['domain']} (for naiveproxy)\noc.{$conf['domain']} (for openconnect)" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']} (for adguard DoT)" : '') . $custom : $this->i18n('domain explain');
         $ssl    = $this->expireCert();
         $text[] = $conf['domain'] ? "\nSSL: " . ($ssl ? date('Y-m-d H:i:s', $this->expireCert()) : 'none') : '';
 
@@ -5211,7 +5221,7 @@ DNS-over-HTTPS with IP:
                     'callback_data' => $conf['domain'] ? '/deldomain' : '/domain',
                 ],
                 [
-                    'text'          => $this->i18n('subdomain') . ($conf['subdomain'] ? ": {$conf['subdomain']}" : ''),
+                    'text'          => $this->i18n('subdomain'),
                     'callback_data' => '/addSubdomain',
                 ],
             ],
@@ -5519,9 +5529,9 @@ DNS-over-HTTPS with IP:
         $x              = $this->getXray();
         $p['transport'] = $ws ? 'Websocket' : 'Reality';
         if (!empty($ws)) {
-            $p['reality']['domain']      = $x['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
-            $p['reality']['destination'] = $x['inbounds'][0]['streamSettings']['realitySettings']['dest'];
-            $p['reality']['shortId']     = $x['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
+            $p['reality']['domain']      = $x['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0] ?: $p['reality']['domain'];
+            $p['reality']['destination'] = $x['inbounds'][0]['streamSettings']['realitySettings']['dest'] ?: $p['reality']['destination'];
+            $p['reality']['shortId']     = $x['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0] ?: $p['reality']['shortId'];
             foreach ($x['inbounds'][0]['settings']['clients'] as $k => $v) {
                 unset($x['inbounds'][0]['settings']['clients'][$k]['flow']);
             }
@@ -5529,8 +5539,8 @@ DNS-over-HTTPS with IP:
                 "network"    => "ws",
                 "wsSettings" => [
                     "path" => "/ws"
-                    ]
-                ];
+                ]
+            ];
         } else {
             foreach ($x['inbounds'][0]['settings']['clients'] as $k => $v) {
                 $x['inbounds'][0]['settings']['clients'][$k]['flow'] = 'xtls-rprx-vision';
@@ -5538,15 +5548,15 @@ DNS-over-HTTPS with IP:
             $x['inbounds'][0]['streamSettings'] = [
                 "network"         => "tcp",
                 "realitySettings" => [
-                    "dest"         => $p['reality']['destination'],
+                    "dest"         => $p['reality']['destination'] ?: $x['inbounds'][0]['streamSettings']['realitySettings']['dest'],
                     "maxClientVer" => "",
                     "maxTimeDiff"  => 0,
                     "minClientVer" => "",
                     "privateKey"   => $p['reality']['privateKey'],
                     "serverNames"  => [
-                        $p['reality']['domain']
+                        $p['reality']['domain'] ?: $x['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]
                     ],
-                    "shortIds" => [$p['reality']['shortId']],
+                    "shortIds" => [$p['reality']['shortId']] ?: $x['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
                     "show"     => false,
                     "xver"     => 0
                 ],
@@ -5559,7 +5569,7 @@ DNS-over-HTTPS with IP:
                 "security" => "reality"
             ];
         }
-        $this->setUpstreamDomain($ws ? 't' : $p['reality']['domain']);
+        $this->setUpstreamDomain($ws ? 't' : ($p['reality']['domain'] ?: $x['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]));
         $this->setPacConf($p);
         $this->restartXray($x);
         $this->xray();
