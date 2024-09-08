@@ -1356,7 +1356,7 @@ class Bot
                 $out[] = 'update xray';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->restartXray($json['xray']);
-                $this->setUpstreamDomain($json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]);
+                $this->setUpstreamDomain($json['pac']['transport'] == 'Websocket' ? 't' : ($json['pac']['reality']['domain'] ?: $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]));
             }
             // ocserv
             if (!empty($json['oc'])) {
