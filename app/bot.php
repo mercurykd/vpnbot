@@ -1101,7 +1101,7 @@ class Bot
     {
         try {
             require __DIR__ . '/config.php';
-            if (!empty($c['admin']) && (empty($this->time2) || ((time() - $this->time2) > 3600))) {
+            if (!empty($c['admin']) && date('H') == 12 && (empty($this->time2) || ((time() - $this->time2) > 4600))) {
                 $this->time2 = time();
                 $cert = $this->expireCert();
                 if (!empty($cert) && $cert - 60 * 60 * 24 * 14 < time()) {
