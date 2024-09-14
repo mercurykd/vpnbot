@@ -139,6 +139,9 @@ class Bot
             case preg_match('~^/mirror$~', $this->input['message'], $m):
                 $this->menu('mirror');
                 break;
+            case preg_match('~^/autoupdate$~', $this->input['message'], $m):
+                $this->autoupdate();
+                break;
             case preg_match('~^/appOutbound$~', $this->input['callback'], $m):
                 $this->appOutbound();
                 break;
@@ -1089,6 +1092,10 @@ class Bot
                                     ]
                                 ]
                             ]);
+                        }
+                        if ($this->getPacConf()['autoupdate']) {
+                            $this->input['chat'] = $this->input['from'] = $c['admin'][0];
+                            $this->applyupdatebot();
                         }
                     }
                 }
@@ -5880,6 +5887,14 @@ DNS-over-HTTPS with IP:
             $this->ssh("{$this->getWGType()} syncconf wg0 <({$this->getWGType()}-quick strip wg0)", $this->getInstanceWG());
         }
         return true;
+    }
+
+    public function autoupdate()
+    {
+        $p = $this->getPacConf();
+        $p['autoupdate'] = !$p['autoupdate'];
+        $this->setPacConf($p);
+        $this->send($this->input['from'], $this->i18n('autoupdate') . ' ' . $this->i18n($p['autoupdate'] ? 'on' : 'off'));
     }
 
     public function disconnect(...$args)
