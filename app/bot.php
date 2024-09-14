@@ -5723,7 +5723,7 @@ DNS-over-HTTPS with IP:
                 $conf[] = '';
                 $conf[] = $peer['# PublicKey'] ? '# [Peer]' : '[Peer]';
                 if (!empty($peer['Endpoint'])) {
-                    $peer['Endpoint'] = ($pac['domain'] && !$pac[$this->getInstanceWG(1) . 'amnezia'] ? $pac['domain'] : $this->ip) . ":" . getenv($this->getInstanceWG(1) ? 'WG1PORT' : 'WGPORT');
+                    $peer['Endpoint'] = ($pac['domain'] ? $pac['domain'] : $this->ip) . ":" . getenv($this->getInstanceWG(1) ? 'WG1PORT' : 'WGPORT');
                 }
                 foreach ($peer as $k => $v) {
                     $conf[] = "$k = $v";
