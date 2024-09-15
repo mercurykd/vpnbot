@@ -1363,6 +1363,7 @@ class Bot
                 $out[] = 'update xray';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->restartXray($json['xray']);
+                $this->adguardXrayClients();
                 $this->setUpstreamDomain($json['pac']['transport'] == 'Websocket' ? 't' : ($json['pac']['reality']['domain'] ?: $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]));
             }
             // ocserv
@@ -2157,6 +2158,61 @@ class Bot
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         sleep(3);
         $this->menu('adguard');
+    }
+
+    public function guidv4($data = null) {
+        // Generate 16 bytes (128 bits) of random data or use the data passed into the function.
+        $data = $data ?? random_bytes(16);
+        assert(strlen($data) == 16);
+
+        // Set version to 0100
+        $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
+        // Set bits 6-7 to 10
+        $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
+
+        // Output the 36 character UUID.
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+    }
+
+    public function adguardXrayClients()
+    {
+        $xr = $this->getXray();
+        $ad = yaml_parse_file($this->adguard);
+        foreach ($xr['inbounds'][0]['settings']['clients'] as $k => $v) {
+            $tmp[] = [
+                'safe_search' => [
+                    'enabled'    => true,
+                    'bing'       => true,
+                    'duckduckgo' => true,
+                    'google'     => true,
+                    'pixabay'    => true,
+                    'yandex'     => true,
+                    'youtube'    => true,
+                ],
+                'blocked_services' => [
+                    'schedule' => ['time_zone' => date_default_timezone_get()],
+                    'ids'      => [],
+                ],
+                'name'                        => $v['email'],
+                'ids'                         => [$v['email']],
+                'tags'                        => [],
+                'upstreams'                   => [],
+                'uid'                         => $this->guidv4(),
+                'upstreams_cache_size'        => 0,
+                'upstreams_cache_enabled'     => false,
+                'use_global_settings'         => true,
+                'filtering_enabled'           => false,
+                'parental_enabled'            => false,
+                'safebrowsing_enabled'        => false,
+                'use_global_blocked_services' => true,
+                'ignore_querylog'             => false,
+                'ignore_statistics'           => false,
+            ];
+        }
+        $ad['clients']['persistent'] = $tmp;
+        yaml_emit_file($this->adguard, $ad);
+        $this->stopAd();
+        $this->startAd();
     }
 
     public function checkdns()
@@ -4012,6 +4068,7 @@ DNS-over-HTTPS with IP:
             if ($i == $k) {
                 unset($r['inbounds'][0]['settings']['clients'][$k]);
                 $this->restartXray($r);
+                $this->adguardXrayClients();
                 break;
             }
         }
@@ -4045,6 +4102,7 @@ DNS-over-HTTPS with IP:
                 'email' => $user,
         ];
         $this->restartXray($c);
+        $this->adguardXrayClients();
         $this->userXr(count($c['inbounds'][0]['settings']['clients']) - 1);
     }
 
@@ -4091,6 +4149,7 @@ DNS-over-HTTPS with IP:
         $c = $this->getXray();
         $c['inbounds'][0]['settings']['clients'][$i]['email'] = $name;
         $this->restartXray($c);
+        $this->adguardXrayClients();
         $this->userXr($i);
     }
 
@@ -4632,6 +4691,7 @@ DNS-over-HTTPS with IP:
                 }
                 $template = base64_decode($v["{$type}template"]);
                 $uid      = $v['id'];
+                $email    = $v['email'];
                 break;
             }
         }
@@ -4748,7 +4808,7 @@ DNS-over-HTTPS with IP:
                 break;
             case 'si':
                 if ($c['dns']['servers'][0]['address'] == '~dns~') {
-                    $c['dns']['servers'][0]['address'] = "tls://" . ($pac['adguardkey'] ? "{$pac['adguardkey']}." : '') . "$domain";
+                    $c['dns']['servers'][0]['address'] = "https://$domain/dns-query/$email";
                 }
 
                 $c['outbounds'][0]['server'] = $_GET['cdn'] ?: $domain;
