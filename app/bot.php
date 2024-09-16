@@ -2193,8 +2193,8 @@ class Bot
                     'schedule' => ['time_zone' => date_default_timezone_get()],
                     'ids'      => [],
                 ],
-                'name'                        => str_replace(['_', ' '], '-', $v['email']),
-                'ids'                         => [$v['email']],
+                'name'                        => $v['email'],
+                'ids'                         => [$v['id']],
                 'tags'                        => [],
                 'upstreams'                   => [],
                 'uid'                         => $v['id'],
@@ -4808,7 +4808,7 @@ DNS-over-HTTPS with IP:
                 break;
             case 'si':
                 if ($c['dns']['servers'][0]['address'] == '~dns~') {
-                    $c['dns']['servers'][0]['address'] = "https://$domain/dns-query/$email";
+                    $c['dns']['servers'][0]['address'] = "https://$domain/dns-query/$uid";
                 }
 
                 $c['outbounds'][0]['server'] = $_GET['cdn'] ?: $domain;
