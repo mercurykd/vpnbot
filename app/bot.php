@@ -148,6 +148,9 @@ class Bot
             case preg_match('~^/addSubdomain$~', $this->input['callback'], $m):
                 $this->addSubdomain();
                 break;
+            case preg_match('~^/addLinkDomain$~', $this->input['callback'], $m):
+                $this->addLinkDomain();
+                break;
             case preg_match('~^/id$~', $this->input['message'], $m):
                 $this->send($this->input['chat'], $this->input['from'], $this->input['message_id']);
                 break;
@@ -1598,7 +1601,7 @@ class Bot
     {
         $conf    = $this->getPacConf();
         $ip      = $this->ip;
-        $domain  = $conf['domain'] ?: $ip;
+        $domain  = $this->getDomain();
         $scheme  = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
         $ss      = $this->getSSConfig();
         $port    = !empty($ss['plugin']) ? (!empty($ssl) ? 443 : 80) : getenv('SSPORT');
@@ -2085,10 +2088,41 @@ class Bot
         ];
     }
 
+    public function addLinkDomain()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter domain for link",
+            $this->input['message_id'],
+            reply: 'enter domain for link',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'setLinkDomain',
+            'args'          => [],
+        ];
+    }
+
+    public function setLinkDomain($text)
+    {
+        $c = $this->getPacConf();
+        if (empty($text)) {
+            unset($c['linkdomain']);
+        } else {
+            $c['linkdomain'] = trim($text);
+        }
+        $this->setPacConf($c);
+        $this->menu('config');
+    }
+
     public function setSubdomain($text)
     {
         $c = $this->getPacConf();
-        $c['subdomain'] = array_filter(explode(',', $text), fn($e) => !empty(trim($e)));
+        if (empty($text)) {
+            unset($c['subdomain']);
+        } else {
+            $c['subdomain'] = array_filter(explode(',', $text), fn($e) => !empty(trim($e)));
+        }
         $this->setPacConf($c);
         $this->menu('config');
     }
@@ -3238,7 +3272,7 @@ DNS-over-HTTPS with IP:
         $mpac   = stat(__DIR__ . '/zapretlists/mpac');
         $pac    = stat(__DIR__ . '/zapretlists/pac');
         $conf   = $this->getPacConf();
-        $ip     = $conf['domain'] ?: $this->ip;
+        $ip     = $this->getDomain();
         $hash   = substr(md5($this->key), 0, 8);
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $text   = <<<text
@@ -3650,7 +3684,7 @@ DNS-over-HTTPS with IP:
     {
         $conf    = $this->getPacConf();
         $ip      = $this->ip;
-        $domain  = $conf['domain'] ?: $ip;
+        $domain  = $this->getDomain();
         $scheme  = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
         $ss      = $this->getSSConfig();
         $v2ray   = !empty($ss['plugin']) ? 'ON' : 'OFF';
@@ -3830,7 +3864,7 @@ DNS-over-HTTPS with IP:
     {
         $c      = $this->getXray();
         $pac    = $this->getPacConf();
-        $domain = $pac['domain'] ?: $this->ip;
+        $domain = $this->getDomain();
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
         $si     = "$scheme://{$domain}/pac/" . base64_encode(serialize([
@@ -3904,8 +3938,9 @@ DNS-over-HTTPS with IP:
     public function naiveMenu()
     {
         $pac    = $this->getPacConf();
+        $domain = $this->getDomain();
         $text[] = "Menu -> NaiveProxy";
-        $text[] = "<code>https://{$pac['naive']['user']}:{$pac['naive']['pass']}@np.{$pac['domain']}</code>";
+        $text[] = "<code>https://{$pac['naive']['user']}:{$pac['naive']['pass']}@np.$domain</code>";
         $data[] = [
             [
                 'text'          => $this->i18n('change login'),
@@ -3997,6 +4032,7 @@ DNS-over-HTTPS with IP:
     public function ocMenu()
     {
         $pac    = $this->getPacConf();
+        $domain = $this->getDomain();
         $ocserv = file_get_contents('/config/ocserv.conf');
         preg_match('~^camouflage_secret[^\n]+?"([^"]+)*"~sm', $ocserv, $m);
         $cs = $m[1];
@@ -4005,7 +4041,7 @@ DNS-over-HTTPS with IP:
         $pass   = htmlspecialchars($pac['ocserv']);
         $text[] = "Menu -> OpenConnect";
         if (!empty($m[1])) {
-            $text[] = "<code>https://oc.{$pac['domain']}/?$cs</code>";
+            $text[] = "<code>https://oc.$domain/?$cs</code>";
         }
         $text[] = "password: <span class='tg-spoiler'>$pass</span>";
         $data[] = [
@@ -4225,7 +4261,7 @@ DNS-over-HTTPS with IP:
     public function templates($type)
     {
         $pac       = $this->getPacConf();
-        $domain    = $pac['domain'] ?: $this->ip;
+        $domain    = $this->getDomain();
         $hash      = substr(md5($this->key), 0, 8);
         $text[]    = "Menu -> " . $this->i18n('xray') . " -> $type templates";
         $templates = $pac["{$type}templates"];
@@ -4548,7 +4584,7 @@ DNS-over-HTTPS with IP:
     {
         $c      = $this->getXray()['inbounds'][0]['settings']['clients'][$i];
         $pac    = $this->getPacConf();
-        $domain = $pac['domain'] ?: $this->ip;
+        $domain = $this->getDomain();
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
 
@@ -4635,10 +4671,16 @@ DNS-over-HTTPS with IP:
         );
     }
 
+    public function getDomain()
+    {
+        $c = $this->getPacConf();
+        return $c['linkdomain'] ?: ($c['domain'] ?: $this->ip);
+    }
+
     public function v2raySubscription($key, $fs = 0)
     {
         $pac    = $this->getPacConf();
-        $domain = $pac['domain'] ?: $this->ip;
+        $domain = $this->getDomain();
         $xr     = $this->getXray();
 
         $flag = true;
@@ -4678,7 +4720,7 @@ DNS-over-HTTPS with IP:
     {
         $type   = $_GET['t'] == 's' ? 'v2ray' : 'sing';
         $pac    = $this->getPacConf();
-        $domain = $pac['domain'] ?: $this->ip;
+        $domain = $this->getDomain();
         $xr     = $this->getXray();
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
@@ -4900,7 +4942,7 @@ DNS-over-HTTPS with IP:
     public function createRuleSet($route, $uid)
     {
         $pac    = $this->getPacConf();
-        $domain = $pac['domain'] ?: $this->ip;
+        $domain = $this->getDomain();
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
 
@@ -5117,7 +5159,7 @@ DNS-over-HTTPS with IP:
     {
         $conf   = $this->getPacConf();
         $ip     = $this->ip;
-        $domain = $conf['domain'] ?: $ip;
+        $domain = $this->getDomain();
         $scheme = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
         $text   = "$scheme://$domain/adguard\nLogin: admin\nPass: <span class='tg-spoiler'>{$conf['adpswd']}</span>\n\n";
         if ($ssl) {
@@ -5292,8 +5334,12 @@ DNS-over-HTTPS with IP:
                     'callback_data' => $conf['domain'] ? '/deldomain' : '/domain',
                 ],
                 [
-                    'text'          => $this->i18n('subdomain'),
+                    'text'          => $this->i18n('+ subdomain'),
                     'callback_data' => '/addSubdomain',
+                ],
+                [
+                    'text'          => $this->i18n('domain for link'),
+                    'callback_data' => '/addLinkDomain',
                 ],
             ],
         ];
@@ -5790,7 +5836,7 @@ DNS-over-HTTPS with IP:
                 $conf[] = '';
                 $conf[] = $peer['# PublicKey'] ? '# [Peer]' : '[Peer]';
                 if (!empty($peer['Endpoint'])) {
-                    $peer['Endpoint'] = ($pac['domain'] ? $pac['domain'] : $this->ip) . ":" . getenv($this->getInstanceWG(1) ? 'WG1PORT' : 'WGPORT');
+                    $peer['Endpoint'] = $this->getDomain() . ":" . getenv($this->getInstanceWG(1) ? 'WG1PORT' : 'WGPORT');
                 }
                 foreach ($peer as $k => $v) {
                     $conf[] = "$k = $v";
