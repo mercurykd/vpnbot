@@ -5327,6 +5327,10 @@ DNS-over-HTTPS with IP:
         $ssl    = $this->expireCert();
         $text[] = $conf['domain'] ? "\nSSL: " . ($ssl ? date('Y-m-d H:i:s', $this->expireCert()) : 'none') : '';
 
+        if (!empty($conf['linkdomain'])) {
+            $text[] = "\nDomain for link: {$conf['linkdomain']}";
+        }
+
         $data = [
             [
                 [
@@ -5338,7 +5342,7 @@ DNS-over-HTTPS with IP:
                     'callback_data' => '/addSubdomain',
                 ],
                 [
-                    'text'          => $this->i18n('domain for link'),
+                    'text'          => $conf['linkdomain'] ? "{$conf['linkdomain']}" :$this->i18n('domain for link'),
                     'callback_data' => '/addLinkDomain',
                 ],
             ],
