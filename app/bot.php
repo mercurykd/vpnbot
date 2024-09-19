@@ -2112,7 +2112,7 @@ class Bot
             $c['linkdomain'] = trim($text);
         }
         $this->setPacConf($c);
-        $this->menu('config');
+        $this->xray();
     }
 
     public function setSubdomain($text)
@@ -3864,7 +3864,7 @@ DNS-over-HTTPS with IP:
     {
         $c      = $this->getXray();
         $pac    = $this->getPacConf();
-        $domain = $this->getDomain();
+        $domain = $this->getDomain($pac['transport'] == 'Websocket');
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
         $si     = "$scheme://{$domain}/pac/" . base64_encode(serialize([
@@ -4331,6 +4331,12 @@ DNS-over-HTTPS with IP:
         $text[] = 'transport: ' . ($p['transport'] ?: 'Reality');
         $data[] = [
             [
+                'text'          => $p['linkdomain'] ?: $this->i18n('cdn'),
+                'callback_data' => '/addLinkDomain',
+            ],
+        ];
+        $data[] = [
+            [
                 'text'          => $this->i18n('Reality') . ' ' . ($p['transport'] != 'Websocket' ? $this->i18n('on') : $this->i18n('off')),
                 'callback_data' => "/changeTransport",
             ],
@@ -4584,7 +4590,7 @@ DNS-over-HTTPS with IP:
     {
         $c      = $this->getXray()['inbounds'][0]['settings']['clients'][$i];
         $pac    = $this->getPacConf();
-        $domain = $this->getDomain();
+        $domain = $this->getDomain($pac['transport'] == 'Websocket');
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
 
@@ -4671,10 +4677,13 @@ DNS-over-HTTPS with IP:
         );
     }
 
-    public function getDomain()
+    public function getDomain($cdn = false)
     {
         $c = $this->getPacConf();
-        return $c['linkdomain'] ?: ($c['domain'] ?: $this->ip);
+        if ($cdn && $c['linkdomain']) {
+            return $c['linkdomain'];
+        }
+        return $c['domain'] ?: $this->ip;
     }
 
     public function v2raySubscription($key, $fs = 0)
@@ -4687,7 +4696,7 @@ DNS-over-HTTPS with IP:
         foreach ($xr['inbounds'][0]['settings']['clients'] as $k => $v) {
             if ($v['id'] == $key) {
                 if (!empty($fs)) {
-                    return $this->userXr($k, 0, 1);
+                    return $this->userXr($k);
                 }
                 if (empty($v['off'])) {
                     $flag = false;
@@ -4720,7 +4729,7 @@ DNS-over-HTTPS with IP:
     {
         $type   = $_GET['t'] == 's' ? 'v2ray' : 'sing';
         $pac    = $this->getPacConf();
-        $domain = $this->getDomain();
+        $domain = $this->getDomain($pac['transport'] == 'Websocket');
         $xr     = $this->getXray();
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
@@ -5263,6 +5272,15 @@ DNS-over-HTTPS with IP:
         return openssl_x509_parse($c)["validTo_time_t"] ?: false;
     }
 
+    public function domainsCert()
+    {
+        $domains = openssl_x509_parse(openssl_x509_read(file_get_contents("/certs/cert_public")))['extensions']["subjectAltName"];
+        if (empty($domains)) {
+            return false;
+        }
+        return implode("\n", array_map(fn($e) => trim($e), explode(',', str_replace('DNS:', '', $domains))));
+    }
+
     public function updatebot()
     {
         $b = exec('git -C / rev-parse --abbrev-ref HEAD');
@@ -5325,11 +5343,7 @@ DNS-over-HTTPS with IP:
         }
         $text[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\nnp.{$conf['domain']} (for naiveproxy)\noc.{$conf['domain']} (for openconnect)" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']} (for adguard DoT)" : '') . $custom : $this->i18n('domain explain');
         $ssl    = $this->expireCert();
-        $text[] = $conf['domain'] ? "\nSSL: " . ($ssl ? date('Y-m-d H:i:s', $this->expireCert()) : 'none') : '';
-
-        if (!empty($conf['linkdomain'])) {
-            $text[] = "\nDomain for link: {$conf['linkdomain']}";
-        }
+        $text[] = $conf['domain'] ? "\nSSL: " . ($ssl ? date('Y-m-d H:i:s', $this->expireCert()) . "\n" . $this->domainsCert() : 'none') : '';
 
         $data = [
             [
@@ -5340,10 +5354,6 @@ DNS-over-HTTPS with IP:
                 [
                     'text'          => $this->i18n('+ subdomain'),
                     'callback_data' => '/addSubdomain',
-                ],
-                [
-                    'text'          => $conf['linkdomain'] ? "{$conf['linkdomain']}" :$this->i18n('domain for link'),
-                    'callback_data' => '/addLinkDomain',
                 ],
             ],
         ];
