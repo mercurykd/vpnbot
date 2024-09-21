@@ -4729,7 +4729,7 @@ DNS-over-HTTPS with IP:
     {
         $type   = $_GET['t'] == 's' ? 'v2ray' : 'sing';
         $pac    = $this->getPacConf();
-        $domain = $this->getDomain($pac['transport'] == 'Websocket');
+        $domain = $_GET['cdn'] ?: ($_SERVER['SERVER_NAME'] ?: $this->getDomain($pac['transport'] == 'Websocket'));
         $xr     = $this->getXray();
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
@@ -4810,7 +4810,7 @@ DNS-over-HTTPS with IP:
 
         switch ($_GET['t']) {
             case 's':
-                $c['outbounds'][0]['settings']['vnext'][0]['address']  = $_GET['cdn'] ?: $domain;
+                $c['outbounds'][0]['settings']['vnext'][0]['address']  = $domain;
                 $c['outbounds'][0]['settings']['vnext'][0]['users'][0] = [
                     'id'         => $uid,
                     'encryption' => 'none',
@@ -4824,7 +4824,7 @@ DNS-over-HTTPS with IP:
                         ],
                         "tlsSettings" => [
                             "allowInsecure" => false,
-                            "serverName"    => $_GET['cdn'] ?: $domain,
+                            "serverName"    => $domain,
                             "fingerprint"   => "chrome"
                         ]
                     ];
@@ -4862,7 +4862,7 @@ DNS-over-HTTPS with IP:
                     $c['dns']['servers'][0]['address'] = "https://$domain/dns-query/$uid";
                 }
 
-                $c['outbounds'][0]['server'] = $_GET['cdn'] ?: $domain;
+                $c['outbounds'][0]['server'] = $domain;
                 $c['outbounds'][0]['uuid']   = $uid;
                 if ($pac['transport'] == 'Websocket') {
                     unset($c['outbounds'][0]['tls']['reality']);
@@ -4871,7 +4871,7 @@ DNS-over-HTTPS with IP:
                         "type" => "ws",
                         "path" => "/ws"
                     ];
-                    $c['outbounds'][0]['tls']['server_name'] = $_GET['cdn'] ?: $domain;
+                    $c['outbounds'][0]['tls']['server_name'] = $domain;
                 } else {
                     unset($c['outbounds'][0]["transport"]);
                     $c['outbounds'][0]['flow']                         = 'xtls-rprx-vision';
@@ -4891,7 +4891,7 @@ DNS-over-HTTPS with IP:
                 $c['route']['rules'] = array_values($c['route']['rules']);
                 $c['route']          = $this->addRuleSet($c['route']);
                 $c['route']          = $this->addPackageRule($c['route']);
-                $c['route']          = $this->createRuleSet($c['route'], $uid);
+                $c['route']          = $this->createRuleSet($c['route'], $uid, $domain);
                 $c['route']          = $this->clearEmptyRules($c['route']);
                 break;
         }
@@ -4948,10 +4948,9 @@ DNS-over-HTTPS with IP:
         return $route;
     }
 
-    public function createRuleSet($route, $uid)
+    public function createRuleSet($route, $uid, $domain)
     {
         $pac    = $this->getPacConf();
-        $domain = $this->getDomain();
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
 
