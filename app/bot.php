@@ -343,6 +343,9 @@ class Bot
             case preg_match('~^/switchTorrent (\d+)$~', $this->input['callback'], $m):
                 $this->switchTorrent($m[1]);
                 break;
+            case preg_match('~^/switchEndpoint (\d+)$~', $this->input['callback'], $m):
+                $this->switchEndpoint($m[1]);
+                break;
             case preg_match('~^/switchAmnezia (-?\d+)$~', $this->input['callback'], $m):
                 $this->switchAmnezia($m[1]);
                 break;
@@ -1537,6 +1540,14 @@ class Bot
         $this->menu('wg', $page);
     }
 
+    public function switchEndpoint($page = 0)
+    {
+        $c = $this->getPacConf();
+        $c[$this->getInstanceWG(1) . 'endpoint'] = $c[$this->getInstanceWG(1) . 'endpoint'] ? 0 : 1;
+        $this->setPacConf($c);
+        $this->menu('wg', $page);
+    }
+
     public function iptablesWG()
     {
         $c = $this->getPacConf();
@@ -2675,6 +2686,7 @@ DNS-over-HTTPS with IP:
         $dns     = $c[$this->getInstanceWG(1) . 'dns'];
         $mtu     = $c[$this->getInstanceWG(1) . 'mtu'] ?: $this->mtu;
         $am      = $c[$this->getInstanceWG(1) . 'amnezia'];
+        $end     = $c[$this->getInstanceWG(1) . 'endpoint'];
         $data    = [
             [
                 [
@@ -2704,6 +2716,12 @@ DNS-over-HTTPS with IP:
                 [
                     'text'          =>  $this->i18n('defaultMTU') . ': ' . $mtu,
                     'callback_data' => "/defaultMTU $page",
+                ],
+            ],
+            [
+                [
+                    'text'          => $this->i18n('endpoint') . ': ' . ($end ? $this->ip : $this->getDomain()),
+                    'callback_data' => "/switchEndpoint $page",
                 ],
             ],
             [
@@ -5849,7 +5867,7 @@ DNS-over-HTTPS with IP:
                 $conf[] = '';
                 $conf[] = $peer['# PublicKey'] ? '# [Peer]' : '[Peer]';
                 if (!empty($peer['Endpoint'])) {
-                    $peer['Endpoint'] = $this->getDomain() . ":" . getenv($this->getInstanceWG(1) ? 'WG1PORT' : 'WGPORT');
+                    $peer['Endpoint'] = ($this->getPacConf()[$this->getInstanceWG(1) . 'endpoint'] ? $this->ip : $this->getDomain()) . ":" . getenv($this->getInstanceWG(1) ? 'WG1PORT' : 'WGPORT');
                 }
                 foreach ($peer as $k => $v) {
                     $conf[] = "$k = $v";
