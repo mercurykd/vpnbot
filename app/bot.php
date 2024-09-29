@@ -4795,14 +4795,11 @@ DNS-over-HTTPS with IP:
                 case 'w':
                     $link = htmlspecialchars($si, ENT_XML1, 'UTF-8');
                     file_put_contents('/singbox/winsw3.xml', preg_replace('#~url~#', $link, file_get_contents('/singbox/winsw3.xml')));
-                    $zip = new ZipArchive();
                     $n   = "singbox_$uid.zip";
-                    $zip->open($n, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-                    foreach (scandir('/singbox') as $k => $v) {
-                        if (!empty(!in_array($v, ['.', '..']))) {
-                            $zip->addFile("/singbox/$v", $v);
-                        }
-                    }
+                    copy('/singbox/singbox.zip', $n);
+                    $zip = new ZipArchive();
+                    $zip->open($n, ZipArchive::CREATE);
+                    $zip->addFile('/singbox/winsw3.xml', 'winsw3.xml');
                     $zip->close();
                     header('Content-Disposition: attachment; filename="singbox.zip"');
                     echo file_get_contents($n);

@@ -1,1 +1,0 @@
-winsw3.exe start
