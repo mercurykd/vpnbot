@@ -145,6 +145,9 @@ class Bot
             case preg_match('~^/appOutbound$~', $this->input['callback'], $m):
                 $this->appOutbound();
                 break;
+            case preg_match('~^/offWarp$~', $this->input['callback'], $m):
+                $this->offWarp();
+                break;
             case preg_match('~^/addSubdomain$~', $this->input['callback'], $m):
                 $this->addSubdomain();
                 break;
@@ -4520,23 +4523,53 @@ DNS-over-HTTPS with IP:
 
     public function warpStatus()
     {
-        $st = $this->ssh('curl -m 1 -x socks5://127.0.0.1:40000 https://cloudflare.com/cdn-cgi/trace', 'wp');
-        preg_match('~warp=(\w+)~', $st, $m);
-        return $m[1];
+        if (!empty($this->ssh('pgrep warp-svc', 'wp'))) {
+            $st = $this->ssh('curl -m 1 -x socks5://127.0.0.1:40000 https://cloudflare.com/cdn-cgi/trace', 'wp');
+            preg_match('~warp=(\w+)~', $st, $m);
+            return $m[1];
+        }
+        return 'off';
+    }
+
+    public function offWarp()
+    {
+        $p = $this->getPacConf();
+        if (empty($p['warpoff'])) {
+            $this->ssh('pkill warp-svc', 'wp');
+            $p['warpoff'] = 1;
+        } else {
+            $this->ssh('warp-svc > /dev/null 2>&1 &', 'wp');
+            sleep(3);
+            $this->ssh('warp-cli --accept-tos registration new', 'wp');
+            if (!empty($p['warp'])) {
+                $this->ssh("warp-cli --accept-tos registration license {$p['warp']}", 'wp');
+            }
+            $this->ssh('warp-cli --accept-tos mode proxy', 'wp');
+            $this->ssh('warp-cli --accept-tos connect', 'wp');
+            unset($p['warpoff']);
+        }
+        $this->setPacConf($p);
+        $this->warp();
     }
 
     public function warp()
     {
+        $p      = $this->getPacConf();
         $text[] = "Menu -> " . $this->i18n('warp');
         $text[] = "status: " . $this->warpStatus();
         $text[] = "key: " . $this->getPacConf()['warp'];
+        $data[] = [
+            [
+                'text'          => $this->i18n($p['warpoff'] ? 'off' : 'on'),
+                'callback_data' => "/offWarp",
+            ],
+        ];
         $data[] = [
             [
                 'text'          => $this->i18n('set key'),
                 'callback_data' => "/warpPlus",
             ],
         ];
-
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
