@@ -4513,10 +4513,14 @@ DNS-over-HTTPS with IP:
 
     public function addWarpPlus($key)
     {
-        $c         = $this->getPacConf();
-        $c['warp'] = $key;
+        $c = $this->getPacConf();
+        if (!empty($key)) {
+            $c['warp'] = $key;
+            $this->send($this->input['chat'], 'Warp registration license: ' . $this->ssh("warp-cli --accept-tos registration license $key 2>&1", 'wp'));
+        } else {
+            unset($c['warp']);
+        }
         $this->setPacConf($c);
-        $this->send($this->input['chat'], 'Warp registration license: ' . $this->ssh("warp-cli --accept-tos registration license $key", 'wp'));
         sleep(1);
         $this->warp();
     }
@@ -4540,12 +4544,12 @@ DNS-over-HTTPS with IP:
         } else {
             $this->ssh('warp-svc > /dev/null 2>&1 &', 'wp');
             sleep(3);
-            $this->ssh('warp-cli --accept-tos registration new', 'wp');
+            $this->send($this->input['chat'], 'Registration: ' . $this->ssh('warp-cli --accept-tos registration new 2>&1', 'wp'));
             if (!empty($p['warp'])) {
-                $this->ssh("warp-cli --accept-tos registration license {$p['warp']}", 'wp');
+                $this->send($this->input['chat'], 'License: ' . $this->ssh("warp-cli --accept-tos registration license {$p['warp']} 2>&1", 'wp'));
             }
-            $this->ssh('warp-cli --accept-tos mode proxy', 'wp');
-            $this->ssh('warp-cli --accept-tos connect', 'wp');
+            $this->send($this->input['chat'], 'Proxy mode: ' . $this->ssh('warp-cli --accept-tos mode proxy 2>&1', 'wp'));
+            $this->send($this->input['chat'], 'Connect: ' . $this->ssh('warp-cli --accept-tos connect 2>&1', 'wp'));
             unset($p['warpoff']);
         }
         $this->setPacConf($p);
