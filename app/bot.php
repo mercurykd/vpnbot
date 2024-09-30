@@ -4657,14 +4657,27 @@ DNS-over-HTTPS with IP:
         $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=si&s={$c['id']}#{$c['email']}'>sing-box</a>";
         $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=st&s={$c['id']}#{$c['email']}'>streisand</a>";
         $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=h&s={$c['id']}#{$c['email']}'>hiddify</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=k&s={$c['id']}#{$c['email']}'>karing</a>";
 
-        $text[] = "\nv2ray config: <pre><code>$scheme://{$domain}/pac?h=$hash&t=s&s={$c['id']}</code></pre>";
-        $text[] = "sing-box config: <pre><code>$scheme://{$domain}/pac?h=$hash&t=si&s={$c['id']}</code></pre>";
+        $si = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+            'h' => $hash,
+            't' => 'si',
+            's' => $c['id'],
+        ]));
+        $xr = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+            'h' => $hash,
+            't' => 's',
+            's' => $c['id'],
+        ]));
+
+        $text[] = "\nxray config: <pre><code>$xr</code></pre>";
+        $text[] = "sing-box config: <pre><code>$si</code></pre>";
+
         $text[] = "sing-box windows: <a href='$scheme://{$domain}/pac?h=$hash&t=si&r=w&s={$c['id']}'>windows service</a>";
 
         $data[] = [
             [
-                'text'    => 'v2ray',
+                'text'    => 'xray',
                 'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=s&s={$c['id']}"],
             ],
             [
@@ -4825,6 +4838,9 @@ DNS-over-HTTPS with IP:
                     exit;
                 case 'v':
                     header("Location: v2rayng://install-config?url=$v2");
+                    exit;
+                case 'k':
+                    header("Location: karing://install-config?url=$si");
                     exit;
                 case 'h':
                     header("Location: hiddify://install-config/?url=$si");
@@ -5045,12 +5061,12 @@ DNS-over-HTTPS with IP:
                     }
                     $ruleset[] = [
                         "tag"             => $r['name'],
-                        "url"             => "$scheme://{$domain}/pac?" . http_build_query([
+                        "url"             => "$scheme://{$domain}/pac/" . base64_encode(serialize([
                             'h' => $hash,
                             't' => 'si',
                             's' => $uid,
                             'r' => $r['name'],
-                        ]),
+                        ])),
                         "update_interval" => $r['interval'],
                         "type"            => "remote",
                         "format"          => "binary",
