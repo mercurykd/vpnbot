@@ -482,8 +482,8 @@ class Bot
             case preg_match('~^/proxy$~', $this->input['callback'], $m):
                 $this->proxy();
                 break;
-            case preg_match('~^/showpac$~', $this->input['callback'], $m):
-                $this->showpac();
+            case preg_match('~^/addOverrideHtml$~', $this->input['callback'], $m):
+                $this->addOverrideHtml();
                 break;
             case preg_match('~^/export$~', $this->input['callback'], $m):
                 $this->exportManual();
@@ -807,6 +807,30 @@ class Bot
             'callback'       => 'renXrUs',
             'args'           => [$i],
         ];
+    }
+
+    public function addOverrideHtml()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} attach html",
+            $this->input['message_id'],
+            reply: 'attach html',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'setOverrideHtml',
+            'args'           => [],
+        ];
+    }
+
+    public function setOverrideHtml()
+    {
+        $r = $this->request('getFile', ['file_id' => $this->input['file_id']]);
+        if (!empty($f = file_get_contents($this->file . $r['result']['file_path']))) {
+            file_put_contents('/app/webapp/override.html', $f);
+        }
     }
 
     public function restartOcserv($conf)
@@ -5516,6 +5540,12 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('backup') . ': ' . ($backup ?: $this->i18n('off')),
                 'callback_data' => "/backup",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('fake html'),
+                'callback_data' => "/addOverrideHtml",
             ],
         ];
         $data[] = [
