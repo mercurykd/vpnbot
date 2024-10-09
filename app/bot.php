@@ -4871,8 +4871,7 @@ DNS-over-HTTPS with IP:
                     exit;
                 case 'w':
                     $link = htmlspecialchars($si, ENT_XML1, 'UTF-8');
-                    file_put_contents('/singbox/winsw3.xml', preg_replace('#~url~#', $link, file_get_contents('/singbox/winsw3.xml')));
-                    $n   = "singbox_$uid.zip";
+                    $n    = "singbox_$uid.zip";
                     copy('/singbox/singbox.zip', $n);
                     $zip = new ZipArchive();
                     $zip->open($n, ZipArchive::CREATE);
