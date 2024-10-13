@@ -5072,25 +5072,38 @@ DNS-over-HTTPS with IP:
 
         foreach ($route['rules'] as $k => $v) {
             if (!empty($v['createruleset'])) {
-                foreach ($v['createruleset'] as $i => $r) {
+                foreach ($v['createruleset'] as $r) {
                     foreach ($r['rules'] as $l => $n) {
-                        if (array_key_exists('domain_suffix', $n) && $n['domain_suffix'] == '~pac~') {
-                            $r['rules'][$l]['domain_suffix'] = array_keys(array_filter($pac['includelist'] ?: []));
-                            if (empty($r['rules'][$l]['domain_suffix'])) {
-                                unset($r['rules'][$l]);
-                            }
-                        }
-                        if (array_key_exists('domain_suffix', $n) && $n['domain_suffix'] == '~warp~') {
-                            $r['rules'][$l]['domain_suffix'] = array_keys(array_filter($pac['warplist'] ?: []));
-                            if (empty($r['rules'][$l]['domain_suffix'])) {
-                                unset($r['rules'][$l]);
-                            }
-                        }
-                        if (array_key_exists('domain_suffix', $n) && $n['domain_suffix'] == '~block~') {
-                            $r['rules'][$l]['domain_suffix'] = array_keys(array_filter($pac['blocklist'] ?: []));
-                            if (empty($r['rules'][$l]['domain_suffix'])) {
-                                unset($r['rules'][$l]);
-                            }
+                        switch (true) {
+                            case array_key_exists('domain_suffix', $n):
+                                switch ($n['domain_suffix']) {
+                                    case '~pac~':
+                                        $t = 'includelist';
+                                        break;
+                                    case '~warp~':
+                                        $t = 'warplist';
+                                        break;
+                                    case '~block~':
+                                        $t = 'blocklist';
+                                        break;
+                                }
+                                $r['rules'][$l]['domain_suffix'] = array_keys(array_filter($pac[$t] ?: []));
+                                if (empty($r['rules'][$l]['domain_suffix'])) {
+                                    unset($r['rules'][$l]);
+                                }
+                                break;
+                            case array_key_exists('package_name', $n):
+                                $r['rules'][$l]['package_name'] = array_keys(array_filter($pac['packagelist'] ?: []));
+                                if (empty($r['rules'][$l]['package_name'])) {
+                                    unset($r['rules'][$l]);
+                                }
+                                break;
+                            case array_key_exists('process_name', $n):
+                                $r['rules'][$l]['process_name'] = array_keys(array_filter($pac['processlist'] ?: []));
+                                if (empty($r['rules'][$l]['process_name'])) {
+                                    unset($r['rules'][$l]);
+                                }
+                                break;
                         }
                     }
                     if (!empty($_GET['r']) && $r['name'] == $_GET['r']) {
@@ -5121,6 +5134,11 @@ DNS-over-HTTPS with IP:
                         "download_detour" => "direct",
                     ];
                     $route['rules'][$k]['rule_set'][] = $r['name'];
+                    switch (true) {
+                        case preg_match('#~(.+)~#', $route['rules'][$k]['outbound'], $m):
+                            $route['rules'][$k]['outbound'] = $pac[$m[1]] ? 'direct' : 'proxy';
+                            break;
+                    }
                 }
                 unset($route['rules'][$k]['createruleset']);
                 if (empty($route['rules'][$k]['rule_set'])) {

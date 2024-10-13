@@ -111,14 +111,32 @@
                 "outbound": "dns-out"
             },
             {
-                "package_name": [
+                "createruleset": [
+                    {
+                        "name": "package",
+                        "interval": "15s",
+                        "rules": [
+                            {
+                                "package_name": "~package~"
+                            }
+                        ]
+                    }
                 ],
-                "outbound": "proxy"
+                "outbound": "~app_outbound~"
             },
             {
-                "process_name": [
+                "createruleset": [
+                    {
+                        "name": "process",
+                        "interval": "15s",
+                        "rules": [
+                            {
+                                "process_name": "~process~"
+                            }
+                        ]
+                    }
                 ],
-                "outbound": "proxy"
+                "outbound": "~process_outbound~"
             },
             {
                 "createruleset": [
