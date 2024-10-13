@@ -111,6 +111,16 @@
                 "outbound": "dns-out"
             },
             {
+                "package_name": [
+                ],
+                "outbound": "proxy"
+            },
+            {
+                "process_name": [
+                ],
+                "outbound": "proxy"
+            },
+            {
                 "createruleset": [
                     {
                         "name": "block",

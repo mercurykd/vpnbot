@@ -4982,6 +4982,7 @@ DNS-over-HTTPS with IP:
                 $c['route']['rules'] = array_values($c['route']['rules']);
                 $c['route']          = $this->addRuleSet($c['route']);
                 $c['route']          = $this->addPackageRule($c['route']);
+                $c['route']          = $this->addProcessRule($c['route']);
                 $c['route']          = $this->createRuleSet($c['route'], $uid, $domain);
                 $c['route']          = $this->clearEmptyRules($c['route']);
                 break;
@@ -5004,12 +5005,36 @@ DNS-over-HTTPS with IP:
 
     public function addPackageRule($route)
     {
-        $p = $this->getPacConf();
-        if (!empty($t = array_filter($p['packagelist'] ?: []))) {
-            $route['rules'][] = [
-                'package_name' => array_keys($t),
-                'outbound'     => $p['app_outbound'] ? 'direct' : 'proxy',
-            ];
+        foreach ($route['rules'] as $k => $v) {
+            if (array_key_exists('package_name', $v)) {
+                $p = $this->getPacConf();
+                if (!empty($t = array_filter($p['packagelist'] ?: []))) {
+                    $route['rules'][$k] = [
+                        'package_name' => array_keys($t),
+                        'outbound'     => $p['app_outbound'] ? 'direct' : 'proxy',
+                    ];
+                } else {
+                    unset($route['rules'][$k]);
+                }
+            }
+        }
+        return $route;
+    }
+
+    public function addProcessRule($route)
+    {
+        foreach ($route['rules'] as $k => $v) {
+            if (array_key_exists('process_name', $v)) {
+                $p = $this->getPacConf();
+                if (!empty($t = array_filter($p['processlist'] ?: []))) {
+                    $route['rules'][$k] = [
+                        'process_name' => array_keys($t),
+                        'outbound'     => $p['process_outbound'] ? 'direct' : 'proxy',
+                    ];
+                } else {
+                    unset($route['rules'][$k]);
+                }
+            }
         }
         return $route;
     }
