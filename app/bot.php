@@ -1776,7 +1776,7 @@ class Bot
     {
         $c = $this->getPacConf();
         if (empty($c['domain'])) {
-            $this->addDomain(str_replace('.', '-', $this->ip) . '.sslip.io', 1);
+            $this->addDomain(str_replace('.', '-', $this->ip) . '.nip.io', 1);
             $this->setSSL('letsencrypt');
         } else {
             $this->menu();
