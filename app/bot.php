@@ -145,6 +145,9 @@ class Bot
             case preg_match('~^/appOutbound$~', $this->input['callback'], $m):
                 $this->appOutbound();
                 break;
+            case preg_match('~^/processOutbound$~', $this->input['callback'], $m):
+                $this->processOutbound();
+                break;
             case preg_match('~^/offWarp$~', $this->input['callback'], $m):
                 $this->offWarp();
                 break;
@@ -430,6 +433,9 @@ class Bot
                 break;
             case preg_match('~^/xtlsapp(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->xtlsapp($m[1] ?: 0);
+                break;
+            case preg_match('~^/xtlsprocess(?: (\d+))?$~', $this->input['callback'], $m):
+                $this->xtlsprocess($m[1] ?: 0);
                 break;
             case preg_match('~^/xtlsrulesset(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->xtlsrulesset($m[1] ?: 0);
@@ -2446,6 +2452,10 @@ DNS-over-HTTPS with IP:
                 $this->xrayUpdateRules();
                 $this->xtlswarp();
                 break;
+            case 'processlist':
+                $this->xrayUpdateRules();
+                $this->xtlsprocess();
+                break;
             case 'packagelist':
                 $this->xrayUpdateRules();
                 $this->xtlsapp();
@@ -3425,6 +3435,9 @@ DNS-over-HTTPS with IP:
             case 'packagelist':
                 $this->xtlsapp();
                 break;
+            case 'processlist':
+                $this->xtlsprocess();
+                break;
             case 'rulessetlist':
                 $this->xtlsrulesset();
                 break;
@@ -3570,6 +3583,14 @@ DNS-over-HTTPS with IP:
         $this->xtlsapp();
     }
 
+    public function processOutbound()
+    {
+        $p = $this->getPacConf();
+        $p['process_outbound'] = !$p['process_outbound'];
+        $p = $this->setPacConf($p);
+        $this->xtlsprocess();
+    }
+
     public function xtlsapp($page = 0)
     {
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> package list';
@@ -3580,6 +3601,32 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => 'set to ' . ($p['app_outbound'] ? 'proxy' : 'direct'),
                 'callback_data' => "/appOutbound",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/routes",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
+    public function xtlsprocess($page = 0)
+    {
+        $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> process list';
+
+        $data   = $this->listPac('processlist', $page, 'xtlsprocess');
+        $p      = $this->getPacConf();
+        $data[] = [
+            [
+                'text'          => 'set to ' . ($p['process_outbound'] ? 'proxy' : 'direct'),
+                'callback_data' => "/processOutbound",
             ],
         ];
         $data[] = [
@@ -4497,6 +4544,10 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/xtlswarp",
             ]],
             [[
+                'text'          => $this->i18n('process'),
+                'callback_data' => "/xtlsprocess",
+            ]],
+            [[
                 'text'          => $this->i18n('package'),
                 'callback_data' => "/xtlsapp",
             ]],
@@ -4981,8 +5032,6 @@ DNS-over-HTTPS with IP:
                 }
                 $c['route']['rules'] = array_values($c['route']['rules']);
                 $c['route']          = $this->addRuleSet($c['route']);
-                $c['route']          = $this->addPackageRule($c['route']);
-                $c['route']          = $this->addProcessRule($c['route']);
                 $c['route']          = $this->createRuleSet($c['route'], $uid, $domain);
                 $c['route']          = $this->clearEmptyRules($c['route']);
                 break;
@@ -5000,42 +5049,6 @@ DNS-over-HTTPS with IP:
             }
         }
         $route['rules'] = array_values($route['rules']);
-        return $route;
-    }
-
-    public function addPackageRule($route)
-    {
-        foreach ($route['rules'] as $k => $v) {
-            if (array_key_exists('package_name', $v)) {
-                $p = $this->getPacConf();
-                if (!empty($t = array_filter($p['packagelist'] ?: []))) {
-                    $route['rules'][$k] = [
-                        'package_name' => array_keys($t),
-                        'outbound'     => $p['app_outbound'] ? 'direct' : 'proxy',
-                    ];
-                } else {
-                    unset($route['rules'][$k]);
-                }
-            }
-        }
-        return $route;
-    }
-
-    public function addProcessRule($route)
-    {
-        foreach ($route['rules'] as $k => $v) {
-            if (array_key_exists('process_name', $v)) {
-                $p = $this->getPacConf();
-                if (!empty($t = array_filter($p['processlist'] ?: []))) {
-                    $route['rules'][$k] = [
-                        'process_name' => array_keys($t),
-                        'outbound'     => $p['process_outbound'] ? 'direct' : 'proxy',
-                    ];
-                } else {
-                    unset($route['rules'][$k]);
-                }
-            }
-        }
         return $route;
     }
 
