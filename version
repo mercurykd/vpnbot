@@ -1,3 +1,5 @@
+14.10.2024 v1.70
+- xray route: учет регистра в process_name, package_name
 14.10.2024 v1.69
 - xray route: добавлен список process_name
 14.10.2024 v1.68

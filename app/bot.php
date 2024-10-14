@@ -2428,7 +2428,7 @@ DNS-over-HTTPS with IP:
         if (!empty($domains)) {
             $conf = $this->getPacConf();
             foreach ($domains as $k => $v) {
-                $conf[$type][$type == 'rulessetlist' ? trim($v) : idn_to_ascii(trim($v))] = true;
+                $conf[$type][in_array($type, ['rulessetlist', 'packagelist', 'processlist']) ? trim($v) : idn_to_ascii(trim($v))] = true;
             }
             ksort($conf[$type]);
             $this->setPacConf($conf);
@@ -3680,7 +3680,7 @@ DNS-over-HTTPS with IP:
             foreach ($domains as $k => $v) {
                 $data[] = [
                     [
-                        'text'          => $this->i18n($v ? 'on' : 'off') . ' ' . ($basename ? basename($k) . ' ' : '') . idn_to_utf8($k),
+                        'text'          => $this->i18n($v ? 'on' : 'off') . ' ' . ($basename ? basename($k) . ' ' : '') . (in_array($type, ['rulessetlist', 'packagelist', 'processlist']) ? $k : idn_to_utf8($k)),
                         'callback_data' => "/change$type " . ($i + $page * $this->limit),
                     ],
                     [
