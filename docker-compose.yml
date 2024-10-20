@@ -33,7 +33,8 @@ services:
             - ./config/sshd_config:/etc/ssh/sshd_config
             - ./logs/:/logs/
         ports:
-            - 443:443
+            - 443:443/tcp
+            - 443:443/udp
         hostname: upstream
         container_name: upstream-${VER}
         depends_on:
@@ -127,7 +128,7 @@ services:
               required: false
         hostname: php
         container_name: php-${VER}
-        restart: unless-stopped
+        # restart: unless-stopped
         stop_grace_period: 1s
         command: ["/bin/sh", "/start_php.sh"]
         working_dir: /app

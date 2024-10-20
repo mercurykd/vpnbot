@@ -10,8 +10,9 @@ if ($c['debug']) {
 }
 
 $bot = new Bot($c['key'], $i);
-$bot->adguardProtect();
-$bot->adguardCheckPswd();
-$bot->setcommands();
-$bot->syncPortClients();
 $bot->setwebhook();
+$bot->selfUpdate();
+$bot->adguardCheckPswd();
+$bot->adguardProtect();
+$bot->syncPortClients();
+$bot->setcommands();

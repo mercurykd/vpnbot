@@ -1760,10 +1760,14 @@ class Bot
             $this->adguardProtect();
             $u = $this->ssh("nginx -t 2>&1", 'ng');
             $out[] = $u;
-            $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+            if (empty($nomenu)) {
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+            }
             if (preg_match('~test is successful~', $u)) {
                 $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                if (empty($nomenu)) {
+                    $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                }
                 $this->setPacConf($conf);
                 $this->chocdomain($domain);
                 $this->setUpstreamDomainOcserv($domain);
@@ -5734,13 +5738,44 @@ DNS-over-HTTPS with IP:
         $this->logs();
     }
 
+    public function selfUpdate()
+    {
+        require __DIR__ . '/config.php';
+        if (!empty($c['admin'])) {
+            $ip = getenv('IP');
+            $rm = explode(':', trim(file_get_contents('/update/reload_message')));
+            $m  = file_get_contents('/update/message');
+            foreach ($c['admin'] as $k => $v) {
+                $r = $this->send($v, "start $ip");
+                $this->input['chat']        = $v;
+                $this->input['message_id']  = $r['result']['message_id'];
+                if (file_exists($this->update)) {
+                    if (!empty($m)) {
+                        $this->send($v, "<pre>$m</pre>", $v == $rm[0] ? $rm[1] : 0);
+                    }
+                    $r = $this->send($v, "import settings");
+                    $this->input['chat']        = $v;
+                    $this->input['message_id']  = $r['result']['message_id'];
+                    $this->input['callback_id'] = $r['result']['message_id'];
+                    if (empty($flag)) {
+                        $this->importFile($this->update);
+                        unlink($this->update);
+                        $flag = true;
+                    }
+                }
+            }
+        }
+        file_put_contents('/update/message', '');
+        file_put_contents('/update/reload_message', '');
+    }
+
     public function backup()
     {
         $r = $this->send(
             $this->input['chat'],
-            "@{$this->input['username']} enter like start / period",
+            "@{$this->input['username']} enter like: start / period",
             $this->input['message_id'],
-            reply: 'enter like now / 12:00',
+            reply: 'enter like: now / 12 hours',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message'  => $this->input['message_id'],
