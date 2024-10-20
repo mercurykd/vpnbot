@@ -4829,45 +4829,6 @@ DNS-over-HTTPS with IP:
         return $c['domain'] ?: $this->ip;
     }
 
-    public function v2raySubscription($key, $fs = 0)
-    {
-        $pac    = $this->getPacConf();
-        $domain = $this->getDomain();
-        $xr     = $this->getXray();
-
-        $flag = true;
-        foreach ($xr['inbounds'][0]['settings']['clients'] as $k => $v) {
-            if ($v['id'] == $key) {
-                if (!empty($fs)) {
-                    return $this->userXr($k);
-                }
-                if (empty($v['off'])) {
-                    $flag = false;
-                }
-                break;
-            }
-        }
-        if ($flag) {
-            return;
-        }
-
-        $c = json_decode(file_get_contents('/config/v2ray.json'), true);
-
-        $c['outbounds'][0]['settings']['vnext'][0]['address']                 = $domain;
-        $c['outbounds'][0]['settings']['vnext'][0]['users'][0]['id']          = $key;
-        $c['outbounds'][0]['streamSettings']['realitySettings']['serverName'] = $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
-        $c['outbounds'][0]['streamSettings']['realitySettings']['publicKey']  = $pac['xray'];
-        $c['outbounds'][0]['streamSettings']['realitySettings']['shortId']    = $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
-        $c['routing']['rules'][0]['domain']                                   = array_keys(array_filter($pac['includelist']));
-
-        if (empty($c['routing']['rules'][0]['domain'])) {
-            unset($c['routing']['rules'][0]);
-            $c['routing']['rules'] = array_values($c['routing']['rules']);
-
-        }
-        echo json_encode($c);
-    }
-
     public function subscription()
     {
         $type   = $_GET['t'] == 's' ? 'v2ray' : 'sing';
@@ -4952,9 +4913,9 @@ DNS-over-HTTPS with IP:
 
         switch ($_GET['t']) {
             case 's':
-                $c['outbounds'][0]['settings']['vnext'][0]['address']  = $domain;
+                $c['outbounds'][0]['settings']['vnext'][0]['address']  = '~domain~';
                 $c['outbounds'][0]['settings']['vnext'][0]['users'][0] = [
-                    'id'         => $uid,
+                    'id'         => '~uid~',
                     'encryption' => 'none',
                 ];
                 if ($pac['transport'] == 'Websocket') {
@@ -4966,7 +4927,7 @@ DNS-over-HTTPS with IP:
                         ],
                         "tlsSettings" => [
                             "allowInsecure" => false,
-                            "serverName"    => $domain,
+                            "serverName"    => '~domain~',
                             "fingerprint"   => "chrome"
                         ]
                     ];
@@ -4977,10 +4938,10 @@ DNS-over-HTTPS with IP:
                         "network"         => "tcp",
                         "security"        => "reality",
                         "realitySettings" => [
-                            "serverName"  => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
+                            "serverName"  => '~server_name~',
                             "fingerprint" => "chrome",
-                            "publicKey"   => $pac['xray'],
-                            "shortId"     => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
+                            "publicKey"   => '~public_key~',
+                            "shortId"     => '~short_id~',
                         ]
                     ];
                     $c['outbounds'][0]['mux'] = [
@@ -4988,24 +4949,10 @@ DNS-over-HTTPS with IP:
                         "concurrency" => -1
                     ];
                 }
-
-                foreach ($c['routing']['rules'] as $k => $v) {
-                    if (array_key_exists('domain', $v) && $v['domain'] == '~pac~') {
-                        $c['routing']['rules'][$k]['domain'] = array_keys(array_filter($pac['includelist'] ?: []));
-                        if (empty($c['routing']['rules'][$k]['domain'])) {
-                            unset($c['routing']['rules'][$k]);
-                        }
-                    }
-                }
-                $c['routing']['rules'] = array_values($c['routing']['rules']);
                 break;
             case 'si':
-                if ($c['dns']['servers'][0]['address'] == '~dns~') {
-                    $c['dns']['servers'][0]['address'] = "https://$domain/dns-query/$uid";
-                }
-
-                $c['outbounds'][0]['server'] = $domain;
-                $c['outbounds'][0]['uuid']   = $uid;
+                $c['outbounds'][0]['server'] = '~domain~';
+                $c['outbounds'][0]['uuid']   = '~uid~';
                 if ($pac['transport'] == 'Websocket') {
                     unset($c['outbounds'][0]['tls']['reality']);
                     unset($c['outbounds'][0]['flow']);
@@ -5013,43 +4960,52 @@ DNS-over-HTTPS with IP:
                         "type" => "ws",
                         "path" => "/ws"
                     ];
-                    $c['outbounds'][0]['tls']['server_name'] = $domain;
+                    $c['outbounds'][0]['tls']['server_name'] = '~domain~';
                 } else {
                     unset($c['outbounds'][0]["transport"]);
                     $c['outbounds'][0]['flow']                         = 'xtls-rprx-vision';
-                    $c['outbounds'][0]['tls']['reality']['public_key'] = $pac['xray'];
-                    $c['outbounds'][0]['tls']['server_name']           = $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0];
-                    $c['outbounds'][0]['tls']['reality']['short_id']   = $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0];
+                    $c['outbounds'][0]['tls']['reality']['public_key'] = '~public_key~';
+                    $c['outbounds'][0]['tls']['server_name']           = '~server_name~';
+                    $c['outbounds'][0]['tls']['reality']['short_id']   = '~short_id~';
                 }
 
-                foreach ($c['route']['rules'] as $k => $v) {
-                    if (array_key_exists('domain_suffix', $v) && $v['domain_suffix'] == '~pac~') {
-                        $c['route']['rules'][$k]['domain_suffix'] = array_keys(array_filter($pac['includelist'] ?: []));
-                        if (empty($c['route']['rules'][$k]['domain_suffix'])) {
-                            unset($c['route']['rules'][$k]);
-                        }
-                    }
-                }
-                $c['route']['rules'] = array_values($c['route']['rules']);
-                $c['route']          = $this->addRuleSet($c['route']);
-                $c['route']          = $this->createRuleSet($c['route'], $uid, $domain);
-                $c['route']          = $this->clearEmptyRules($c['route']);
+                $c['route'] = $this->addRuleSet($c['route']);
+                $c['route'] = $this->createRuleSet($c['route'], $uid, $domain);
                 break;
         }
 
+        $json = $this->replaceTags(json_encode($c), [
+            '"~pac~"'         => json_encode(array_keys(array_filter($pac['includelist'] ?: []))),
+            '~dns~'         => "https://$domain/dns-query/$uid",
+            '~uid~'         => $uid,
+            '~domain~'      => $domain,
+            '~short_id~'    => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
+            '~public_key~'  => $pac['xray'],
+            '~server_name~' => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
+        ]);
+        $json = $this->clearEmptyRules($json);
+
         header('Content-type: application/json');
-        echo json_encode($c);
+        echo $json;
     }
 
-    public function clearEmptyRules($route)
+    public function replaceTags($subject, $tags)
     {
-        foreach ($route['rules'] as $k => $v) {
-            if (count($v) == 1) {
-                unset($route['rules'][$k]);
+        return str_replace(array_keys($tags), array_values($tags), $subject);
+    }
+
+    public function clearEmptyRules($json)
+    {
+        $json = json_decode($json, 1);
+        if (!empty($json['routing']['rules'])) {
+            foreach ($json['routing']['rules'] as $k => $v) {
+                if (array_key_exists('domain', $v) && empty($v['domain'])) {
+                    unset($json['routing']['rules'][$k]);
+                }
             }
+            $json['routing']['rules'] = array_values($json['routing']['rules']);
         }
-        $route['rules'] = array_values($route['rules']);
-        return $route;
+        return json_encode($json);
     }
 
     public function addRuleSet($route)
