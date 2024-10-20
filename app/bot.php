@@ -1446,9 +1446,7 @@ class Bot
             $this->language = $this->getPacConf()['language'] ?: 'en';
             $this->limit    = $this->getPacConf()['limitpage'] ?: 5;
             sleep(3);
-            if (empty($file)) {
-                $this->menu();
-            }
+            $this->menu();
         }
     }
 
@@ -1788,8 +1786,6 @@ class Bot
         if (empty($c['domain'])) {
             $this->addDomain(str_replace('.', '-', $this->ip) . '.nip.io', 1);
             $this->setSSL('letsencrypt');
-        } else {
-            $this->menu();
         }
     }
 
@@ -5762,6 +5758,8 @@ DNS-over-HTTPS with IP:
                         unlink($this->update);
                         $flag = true;
                     }
+                } else {
+                    $this->menu();
                 }
             }
         }
