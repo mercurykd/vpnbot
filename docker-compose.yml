@@ -462,6 +462,11 @@ services:
             default:
                 ipv4_address: 10.10.0.11
         logging: *default-logging
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.50'
+                    memory: 200M
     np:
         image: mercurykd/vpnbot-np:1.1
         build:
