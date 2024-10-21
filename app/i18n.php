@@ -341,4 +341,8 @@ $i = [
         'en' => 'fake html',
         'ru' => 'фейк заглушка',
     ],
+    'expose-iroutes'  => [
+        'en' => 'expose-iroutes',
+        'ru' => 'изоляция клиентов',
+    ],
 ];

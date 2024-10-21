@@ -271,6 +271,9 @@ class Bot
             case preg_match('~^/addOcUser$~', $this->input['callback'], $m):
                 $this->addOcUser();
                 break;
+            case preg_match('~^/changeOcExpose$~', $this->input['callback'], $m):
+                $this->changeOcExpose();
+                break;
             case preg_match('~^/addXrUser$~', $this->input['callback'], $m):
                 $this->addXrUser();
                 break;
@@ -4129,7 +4132,9 @@ DNS-over-HTTPS with IP:
         preg_match('~^camouflage_secret[^\n]+?"([^"]+)*"~sm', $ocserv, $m);
         $cs = $m[1];
         preg_match('~^dns = ([^\n]+)~sm', $ocserv, $m);
-        $dns    = $m[1];
+        $dns = $m[1];
+        preg_match('~^expose-iroutes = (true)~sm', $ocserv, $m);
+        $expose = $m[1];
         $pass   = htmlspecialchars($pac['ocserv']);
         $text[] = "Menu -> OpenConnect";
         if (!empty($m[1])) {
@@ -4148,6 +4153,12 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('dns') . ": $dns",
                 'callback_data' => "/changeOcDns",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('expose-iroutes') . ' ' . $this->i18n($expose ? 'on' : 'off'),
+                'callback_data' => "/changeOcExpose",
             ],
         ];
         $data[] = [
@@ -4175,6 +4186,15 @@ DNS-over-HTTPS with IP:
             'text' => implode("\n", $text),
             'data' => $data,
         ];
+    }
+
+    public function changeOcExpose()
+    {
+        $c = file_get_contents('/config/ocserv.conf');
+        preg_match('~^expose-iroutes = ([^\n]+)~sm', $c, $m);
+        $t = preg_replace('~^expose-iroutes[^\n]+~sm', "expose-iroutes = " . ($m[1] == 'true' ? 'false' : 'true'), $c);
+        $this->restartOcserv($t);
+        $this->menu('oc');
     }
 
     public function deloc($i)
