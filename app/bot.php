@@ -5732,28 +5732,19 @@ DNS-over-HTTPS with IP:
 
     public function selfUpdate()
     {
-        require __DIR__ . '/config.php';
-        if (!empty($c['admin'])) {
-            $ip = getenv('IP');
-            $rm = explode(':', trim(file_get_contents('/update/reload_message')));
-            $m  = file_get_contents('/update/message');
-            if (file_exists($this->update)) {
-                $r = $this->send($c['admin'][0], "start update");
-                $this->input['chat']        = $c['admin'][0];
-                $this->input['message_id']  = $r['result']['message_id'];
-                if (!empty($m)) {
-                    $this->send($c['admin'][0], "<pre>$m</pre>", $rm[1]);
-                }
-                $r = $this->send($c['admin'][0], "import settings");
-                $this->input['chat']        = $c['admin'][0];
-                $this->input['message_id']  = $r['result']['message_id'];
-                $this->input['callback_id'] = $r['result']['message_id'];
-                if (empty($flag)) {
-                    $this->importFile($this->update);
-                    unlink($this->update);
-                    $flag = true;
-                }
+        $ip                         = getenv('IP');
+        $rm                         = explode(':', trim(file_get_contents('/update/reload_message')));
+        $m                          = file_get_contents('/update/message');
+        $this->input['chat']        = $rm[0];
+        $this->input['message_id']  = $rm[1];
+        $this->input['callback_id'] = $rm[1];
+        if (file_exists($this->update)) {
+            if (!empty($m)) {
+                $this->send($this->input['chat'], "<pre>$m</pre>", $rm[1]);
             }
+            $r = $this->send($this->input['chat'], "import settings");
+            $this->importFile($this->update);
+            unlink($this->update);
         }
         file_put_contents('/update/message', '');
         file_put_contents('/update/reload_message', '');
