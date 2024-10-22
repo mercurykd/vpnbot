@@ -1092,6 +1092,12 @@ class Bot
         }
     }
 
+    public function cleanQueue()
+    {
+        $r = $this->request('deleteWebhook', []);
+        $r = $this->request('getUpdates', ['offset' => -1]);
+    }
+
     public function pinAdmin($pin, $unpin = false)
     {
         require __DIR__ . '/config.php';
@@ -1787,11 +1793,18 @@ class Bot
 
     public function sslip()
     {
-        $c = $this->getPacConf();
-        if (empty($c['domain'])) {
+        require __DIR__ . '/config.php';
+        $p  = $this->getPacConf();
+        $ip = getenv('IP');
+        $r  = $this->send($c['admin'][0], "start $ip");
+
+        $this->input['chat']       = $c['admin'][0];
+        $this->input['message_id'] = $r['result']['message_id'];
+        if (empty($p['domain'])) {
             $this->addDomain(str_replace('.', '-', $this->ip) . '.nip.io', 1);
             $this->setSSL('letsencrypt');
         }
+        $this->menu(dontshowcron: 1);
     }
 
     public function comment($text, $tag)
@@ -3842,13 +3855,13 @@ DNS-over-HTTPS with IP:
         $this->menu('wg', 0);
     }
 
-    public function menu($type = false, $arg = false, $return = false)
+    public function menu($type = false, $arg = false, $return = false, $dontshowcron = false)
     {
         $domain = $this->getPacConf()['domain'] ?: $this->ip;
         $cron   = exec('pgrep -f cron.php');
         $menu   = [
             'main' => [
-                'text' => 'v' . getenv('VER') . "\ncron: " . $this->i18n($cron ? 'on' : 'off') . ($cron ? '' : ' show <code>logs/php_error</code>'),
+                'text' => 'v' . getenv('VER') . ($dontshowcron ? '' : "\ncron: " . $this->i18n($cron ? 'on' : 'off') . ($cron ? '' : ' show <code>logs/php_error</code>')),
                 'data' => [
                     [
                         [
@@ -5724,25 +5737,21 @@ DNS-over-HTTPS with IP:
             $ip = getenv('IP');
             $rm = explode(':', trim(file_get_contents('/update/reload_message')));
             $m  = file_get_contents('/update/message');
-            foreach ($c['admin'] as $k => $v) {
-                $r = $this->send($v, "start $ip");
-                $this->input['chat']        = $v;
+            if (file_exists($this->update)) {
+                $r = $this->send($c['admin'][0], "start update");
+                $this->input['chat']        = $c['admin'][0];
                 $this->input['message_id']  = $r['result']['message_id'];
-                if (file_exists($this->update)) {
-                    if (!empty($m)) {
-                        $this->send($v, "<pre>$m</pre>", $v == $rm[0] ? $rm[1] : 0);
-                    }
-                    $r = $this->send($v, "import settings");
-                    $this->input['chat']        = $v;
-                    $this->input['message_id']  = $r['result']['message_id'];
-                    $this->input['callback_id'] = $r['result']['message_id'];
-                    if (empty($flag)) {
-                        $this->importFile($this->update);
-                        unlink($this->update);
-                        $flag = true;
-                    }
-                } else {
-                    $this->menu();
+                if (!empty($m)) {
+                    $this->send($c['admin'][0], "<pre>$m</pre>", $rm[1]);
+                }
+                $r = $this->send($c['admin'][0], "import settings");
+                $this->input['chat']        = $c['admin'][0];
+                $this->input['message_id']  = $r['result']['message_id'];
+                $this->input['callback_id'] = $r['result']['message_id'];
+                if (empty($flag)) {
+                    $this->importFile($this->update);
+                    unlink($this->update);
+                    $flag = true;
                 }
             }
         }
