@@ -1081,11 +1081,13 @@ class Bot
             [$start, $period] = explode('/', $c['backup']);
             $start  = strtotime($start);
             $period = strtotime($period, 0);
-            if ($now - $start >= $period && ($now - $start) % $period == 0) {
-                if (!empty($c['pinbackup'])) {
-                    $this->pinAdmin($c['pinbackup'], 1);
+            if (!empty($start) && !empty($period)) {
+                if ($now - $start >= $period && ($now - $start) % $period == 0) {
+                    if (!empty($c['pinbackup'])) {
+                        $this->pinAdmin($c['pinbackup'], 1);
+                    }
+                    $this->pinBackup();
                 }
-                $this->pinBackup();
             }
         }
     }
@@ -1296,7 +1298,7 @@ class Bot
         if (!empty($file)) {
             file_put_contents($file, $json);
         }
-        $bot = $this->request('getMyName', [])['result']['name'];
+        $bot = preg_replace('~[\W]~iu', '_', $this->request('getMyName', [])['result']['name']);
         return $this->upload("{$bot}_export_" . date('d_m_Y_H_i') . '.json', $json);
     }
 
@@ -3843,9 +3845,10 @@ DNS-over-HTTPS with IP:
     public function menu($type = false, $arg = false, $return = false)
     {
         $domain = $this->getPacConf()['domain'] ?: $this->ip;
+        $cron   = exec('pgrep -f cron.php');
         $menu   = [
             'main' => [
-                'text' => 'v' . getenv('VER'),
+                'text' => 'v' . getenv('VER') . "\ncron: " . $this->i18n($cron ? 'on' : 'off') . ($cron ? '' : ' show <code>logs/php_error</code>'),
                 'data' => [
                     [
                         [
@@ -5565,7 +5568,11 @@ DNS-over-HTTPS with IP:
         ];
         $backup = array_filter(explode('/', $conf['backup']));
         if (!empty($backup)) {
-            $backup = "{$backup[0]} start / {$backup[1]} period";
+            if (!empty(strtotime($backup[0])) && !empty(strtotime($backup[1]))) {
+                $backup = "{$backup[0]} start / {$backup[1]} period";
+            } else {
+                $backup = $this->i18n('off') . " {$conf['backup']} - wrong format";
+            }
         }
         $data[] = [
             [
@@ -5875,7 +5882,11 @@ DNS-over-HTTPS with IP:
             $c['backup'] = '';
         } else {
             [$start, $period] = explode('/', $text);
-            $c['backup'] = implode(' / ', [date('Y-m-d H:i', strtotime($start)), trim($period)]);
+            if (!empty(strtotime($start)) && !empty(strtotime($period))) {
+                $c['backup'] = implode(' / ', [date('Y-m-d H:i', strtotime($start)), trim($period)]);
+            } else {
+                $this->send($this->input['from'], $this->input['message'] . ' - wrong format');
+            }
         }
         if ($c['pinbackup']) {
             $this->pinAdmin($c['pinbackup'], 1);
