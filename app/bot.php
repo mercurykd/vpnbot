@@ -5043,6 +5043,14 @@ DNS-over-HTTPS with IP:
             }
             $json['routing']['rules'] = array_values($json['routing']['rules']);
         }
+        if (!empty($json['route']['rules'])) {
+            foreach ($json['route']['rules'] as $k => $v) {
+                if (count($v) < 2) {
+                    unset($json['route']['rules'][$k]);
+                }
+            }
+            $json['route']['rules'] = array_values($json['route']['rules']);
+        }
         return json_encode($json);
     }
 
