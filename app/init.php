@@ -12,7 +12,6 @@ if ($c['debug']) {
 $bot = new Bot($c['key'], $i);
 $bot->cleanQueue();
 $bot->setwebhook();
-$bot->dontshowcron = 1;
 $bot->selfUpdate();
 $bot->adguardCheckPswd();
 $bot->adguardProtect();

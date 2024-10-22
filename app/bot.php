@@ -1456,8 +1456,10 @@ class Bot
             $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
             $this->language = $this->getPacConf()['language'] ?: 'en';
             $this->limit    = $this->getPacConf()['limitpage'] ?: 5;
-            sleep(3);
-            $this->menu();
+            if (empty($file)) {
+                sleep(3);
+                $this->menu();
+            }
         }
     }
 
