@@ -1804,7 +1804,7 @@ class Bot
             $this->addDomain(str_replace('.', '-', $this->ip) . '.nip.io', 1);
             $this->setSSL('letsencrypt');
         }
-        $this->menu(dontshowcron: 1);
+        $this->menu();
     }
 
     public function comment($text, $tag)
@@ -3855,13 +3855,13 @@ DNS-over-HTTPS with IP:
         $this->menu('wg', 0);
     }
 
-    public function menu($type = false, $arg = false, $return = false, $dontshowcron = false)
+    public function menu($type = false, $arg = false, $return = false)
     {
         $domain = $this->getPacConf()['domain'] ?: $this->ip;
         $cron   = exec('pgrep -f cron.php');
         $menu   = [
             'main' => [
-                'text' => 'v' . getenv('VER') . ($dontshowcron ? '' : "\ncron: " . $this->i18n($cron ? 'on' : 'off') . ($cron ? '' : ' show <code>logs/php_error</code>')),
+                'text' => 'v' . getenv('VER') . ($this->dontshowcron ? '' : "\ncron: " . $this->i18n($cron ? 'on' : 'off') . ($cron ? '' : ' show <code>logs/php_error</code>')),
                 'data' => [
                     [
                         [
@@ -5743,6 +5743,8 @@ DNS-over-HTTPS with IP:
                 $this->send($this->input['chat'], "<pre>$m</pre>", $rm[1]);
             }
             $r = $this->send($this->input['chat'], "import settings");
+            $this->input['message_id']  = $r['result']['message_id'];
+            $this->input['callback_id'] = $r['result']['message_id'];
             $this->importFile($this->update);
             unlink($this->update);
         }
