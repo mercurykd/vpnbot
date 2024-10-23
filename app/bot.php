@@ -1324,7 +1324,7 @@ class Bot
         ];
     }
 
-    public function importFile($file = false)
+    public function importFile($file = false, $autoupdate = false)
     {
         if (!empty($file)) {
             $json = json_decode(file_get_contents($file), true);
@@ -1364,7 +1364,11 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->wg = 0;
                 $this->saveClients($json['wg']['clients']);
-                $this->restartWG($this->createConfig($json['wg']['server']), $switch_amnezia);
+                if (empty($autoupdate)) {
+                    $this->restartWG($this->createConfig($json['wg']['server']), $switch_amnezia);
+                } else {
+                    file_put_contents('/config/wg0.conf', $this->createConfig($json['wg']['server']));
+                }
                 $this->iptablesWG();
             }
             // wg1
@@ -1373,7 +1377,11 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->wg = 1;
                 $this->saveClients($json['wg1']['clients']);
-                $this->restartWG($this->createConfig($json['wg1']['server']), $switch_wg1amnezia);
+                if (empty($autoupdate)) {
+                    $this->restartWG($this->createConfig($json['wg1']['server']), $switch_wg1amnezia);
+                } else {
+                    file_put_contents('/config/wg1.conf', $this->createConfig($json['wg1']['server']));
+                }
                 $this->iptablesWG();
             }
             // ad
@@ -5755,7 +5763,7 @@ DNS-over-HTTPS with IP:
             $r = $this->send($this->input['chat'], "import settings");
             $this->input['message_id']  = $r['result']['message_id'];
             $this->input['callback_id'] = $r['result']['message_id'];
-            $this->importFile($this->update);
+            $this->importFile($this->update, 1);
             unlink($this->update);
         }
         file_put_contents('/update/message', '');
@@ -6016,25 +6024,25 @@ DNS-over-HTTPS with IP:
 
     public function createConfig($data)
     {
+        $pac = $this->getPacConf();
         $conf[] = "[Interface]";
         if (empty($data['interface']['ListenPort'])) {
             if (empty($data['interface']['DNS'])) {
-                $data['interface']['DNS'] = $this->getPacConf()[$this->getInstanceWG(1) . 'dns'] ?: $this->dns;
+                $data['interface']['DNS'] = $pac[$this->getInstanceWG(1) . 'dns'] ?: $this->dns;
             }
             if (empty($data['interface']['MTU'])) {
-                $data['interface']['MTU'] = $this->getPacConf()[$this->getInstanceWG(1) . 'mtu'] ?: $this->mtu;
+                $data['interface']['MTU'] = $pac[$this->getInstanceWG(1) . 'mtu'] ?: $this->mtu;
             }
         }
         foreach ($data['interface'] as $k => $v) {
             $conf[] = "$k = $v";
         }
-        $pac = $this->getPacConf();
         if (!empty($data['peers'])) {
             foreach ($data['peers'] as $peer) {
                 $conf[] = '';
                 $conf[] = $peer['# PublicKey'] ? '# [Peer]' : '[Peer]';
                 if (!empty($peer['Endpoint'])) {
-                    $peer['Endpoint'] = ($this->getPacConf()[$this->getInstanceWG(1) . 'endpoint'] ? $this->ip : $this->getDomain()) . ":" . getenv($this->getInstanceWG(1) ? 'WG1PORT' : 'WGPORT');
+                    $peer['Endpoint'] = ($pac[$this->getInstanceWG(1) . 'endpoint'] ? $this->ip : $this->getDomain()) . ":" . getenv($this->getInstanceWG(1) ? 'WG1PORT' : 'WGPORT');
                 }
                 foreach ($peer as $k => $v) {
                     $conf[] = "$k = $v";
