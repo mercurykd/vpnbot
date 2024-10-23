@@ -1076,23 +1076,27 @@ class Bot
     public function checkBackup()
     {
         $c   = $this->getPacConf();
-        $now = strtotime(date('Y-m-d H:i'));
         if (!empty($c['backup'])) {
+            $now = strtotime(date('Y-m-d H:i:s'));
             [$start, $period] = explode('/', $c['backup']);
-            $start  = strtotime($start);
-            $period = strtotime($period, 0);
-            if (!empty($start) && !empty($period)) {
-                if ($now - $start >= $period && ($now - $start) % $period == 0) {
-                    if (!empty($c['pinbackup'])) {
-                        $this->pinAdmin($c['pinbackup'], 1);
-                    }
-                    $this->pinBackup();
+            $start  = strtotime(trim($start));
+            $period = strtotime(trim($period), 0);
+            if (
+                !empty($start)
+                && !empty($period)
+                && empty($this->backup)
+                && $now - $start >= $period
+                && ($now - $start) % $period < 10
+            ) {
+                if (!empty($c['pinbackup'])) {
+                    $this->pinAdmin($c['pinbackup'], 1);
                 }
+                $this->pinBackup();
             }
         }
     }
 
-    public function cleanQueue()
+    public function cleanQueue(): void
     {
         $r = $this->request('deleteWebhook', []);
         $r = $this->request('getUpdates', ['offset' => -1]);
@@ -1112,9 +1116,8 @@ class Bot
     {
         require __DIR__ . '/config.php';
         $conf              = $this->getPacConf();
-        $bot               = $this->request('getMyName', [])['result']['name'];
+        $bot               = preg_replace('~[\W]~iu', '_', $this->request('getMyName', [])['result']['name']);
         $conf['pinbackup'] = $this->upload("{$bot}_export_" . date('d_m_Y_H_i') . '.json', $this->export(), $c['admin'][0])['result']['message_id'];
-        $conf['backup']    = implode(' / ', [date('Y-m-d H:i'), trim(explode('/', $conf['backup'])[1])]);
         $this->setPacConf($conf);
         $this->pinAdmin($conf['pinbackup']);
     }
