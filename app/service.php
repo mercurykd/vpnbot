@@ -12,7 +12,8 @@ if ($c['debug']) {
 
 $bot = new Bot($c['key'], $i);
 
+$bot->selfUpdate();
 $bot->restartTG();
-$bot->dontshowcron = 1;
+// $bot->dontshowcron = 1;
 $bot->sslip();
 $bot->cleanDocker();

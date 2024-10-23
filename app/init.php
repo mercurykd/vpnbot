@@ -12,7 +12,6 @@ if ($c['debug']) {
 $bot = new Bot($c['key'], $i);
 $bot->cleanQueue();
 $bot->setwebhook();
-$bot->selfUpdate();
 $bot->adguardCheckPswd();
 $bot->adguardProtect();
 $bot->syncPortClients();

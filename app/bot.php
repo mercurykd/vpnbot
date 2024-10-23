@@ -1327,7 +1327,7 @@ class Bot
         ];
     }
 
-    public function importFile($file = false, $autoupdate = false)
+    public function importFile($file = false)
     {
         if (!empty($file)) {
             $json = json_decode(file_get_contents($file), true);
@@ -1367,11 +1367,7 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->wg = 0;
                 $this->saveClients($json['wg']['clients']);
-                if (empty($autoupdate)) {
-                    $this->restartWG($this->createConfig($json['wg']['server']), $switch_amnezia);
-                } else {
-                    file_put_contents('/config/wg0.conf', $this->createConfig($json['wg']['server']));
-                }
+                $this->restartWG($this->createConfig($json['wg']['server']), $switch_amnezia);
                 $this->iptablesWG();
             }
             // wg1
@@ -1380,11 +1376,7 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->wg = 1;
                 $this->saveClients($json['wg1']['clients']);
-                if (empty($autoupdate)) {
-                    $this->restartWG($this->createConfig($json['wg1']['server']), $switch_wg1amnezia);
-                } else {
-                    file_put_contents('/config/wg1.conf', $this->createConfig($json['wg1']['server']));
-                }
+                $this->restartWG($this->createConfig($json['wg1']['server']), $switch_wg1amnezia);
                 $this->iptablesWG();
             }
             // ad
@@ -5766,7 +5758,7 @@ DNS-over-HTTPS with IP:
             $r = $this->send($this->input['chat'], "import settings");
             $this->input['message_id']  = $r['result']['message_id'];
             $this->input['callback_id'] = $r['result']['message_id'];
-            $this->importFile($this->update, 1);
+            $this->importFile($this->update);
             unlink($this->update);
         }
         file_put_contents('/update/message', '');
