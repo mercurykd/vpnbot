@@ -7,10 +7,13 @@ if [ "$off" == 'null' ]
 then
     warp-svc > /dev/null &
     sleep 3
-    warp-cli --accept-tos registration new
-    if [ ! -z "$key" ]
+    if [ ! -f /var/lib/cloudflare-warp/conf.json ]
     then
-        warp-cli --accept-tos registration license $key
+        warp-cli --accept-tos registration new
+        if [ ! -z "$key" ]
+        then
+            warp-cli --accept-tos registration license $key
+        fi
     fi
     warp-cli --accept-tos mode proxy
     warp-cli --accept-tos connect

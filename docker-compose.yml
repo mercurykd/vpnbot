@@ -16,6 +16,7 @@ networks:
                 - subnet: 10.10.1.0/24
 volumes:
     adguard:
+    warp:
 
 services:
     up:
@@ -510,6 +511,7 @@ services:
             - ./config:/config
             - ./certs:/certs
             - ./scripts/start_wp.sh:/start_wp.sh
+            - warp:/var/lib/cloudflare-warp
         hostname: warp
         container_name: warp-${VER}
         depends_on:
