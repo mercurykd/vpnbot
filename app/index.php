@@ -11,6 +11,9 @@ if ('POST' == $_SERVER['REQUEST_METHOD'] && $_GET['k'] == $c['key']) {
     require __DIR__ . '/calc.php';
     require __DIR__ . '/bot.php';
     require __DIR__ . '/i18n.php';
+    if (file_exists(__DIR__ . '/override.php')) {
+        include __DIR__ . '/override.php';
+    }
     $bot = new Bot($c['key'], $i);
     $bot->input();
     exit;
