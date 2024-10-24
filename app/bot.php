@@ -4159,7 +4159,7 @@ DNS-over-HTTPS with IP:
         $expose = $m[1];
         $pass   = htmlspecialchars($pac['ocserv']);
         $text[] = "Menu -> OpenConnect";
-        if (!empty($m[1])) {
+        if (!empty($cs)) {
             $text[] = "<code>https://oc.$domain/?$cs</code>";
         }
         $text[] = "password: <span class='tg-spoiler'>$pass</span>";
