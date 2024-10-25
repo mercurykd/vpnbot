@@ -4681,7 +4681,7 @@ DNS-over-HTTPS with IP:
         $p      = $this->getPacConf();
         $text[] = "Menu -> " . $this->i18n('warp');
         $text[] = "status: " . $this->warpStatus();
-        $text[] = "key: " . $this->getPacConf()['warp'];
+        $text[] = "key: <code>{$this->getPacConf()['warp']}</code>";
         $data[] = [
             [
                 'text'          => $this->i18n($p['warpoff'] ? 'off' : 'on'),
