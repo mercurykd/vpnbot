@@ -4656,6 +4656,7 @@ DNS-over-HTTPS with IP:
     {
         $p = $this->getPacConf();
         if (empty($p['warpoff'])) {
+            $this->ssh('warp-cli --accept-tos registration delete', 'wp');
             $this->ssh('pkill warp-svc', 'wp');
             $p['warpoff'] = 1;
         } else {
