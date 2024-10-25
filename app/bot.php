@@ -142,6 +142,9 @@ class Bot
             case preg_match('~^/autoupdate$~', $this->input['message'], $m):
                 $this->autoupdate();
                 break;
+            case preg_match('~^/adgFillAllowedClients(?: (\d+))?$~', $this->input['callback'], $m):
+                $this->adgFillAllowedClients($m[1] ?: false);
+                break;
             case preg_match('~^/appOutbound$~', $this->input['callback'], $m):
                 $this->appOutbound();
                 break;
@@ -5332,6 +5335,9 @@ DNS-over-HTTPS with IP:
         }
         $safesearch = yaml_parse_file($this->adguard)['filtering']['safe_search']['enabled'];
         $text .= "\n\nsafesearch: " . $this->i18n($safesearch ? 'on' : 'off');
+        $allowedClients = yaml_parse_file($this->adguard)['dns']['allowed_clients'];
+        $text .= $allowedClients ? "\n\nallowed clients: \n - " . implode("\n - ", $allowedClients) : '';
+
         $data = [
             [
                 [
@@ -5354,6 +5360,16 @@ DNS-over-HTTPS with IP:
                     'text'          => 'ClientID' . ($conf['adguardkey'] ? ": {$conf['adguardkey']}" : ''),
                     'callback_data' => "/setAdguardKey",
                 ],
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('fill allowed clients'),
+                'callback_data' => "/adgFillAllowedClients 0",
+            ],
+            [
+                'text'          => $this->i18n('delete allowed clients'),
+                'callback_data' => "/adgFillAllowedClients 1",
             ],
         ];
         $data[] = [
@@ -5391,6 +5407,34 @@ DNS-over-HTTPS with IP:
             'text' => $text,
             'data' => $data,
         ];
+    }
+
+    public function adgFillAllowedClients($delete = false)
+    {
+        $pac = $this->getPacConf();
+        $out[] = 'Restart Adguard Home';
+        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        $this->stopAd();
+        $c = yaml_parse_file($this->adguard);
+        if (!empty($delete)) {
+            unset($c['dns']['allowed_clients']);
+        } else {
+            $c['dns']['allowed_clients'] = [];
+            if (!empty($pac['adguardKey'])) {
+                $c['dns']['allowed_clients'][] = $pac['adguardKey'];
+            }
+            $c['dns']['allowed_clients'][] = getenv('WGADDRESS');
+            $c['dns']['allowed_clients'][] = getenv('WG1ADDRESS');
+            $c['dns']['allowed_clients'][] = '10.0.2.0/24'; // openconnect
+            if (!empty($xr = $this->getXray())) {
+                foreach ($xr['inbounds'][0]['settings']['clients'] as $v) {
+                    $c['dns']['allowed_clients'][] = $v['id'];
+                }
+            }
+        }
+        yaml_emit_file($this->adguard, $c);
+        $this->startAd();
+        $this->menu('adguard');
     }
 
     public function menuLang()
