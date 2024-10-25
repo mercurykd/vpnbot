@@ -1066,17 +1066,18 @@ class Bot
 
     public function cron()
     {
+        $period = 10;
         while (true) {
             $this->shutdownClient();
             $this->shutdownClientXr();
             $this->checkVersion();
-            $this->checkBackup();
+            $this->checkBackup($period);
             $this->checkCert();
-            sleep(10);
+            sleep($period);
         }
     }
 
-    public function checkBackup()
+    public function checkBackup($delta)
     {
         $c   = $this->getPacConf();
         if (!empty($c['backup'])) {
@@ -1088,8 +1089,8 @@ class Bot
                 !empty($start)
                 && !empty($period)
                 && empty($this->backup)
-                && $now - $start >= $period
-                && ($now - $start) % $period < 10
+                && $now - $start >= 0
+                && (($now - $start) % $period < $delta)
             ) {
                 if (!empty($c['pinbackup'])) {
                     $this->pinAdmin($c['pinbackup'], 1);
