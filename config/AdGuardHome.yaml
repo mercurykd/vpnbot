@@ -16,5 +16,8 @@ dns:
 tls:
   certificate_path: /certs/cert_public
   private_key_path: /certs/cert_private
+filtering:
+  safe_search:
+    enabled: false
 log:
   file: /logs/adguard

@@ -5330,6 +5330,8 @@ DNS-over-HTTPS with IP:
             $text .= "DNS over HTTPS:\n<code>$ip</code>\n<code>$scheme://$domain/dns-query" . ($conf['adguardkey'] ? "/{$conf['adguardkey']}" : '') . "</code>\n\n";
             $text .= "DNS over TLS:\n<code>tls://" . ($conf['adguardkey'] ? "{$conf['adguardkey']}." : '') . "$domain</code>";
         }
+        $safesearch = yaml_parse_file($this->adguard)['filtering']['safe_search']['enabled'];
+        $text .= "\n\nsafesearch: " . $this->i18n($safesearch ? 'on' : 'off');
         $data = [
             [
                 [
