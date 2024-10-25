@@ -437,6 +437,9 @@ class Bot
             case preg_match('~^/xtlswarp(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->xtlswarp($m[1] ?: 0);
                 break;
+            case preg_match('~^/xtlsproxy(?: (\d+))?$~', $this->input['callback'], $m):
+                $this->xtlsproxy($m[1] ?: 0);
+                break;
             case preg_match('~^/xtlsapp(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->xtlsapp($m[1] ?: 0);
                 break;
@@ -2470,7 +2473,10 @@ DNS-over-HTTPS with IP:
     {
         switch ($type) {
             case 'includelist':
-                $this->pacUpdate();
+                $this->pacUpdate($_SESSION['proxylistentry']);
+                if (!empty($_SESSION['proxylistentry'])) {
+                    $this->xtlsproxy();
+                }
                 break;
             case 'blocklist':
                 $this->xrayUpdateRules();
@@ -3350,6 +3356,7 @@ DNS-over-HTTPS with IP:
 
     public function pacMenu($page = 0)
     {
+        unset($_SESSION['proxylistentry']);
         $rmpac  = stat(__DIR__ . '/zapretlists/rmpac');
         $rpac   = stat(__DIR__ . '/zapretlists/rpac');
         $mpac   = stat(__DIR__ . '/zapretlists/mpac');
@@ -3589,6 +3596,25 @@ DNS-over-HTTPS with IP:
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> warp list';
 
         $data   = $this->listPac('warplist', $page, 'xtlswarp');
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/routes",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
+    public function xtlsproxy($page = 0)
+    {
+        $_SESSION['proxylistentry'] = 1;
+        $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> proxy list';
+        $data   = $this->listPac('includelist', $page, 'xtlsproxy');
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -4588,6 +4614,10 @@ DNS-over-HTTPS with IP:
             [[
                 'text'          => $this->i18n('warp'),
                 'callback_data' => "/xtlswarp",
+            ]],
+            [[
+                'text'          => $this->i18n('proxy'),
+                'callback_data' => "/xtlsproxy",
             ]],
             [[
                 'text'          => $this->i18n('process'),
