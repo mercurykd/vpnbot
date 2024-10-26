@@ -5546,7 +5546,7 @@ DNS-over-HTTPS with IP:
         ];
         exec("git -C / branch -vv", $mm);
         return [
-            'text' => '<pre><code class="language-shell">' . implode("\n", $mm) . '</code></pre>',
+            'text' => '<pre><code class="language-shell">' . htmlentities(implode("\n", $mm)) . '</code></pre>',
             'data' => $data,
         ];
     }
