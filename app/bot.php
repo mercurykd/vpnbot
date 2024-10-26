@@ -3437,7 +3437,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/addCommunityFilter",
             ],
         ];
-        $data   = array_merge($data, $this->listPac('includelist', $page, 'pacMenu'));
+        $data   = array_merge($data, $this->listPac('includelist', $page, 'pacMenu')[0]);
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -3576,7 +3576,7 @@ DNS-over-HTTPS with IP:
     {
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> block list';
 
-        $data   = $this->listPac('blocklist', $page, 'xtlsblock');
+        [$data] = $this->listPac('blocklist', $page, 'xtlsblock');
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -3595,7 +3595,7 @@ DNS-over-HTTPS with IP:
     {
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> warp list';
 
-        $data   = $this->listPac('warplist', $page, 'xtlswarp');
+        [$data] = $this->listPac('warplist', $page, 'xtlswarp');
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -3614,7 +3614,7 @@ DNS-over-HTTPS with IP:
     {
         $_SESSION['proxylistentry'] = 1;
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> proxy list';
-        $data   = $this->listPac('includelist', $page, 'xtlsproxy');
+        [$data] = $this->listPac('includelist', $page, 'xtlsproxy');
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -3649,7 +3649,7 @@ DNS-over-HTTPS with IP:
     {
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> package list';
 
-        $data   = $this->listPac('packagelist', $page, 'xtlsapp');
+        [$data] = $this->listPac('packagelist', $page, 'xtlsapp');
         $p      = $this->getPacConf();
         $data[] = [
             [
@@ -3675,7 +3675,7 @@ DNS-over-HTTPS with IP:
     {
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> process list';
 
-        $data   = $this->listPac('processlist', $page, 'xtlsprocess');
+        [$data] = $this->listPac('processlist', $page, 'xtlsprocess');
         $p      = $this->getPacConf();
         $data[] = [
             [
@@ -3701,7 +3701,7 @@ DNS-over-HTTPS with IP:
     {
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> rulesset list';
 
-        $data   = $this->listPac('rulessetlist', $page, 'xtlsrulesset', 1);
+        [$data, $text] = $this->listPac('rulessetlist', $page, 'xtlsrulesset', 1);
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -3732,6 +3732,9 @@ DNS-over-HTTPS with IP:
             $domains = array_slice($domains, $page * $this->limit, $this->limit, true);
             $i = 0;
             foreach ($domains as $k => $v) {
+                if ($type == 'rulessetlist') {
+                    $text[] = "<blockquote><code>$k</code></blockquote>";
+                }
                 $data[] = [
                     [
                         'text'          => $this->i18n($v ? 'on' : 'off') . ' ' . ($basename ? basename($k) . ' ' : '') . (in_array($type, ['rulessetlist', 'packagelist', 'processlist']) ? $k : idn_to_utf8($k)),
@@ -3778,7 +3781,7 @@ DNS-over-HTTPS with IP:
                 ],
             ];
         }
-        return $data;
+        return [$data, $text];
     }
 
     public function listPacChange($type, $action, $key)
