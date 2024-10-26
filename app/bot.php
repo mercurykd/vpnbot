@@ -4705,12 +4705,18 @@ DNS-over-HTTPS with IP:
             $this->send($this->input['chat'], 'Connect: ' . $this->ssh('warp-cli --accept-tos connect 2>&1', 'wp'));
             unset($p['warpoff']);
         } else {
-            $this->send($this->input['chat'], 'Registration delete: ' . $this->ssh('warp-cli --accept-tos registration delete 2>&1', 'wp'));
+            if (empty($inversion)) {
+                $this->ssh('warp-cli --accept-tos registration delete 2>&1', 'wp');
+            } else {
+                $this->send($this->input['chat'], 'Registration delete: ' . $this->ssh('warp-cli --accept-tos registration delete 2>&1', 'wp'));
+            }
             $this->ssh('pkill warp-svc', 'wp');
             $p['warpoff'] = 1;
         }
         $this->setPacConf($p);
-        $this->warp();
+        if (!empty($inversion)) {
+            $this->warp();
+        }
     }
 
     public function warp()
