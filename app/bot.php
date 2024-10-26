@@ -4692,11 +4692,7 @@ DNS-over-HTTPS with IP:
     public function offWarp($inversion = true)
     {
         $p = $this->getPacConf();
-        if ($inversion && empty($p['warpoff'])) {
-            $this->ssh('warp-cli --accept-tos registration delete', 'wp');
-            $this->ssh('pkill warp-svc', 'wp');
-            $p['warpoff'] = 1;
-        } else {
+        if ($inversion && !empty($p['warpoff'])) {
             $this->ssh('warp-svc > /dev/null 2>&1 &', 'wp');
             sleep(3);
             if (empty($this->ssh('[ -f "/var/lib/cloudflare-warp/conf.json" ] && echo 1', 'wp'))) {
@@ -4708,6 +4704,10 @@ DNS-over-HTTPS with IP:
             $this->send($this->input['chat'], 'Proxy mode: ' . $this->ssh('warp-cli --accept-tos mode proxy 2>&1', 'wp'));
             $this->send($this->input['chat'], 'Connect: ' . $this->ssh('warp-cli --accept-tos connect 2>&1', 'wp'));
             unset($p['warpoff']);
+        } else {
+            $this->ssh('warp-cli --accept-tos registration delete', 'wp');
+            $this->ssh('pkill warp-svc', 'wp');
+            $p['warpoff'] = 1;
         }
         $this->setPacConf($p);
         $this->warp();
