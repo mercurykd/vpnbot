@@ -3701,7 +3701,8 @@ DNS-over-HTTPS with IP:
     {
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> rulesset list';
 
-        [$data, $text] = $this->listPac('rulessetlist', $page, 'xtlsrulesset', 1);
+        [$data, $tmp] = $this->listPac('rulessetlist', $page, 'xtlsrulesset', 1);
+        $text = array_merge($text, $tmp ?: []);
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
