@@ -282,8 +282,8 @@ $i = [
         'ru' => 'пагинация',
     ],
     'exchange'  => [
-        'en' => 'open ip',
-        'ru' => 'откр айпи',
+        'en' => 'client isolation',
+        'ru' => 'изоляция клиентов',
     ],
     'ocserv'  => [
         'en' => 'OpenConnect',
@@ -344,5 +344,13 @@ $i = [
     'expose-iroutes'  => [
         'en' => 'expose-iroutes',
         'ru' => 'изоляция клиентов',
+    ],
+    'fill allowed clients'  => [
+        'en' => 'fill allowed clients',
+        'ru' => 'заполнить белый список клиентов',
+    ],
+    'delete allowed clients'  => [
+        'en' => 'delete allowed clients',
+        'ru' => 'очистить белый список клиентов',
     ],
 ];
