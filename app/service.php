@@ -14,7 +14,9 @@ $bot = new Bot($c['key'], $i);
 
 $bot->selfUpdate();
 $bot->restartTG();
-$bot->offWarp(0);
+if (!empty($bot->selfupdate)) {
+    $bot->offWarp();
+}
 $bot->dontshowcron = 1;
 $bot->sslip();
 $bot->cleanDocker();
