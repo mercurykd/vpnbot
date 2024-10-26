@@ -4693,9 +4693,11 @@ DNS-over-HTTPS with IP:
     public function offWarp()
     {
         $p    = $this->getPacConf();
-        if (!empty($this->selfupdate) && !empty($p['warpoff'])) {
-            $this->ssh('warp-cli --accept-tos registration delete 2>&1', 'wp');
-            $this->ssh('pkill warp-svc', 'wp');
+        if (!empty($this->selfupdate)) {
+            if (!empty($p['warpoff'])) {
+                $this->ssh('warp-cli --accept-tos registration delete 2>&1', 'wp');
+                $this->ssh('pkill warp-svc', 'wp');
+            }
         } elseif (!empty($p['warpoff'])) {
             $this->ssh('warp-svc > /dev/null 2>&1 &', 'wp');
             sleep(3);
