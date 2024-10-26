@@ -4705,7 +4705,7 @@ DNS-over-HTTPS with IP:
             $this->send($this->input['chat'], 'Connect: ' . $this->ssh('warp-cli --accept-tos connect 2>&1', 'wp'));
             unset($p['warpoff']);
         } else {
-            $this->ssh('warp-cli --accept-tos registration delete', 'wp');
+            $this->send($this->input['chat'], 'Registration delete: ' . $this->ssh('warp-cli --accept-tos registration delete 2>&1', 'wp'));
             $this->ssh('pkill warp-svc', 'wp');
             $p['warpoff'] = 1;
         }
