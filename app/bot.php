@@ -4689,10 +4689,10 @@ DNS-over-HTTPS with IP:
         return 'off';
     }
 
-    public function offWarp()
+    public function offWarp($inversion = true)
     {
         $p = $this->getPacConf();
-        if (empty($p['warpoff'])) {
+        if ($inversion && empty($p['warpoff'])) {
             $this->ssh('warp-cli --accept-tos registration delete', 'wp');
             $this->ssh('pkill warp-svc', 'wp');
             $p['warpoff'] = 1;
