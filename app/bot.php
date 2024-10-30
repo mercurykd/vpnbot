@@ -401,6 +401,9 @@ class Bot
             case preg_match('~^/deldomain$~', $this->input['callback'], $m):
                 $this->delDomain();
                 break;
+            case preg_match('~^/addNipdomain$~', $this->input['callback'], $m):
+                $this->addNipdomain();
+                break;
             case preg_match('~^/(?P<action>change|delete)(?P<typelist>\w+) (?P<arg>\d+)$~', $this->input['callback'], $m):
                 $this->listPacChange($m['typelist'], $m['action'], $m['arg']);
                 break;
@@ -1763,6 +1766,11 @@ class Bot
             $this->answer($_SESSION['reply'][$this->input['reply']]['start_message']);
             unset($_SESSION['reply'][$this->input['reply']]);
         }
+    }
+
+    public function addNipdomain()
+    {
+        $this->addDomain(str_replace('.', '-', $this->ip) . '.nip.io');
     }
 
     public function addDomain($domain, $nomenu = false)
@@ -5597,6 +5605,10 @@ DNS-over-HTTPS with IP:
                 [
                     'text'          => $this->i18n('+ subdomain'),
                     'callback_data' => '/addSubdomain',
+                ],
+                [
+                    'text'          => $this->i18n('nip.io'),
+                    'callback_data' => '/addNipdomain',
                 ],
             ],
         ];
