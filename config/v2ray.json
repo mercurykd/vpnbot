@@ -40,10 +40,10 @@
         "protocol": "vless",
         "settings": {
             "vnext": [{
-                "address": "",
+                "address": "~domain~",
                 "port": 443,
                 "users": [{
-                    "id": "",
+                    "id": "~uid~",
                     "alterId": 0,
                     "email": "t@t.tt",
                     "security": "auto",
@@ -56,11 +56,11 @@
             "network": "tcp",
             "security": "reality",
             "realitySettings": {
-                "serverName": "",
+                "serverName": "~server_name~",
                 "fingerprint": "chrome",
                 "show": false,
-                "publicKey": "",
-                "shortId": "",
+                "publicKey": "~public_key~",
+                "shortId": "~short_id~",
                 "spiderX": ""
             }
         },

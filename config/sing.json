@@ -68,23 +68,23 @@
         {
             "flow": "xtls-rprx-vision",
             "packet_encoding": "",
-            "server": "",
+            "server": "~domain~",
             "server_port": 443,
             "tls": {
                 "enabled": true,
                 "insecure": false,
                 "reality": {
                     "enabled": true,
-                    "public_key": "",
-                    "short_id": ""
+                    "public_key": "~public_key~",
+                    "short_id": "~short_id~"
                 },
-                "server_name": "",
+                "server_name": "~server_name~",
                 "utls": {
                     "enabled": true,
                     "fingerprint": "chrome"
                 }
             },
-            "uuid": "",
+            "uuid": "~uid~",
             "type": "vless",
             "domain_strategy": "ipv4_only",
             "tag": "proxy"
