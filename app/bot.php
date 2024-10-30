@@ -455,6 +455,9 @@ class Bot
             case preg_match('~^/delTemplate (\w+)(?: (.+))?$~', $this->input['callback'], $m):
                 $this->delTemplate($m[1], $m[2]);
                 break;
+            case preg_match('~^/downloadOrigin (\w+)$~', $this->input['callback'], $m):
+                $this->downloadOrigin($m[1]);
+                break;
             case preg_match('~^/downloadTemplate (\w+)(?: (.+))?$~', $this->input['callback'], $m):
                 $this->downloadTemplate($m[1], $m[2]);
                 break;
@@ -4415,6 +4418,19 @@ DNS-over-HTTPS with IP:
         $this->templates($type);
     }
 
+    public function downloadOrigin($type)
+    {
+        switch ($type) {
+            case 'sing':
+                $f = new \CURLFile('/config/sing.json', 'application/json', 'origin.json');
+                break;
+            case 'v2ray':
+                $f = new \CURLFile('/config/v2ray.json', 'application/json', 'origin.json');
+                break;
+        }
+        $this->sendFile($this->input['chat'], $f);
+    }
+
     public function downloadTemplate($type, $name)
     {
         $pac = $this->getPacConf();
@@ -4454,6 +4470,10 @@ DNS-over-HTTPS with IP:
                 'web_app' => ['url' => "https://$domain/pac?h=$hash&t=te&ty=$type"],
             ],
             [
+                'text'          => $this->i18n('download'),
+                'callback_data' => "/downloadOrigin $type",
+            ],
+            [
                 'text'          => $this->i18n($pac["default{$type}template"] && !empty($pac["{$type}templates"][base64_decode($pac["default{$type}template"])]) ? 'off' : 'on'),
                 'callback_data' => "/defaultTemplate $type",
             ],
@@ -4461,7 +4481,7 @@ DNS-over-HTTPS with IP:
         foreach ($templates as $k => $v) {
             $data[] = [
                 [
-                    'text'          => "$k",
+                    'text'          => $k,
                     'web_app' => ['url' => "https://$domain/pac?h=$hash&t=te&ty=$type&te=" . urlencode($k)],
                 ],
                 [
