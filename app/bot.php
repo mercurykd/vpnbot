@@ -1821,7 +1821,7 @@ class Bot
         $this->input['chat']        = $c['admin'][0];
         $this->input['message_id']  = $r['result']['message_id'];
         $this->input['callback_id'] = false;
-        if (empty($p['domain'])) {
+        if (empty($p)) {
             $this->addDomain(str_replace('.', '-', $this->ip) . '.nip.io', 1);
             $this->setSSL('letsencrypt');
         }
