@@ -18,5 +18,6 @@ if (!empty($bot->selfupdate)) {
     $bot->offWarp();
 }
 $bot->dontshowcron = 1;
+$bot->adguardSync();
 $bot->sslip();
 $bot->cleanDocker();

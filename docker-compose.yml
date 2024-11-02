@@ -303,7 +303,7 @@ services:
                 ipv4_address: 10.10.0.14
         logging: *default-logging
     ad:
-        image: mercurykd/vpnbot-ad:1.1
+        image: mercurykd/vpnbot-ad:1.2
         build:
             dockerfile: dockerfile/adguard.dockerfile
             args:

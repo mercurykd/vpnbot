@@ -289,9 +289,6 @@ class Bot
             case preg_match('~^/checkdns$~', $this->input['callback'], $m):
                 $this->checkdns();
                 break;
-            case preg_match('~^/resetnginx$~', $this->input['callback'], $m):
-                $this->resetnginx();
-                break;
             case preg_match('~^/adguardpsswd$~', $this->input['callback'], $m):
                 $this->adguardpsswd();
                 break;
@@ -2070,25 +2067,20 @@ class Bot
         ];
     }
 
-    public function resetnginx()
+    public function adguardSync()
     {
-        $nginx   = file_get_contents('/config/nginx.conf');
-        $default = file_get_contents('/config/nginx_default.conf');
-        file_put_contents('/config/nginx.conf', $default);
-        $u = $this->ssh("nginx -t 2>&1", 'ng');
-        $out[] = $u;
-        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-        if (preg_match('~test is successful~', $u)) {
-            $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
-            $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-            $conf = $this->getPacConf();
-            unset($conf['domain']);
-            $this->setPacConf($conf);
-        } else {
-            file_put_contents('/config/nginx.conf', $nginx);
+        $pac = $this->getPacConf();
+        $ssl = $this->nginxGetTypeCert();
+        $c   = yaml_parse_file($this->adguard);
+        $this->stopAd();
+        $c['users'][0]['password'] = $pac['adpswd'] ?: password_hash(substr(hash('md5', time()), 0, 10), PASSWORD_DEFAULT);
+        if (!empty($ssl) && !empty($pac['domain']) && empty($c['tls']['enabled'])) {
+            $c['tls']['enabled']     = true;
+            $c['tls']['server_name'] = $pac['domain'];
         }
-        sleep(5);
-        $this->menu('config');
+        yaml_emit_file($this->adguard, $c);
+        $this->startAd();
+        $this->adguardProtect();
     }
 
     public function adguardpsswd()
@@ -2259,7 +2251,12 @@ class Bot
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         $out[] = $this->stopAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-        $this->adguardChangePswd($pass);
+        $c = yaml_parse_file($this->adguard);
+        $c['users'][0]['password'] = password_hash($pass, PASSWORD_DEFAULT);
+        yaml_emit_file($this->adguard, $c);
+        $p = $this->getPacConf();
+        $p['adpswd'] = $pass;
+        $this->setPacConf($p);
         $out[] = $this->startAd();
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         sleep(3);
@@ -2270,12 +2267,8 @@ class Bot
     {
         $out[] = 'Restart Adguard Home';
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-        $out[] = $this->stopAd();
-        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-        $c = yaml_parse_file($this->adguard);
-        yaml_emit_file($this->adguard, $c);
-        $out[] = $this->startAd();
-        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+        exec('git -C / checkout config/AdGuardHome.yaml');
+        $this->adguardSync();
         sleep(3);
         $this->menu('adguard');
     }
@@ -5336,23 +5329,6 @@ DNS-over-HTTPS with IP:
         ];
     }
 
-    public function adguardCheckPswd()
-    {
-        if (empty($this->getPacConf()['adpswd'])) {
-            $this->adguardChangePswd(substr(hash('md5', time()), 0, 10));
-        }
-    }
-
-    public function adguardChangePswd($pass)
-    {
-        $c = yaml_parse_file($this->adguard);
-        $c['users'][0]['password'] = password_hash($pass, PASSWORD_DEFAULT);
-        yaml_emit_file($this->adguard, $c);
-        $p = $this->getPacConf();
-        $p['adpswd'] = $pass;
-        $this->setPacConf($p);
-    }
-
     public function adguardProtect()
     {
         $h = substr(hash('sha256', $this->key), 0, 8);
@@ -5403,8 +5379,9 @@ DNS-over-HTTPS with IP:
             $text .= "DNS over HTTPS:\n<code>$ip</code>\n<code>$scheme://$domain/dns-query" . ($conf['adguardkey'] ? "/{$conf['adguardkey']}" : '') . "</code>\n\n";
             $text .= "DNS over TLS:\n<code>tls://" . ($conf['adguardkey'] ? "{$conf['adguardkey']}." : '') . "$domain</code>";
         }
+        $status = $this->i18n(exec("JSON=1 dnslookup google.com ad") ? 'on' : 'off');
         $safesearch = yaml_parse_file($this->adguard)['filtering']['safe_search']['enabled'];
-        $text .= "\n\nsafesearch: " . $this->i18n($safesearch ? 'on' : 'off');
+        $text .= "\n\nstatus: $status\t\tsafesearch: " . $this->i18n($safesearch ? 'on' : 'off');
         $allowedClients = yaml_parse_file($this->adguard)['dns']['allowed_clients'];
         $text .= $allowedClients ? "\n\nallowed clients: \n - " . implode("\n - ", $allowedClients) : '';
 
@@ -5444,12 +5421,18 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
-                'text'          => $this->i18n('add upstream'),
-                'callback_data' => "/addupstream",
-            ],
-            [
                 'text'          => $this->i18n('check DNS'),
                 'callback_data' => "/checkdns",
+            ],
+            [
+                'text'          => $this->i18n('reset settings'),
+                'callback_data' => "/adguardreset",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('add upstream'),
+                'callback_data' => "/addupstream",
             ],
         ];
         $upstreams = yaml_parse_file($this->adguard)['dns']['upstream_dns'];
@@ -5490,6 +5473,7 @@ DNS-over-HTTPS with IP:
             unset($c['dns']['allowed_clients']);
         } else {
             $c['dns']['allowed_clients'] = [];
+            $c['dns']['allowed_clients'][] = '10.10.0.0/24';
             if (!empty($pac['adguardKey'])) {
                 $c['dns']['allowed_clients'][] = $pac['adguardKey'];
             }
@@ -5669,12 +5653,6 @@ DNS-over-HTTPS with IP:
                 ];
             }
         }
-        /*$data[] = [
-            [
-                'text'          => $this->i18n('reset nginx'),
-                'callback_data' => "/resetnginx",
-            ],
-        ];*/
         $data[] = [
             [
                 'text'          => "{$this->i18n('add')} {$this->i18n('admin')}",
