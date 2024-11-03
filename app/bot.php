@@ -148,6 +148,12 @@ class Bot
             case preg_match('~^/appOutbound$~', $this->input['callback'], $m):
                 $this->appOutbound();
                 break;
+            case preg_match('~^/domainsOutbound$~', $this->input['callback'], $m):
+                $this->domainsOutbound();
+                break;
+            case preg_match('~^/finalOutbound$~', $this->input['callback'], $m):
+                $this->finalOutbound();
+                break;
             case preg_match('~^/processOutbound$~', $this->input['callback'], $m):
                 $this->processOutbound();
                 break;
@@ -3617,8 +3623,15 @@ DNS-over-HTTPS with IP:
     public function xtlsproxy($page = 0)
     {
         $_SESSION['proxylistentry'] = 1;
+        $p = $this->getPacConf();
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> proxy list';
         [$data] = $this->listPac('includelist', $page, 'xtlsproxy');
+        $data[] = [
+            [
+                'text'          => 'set to ' . ($p['domains_outbound'] ? 'proxy' : 'direct'),
+                'callback_data' => "/domainsOutbound",
+            ],
+        ];
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -3639,6 +3652,22 @@ DNS-over-HTTPS with IP:
         $p['app_outbound'] = !$p['app_outbound'];
         $p = $this->setPacConf($p);
         $this->xtlsapp();
+    }
+
+    public function domainsOutbound()
+    {
+        $p = $this->getPacConf();
+        $p['domains_outbound'] = !$p['domains_outbound'];
+        $p = $this->setPacConf($p);
+        $this->xtlsproxy();
+    }
+
+    public function finalOutbound()
+    {
+        $p = $this->getPacConf();
+        $p['final_outbound'] = !$p['final_outbound'];
+        $p = $this->setPacConf($p);
+        $this->routes();
     }
 
     public function processOutbound()
@@ -4631,6 +4660,8 @@ DNS-over-HTTPS with IP:
     {
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> routes';
 
+        $p = $this->getPacConf();
+
         $data = [
             [[
                 'text'          => $this->i18n('block'),
@@ -4641,20 +4672,24 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/xtlswarp",
             ]],
             [[
-                'text'          => $this->i18n('proxy'),
+                'text'          => $this->i18n('rulesset'),
+                'callback_data' => "/xtlsrulesset",
+            ]],
+            [[
+                'text'          => 'domains: ' . ($p['domains_outbound'] ? 'direct' : 'proxy'),
                 'callback_data' => "/xtlsproxy",
             ]],
             [[
-                'text'          => $this->i18n('process'),
+                'text'          => 'process: ' . ($p['process_outbound'] ? 'direct' : 'proxy'),
                 'callback_data' => "/xtlsprocess",
             ]],
             [[
-                'text'          => $this->i18n('package'),
+                'text'          => 'package: ' . ($p['app_outbound'] ? 'direct' : 'proxy'),
                 'callback_data' => "/xtlsapp",
             ]],
             [[
-                'text'          => $this->i18n('rulesset'),
-                'callback_data' => "/xtlsrulesset",
+                'text'          => 'final: ' . ($p['final_outbound'] ? 'proxy' : 'direct'),
+                'callback_data' => "/finalOutbound",
             ]],
         ];
         $data[] = [
@@ -5086,13 +5121,17 @@ DNS-over-HTTPS with IP:
         }
 
         $json = $this->replaceTags(json_encode($c), [
-            '"~pac~"'         => json_encode(array_keys(array_filter($pac['includelist'] ?: []))),
-            '~dns~'         => "https://$domain/dns-query/$uid",
-            '~uid~'         => $uid,
-            '~domain~'      => $domain,
-            '~short_id~'    => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
-            '~public_key~'  => $pac['xray'],
-            '~server_name~' => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
+            '"~pac~"'            => json_encode(array_keys(array_filter($pac['includelist'] ?: []))),
+            '~dns~'              => "https://$domain/dns-query/$uid",
+            '~uid~'              => $uid,
+            '~domain~'           => $domain,
+            '~short_id~'         => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
+            '~public_key~'       => $pac['xray'],
+            '~server_name~'      => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
+            '~app_outbound~'     => $pac['app_outbound'] ? 'direct' : 'proxy',
+            '~process_outbound~' => $pac['process_outbound'] ? 'direct' : 'proxy',
+            '~domains_outbound~' => $pac['domains_outbound'] ? 'direct' : 'proxy',
+            '~final_outbound~'   => $pac['final_outbound'] ? 'proxy' : 'direct',
         ]);
         $json = $this->clearEmptyRules($json);
 
@@ -5222,11 +5261,6 @@ DNS-over-HTTPS with IP:
                         "download_detour" => "direct",
                     ];
                     $route['rules'][$k]['rule_set'][] = $r['name'];
-                    switch (true) {
-                        case preg_match('#~(.+)~#', $route['rules'][$k]['outbound'], $m):
-                            $route['rules'][$k]['outbound'] = $pac[$m[1]] ? 'direct' : 'proxy';
-                            break;
-                    }
                 }
                 unset($route['rules'][$k]['createruleset']);
                 if (empty($route['rules'][$k]['rule_set'])) {

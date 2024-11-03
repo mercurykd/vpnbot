@@ -113,6 +113,20 @@
             {
                 "createruleset": [
                     {
+                        "name": "pac",
+                        "interval": "15s",
+                        "rules": [
+                            {
+                                "domain_suffix": "~pac~"
+                            }
+                        ]
+                    }
+                ],
+                "outbound": "~domains_outbound~"
+            },
+            {
+                "createruleset": [
+                    {
                         "name": "package",
                         "interval": "15s",
                         "rules": [
@@ -155,15 +169,6 @@
             {
                 "createruleset": [
                     {
-                        "name": "pac",
-                        "interval": "15s",
-                        "rules": [
-                            {
-                                "domain_suffix": "~pac~"
-                            }
-                        ]
-                    },
-                    {
                         "name": "warp",
                         "interval": "15s",
                         "rules": [
@@ -179,6 +184,6 @@
                 "outbound": "direct"
             }
         ],
-        "final": "direct"
+        "final": "~final_outbound~"
     }
 }
