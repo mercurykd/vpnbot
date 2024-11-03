@@ -18,13 +18,13 @@
             "streamSettings": {
                 "network": "tcp",
                 "realitySettings": {
-                    "dest": "www.microsoft.com:443",
+                    "dest": "telegram.org:443",
                     "maxClientVer": "",
                     "maxTimeDiff": 0,
                     "minClientVer": "",
                     "privateKey": "",
                     "serverNames": [
-                        "www.microsoft.com"
+                        "telegram.org"
                     ],
                     "shortIds": [],
                     "show": false,
