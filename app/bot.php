@@ -455,6 +455,9 @@ class Bot
             case preg_match('~^/xtlsrulesset(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->xtlsrulesset($m[1] ?: 0);
                 break;
+            case preg_match('~^/templateCopy (\w+)(?: (.+))?$~', $this->input['callback'], $m):
+                $this->templateCopy($m[1], $m[2]);
+                break;
             case preg_match('~^/delTemplate (\w+)(?: (.+))?$~', $this->input['callback'], $m):
                 $this->delTemplate($m[1], $m[2]);
                 break;
@@ -4414,6 +4417,22 @@ DNS-over-HTTPS with IP:
         ];
     }
 
+    public function templateCopy($type)
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} send the template name",
+            $this->input['message_id'],
+            reply: 'send the template name',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'copyTemplate',
+            'args'           => [$type],
+        ];
+    }
+
     public function addTemplate($n, $type)
     {
         if (empty($this->input['caption'])) {
@@ -4432,10 +4451,42 @@ DNS-over-HTTPS with IP:
         $this->templates($type);
     }
 
+    public function saveTemplate($name, $type, $json)
+    {
+        if (json_decode($json, true) === false) {
+            return [
+                'status'  => false,
+                'message' => 'wrong format',
+            ];
+        }
+        $pac = $this->getPacConf();
+        switch ($name) {
+            case 'origin':
+                file_put_contents("/config/$type.json", $json);
+                break;
+
+            default:
+                $pac["{$type}templates"][$name] = json_decode($json, true);
+                break;
+        }
+        $this->setPacConf($pac);
+        return [
+            'status' => true,
+        ];
+    }
+
     public function delTemplate($type, $name)
     {
         $pac = $this->getPacConf();
         unset($pac["{$type}templates"][base64_decode($name)]);
+        $this->setPacConf($pac);
+        $this->templates($type);
+    }
+
+    public function copyTemplate($name, $type)
+    {
+        $pac  = $this->getPacConf();
+        $pac["{$type}templates"][$name] = json_decode(file_get_contents("/config/$type.json"), true);
         $this->setPacConf($pac);
         $this->templates($type);
     }
@@ -4494,6 +4545,10 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('download'),
                 'callback_data' => "/downloadOrigin $type",
+            ],
+            [
+                'text'          => $this->i18n('copy'),
+                'callback_data' => "/templateCopy $type",
             ],
             [
                 'text'          => $this->i18n($pac["default{$type}template"] && !empty($pac["{$type}templates"][base64_decode($pac["default{$type}template"])]) ? 'off' : 'on'),
