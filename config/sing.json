@@ -87,7 +87,7 @@
             "uuid": "~uid~",
             "type": "vless",
             "domain_strategy": "ipv4_only",
-            "tag": "proxy"
+            "tag": "~outbound~"
         },
         {
             "type": "direct",
@@ -178,7 +178,7 @@
                         ]
                     }
                 ],
-                "outbound": "proxy"
+                "outbound": "~outbound~"
             },
             {
                 "outbound": "direct"

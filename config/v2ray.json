@@ -36,7 +36,7 @@
         }
     }],
     "outbounds": [{
-        "tag": "proxy",
+        "tag": "~outbound~",
         "protocol": "vless",
         "settings": {
             "vnext": [{
@@ -84,7 +84,7 @@
         "domainStrategy": "AsIs",
         "rules": [{
             "type": "field",
-            "outboundTag": "proxy",
+            "outboundTag": "~outbound~",
             "domain": "~pac~"
         }, {
             "type": "field",

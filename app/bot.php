@@ -4716,6 +4716,7 @@ DNS-over-HTTPS with IP:
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> routes';
 
         $p = $this->getPacConf();
+        $outbound = $p['outbound'] ?: 'proxy';
 
         $data = [
             [[
@@ -4731,19 +4732,19 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/xtlsrulesset",
             ]],
             [[
-                'text'          => 'domains: ' . ($p['domains_outbound'] ? 'direct' : 'proxy'),
+                'text'          => 'domains: ' . ($p['domains_outbound'] ? 'direct' : $outbound),
                 'callback_data' => "/xtlsproxy",
             ]],
             [[
-                'text'          => 'process: ' . ($p['process_outbound'] ? 'direct' : 'proxy'),
+                'text'          => 'process: ' . ($p['process_outbound'] ? 'direct' : $outbound),
                 'callback_data' => "/xtlsprocess",
             ]],
             [[
-                'text'          => 'package: ' . ($p['app_outbound'] ? 'direct' : 'proxy'),
+                'text'          => 'package: ' . ($p['app_outbound'] ? 'direct' : $outbound),
                 'callback_data' => "/xtlsapp",
             ]],
             [[
-                'text'          => 'final: ' . ($p['final_outbound'] ? 'proxy' : 'direct'),
+                'text'          => 'final: ' . ($p['final_outbound'] ? $outbound : 'direct'),
                 'callback_data' => "/finalOutbound",
             ]],
         ];
@@ -5112,15 +5113,26 @@ DNS-over-HTTPS with IP:
                 break;
         }
 
+        $outbound = $pac['outbound'] ?: 'proxy';
+        $c = json_decode($this->replaceTags(json_encode($c), [
+            '~outbound~' => $outbound,
+        ]), true);
+        foreach ($c['outbounds'] as $k => $v) {
+            if ($v['tag'] == $outbound) {
+                $index = $k;
+                break;
+            }
+        }
+
         switch ($_GET['t']) {
             case 's':
-                $c['outbounds'][0]['settings']['vnext'][0]['address']  = '~domain~';
-                $c['outbounds'][0]['settings']['vnext'][0]['users'][0] = [
+                $c['outbounds'][$index]['settings']['vnext'][0]['address']  = '~domain~';
+                $c['outbounds'][$index]['settings']['vnext'][0]['users'][0] = [
                     'id'         => '~uid~',
                     'encryption' => 'none',
                 ];
                 if ($pac['transport'] == 'Websocket') {
-                    $c['outbounds'][0]['streamSettings'] = [
+                    $c['outbounds'][$index]['streamSettings'] = [
                         "network"    => "ws",
                         "security"   => "tls",
                         "wsSettings" => [
@@ -5132,10 +5144,10 @@ DNS-over-HTTPS with IP:
                             "fingerprint"   => "chrome"
                         ]
                     ];
-                    unset($c['outbounds'][0]['mux']);
+                    unset($c['outbounds'][$index]['mux']);
                 } else {
-                    $c['outbounds'][0]['settings']['vnext'][0]['users'][0]["flow"] = "xtls-rprx-vision";
-                    $c['outbounds'][0]['streamSettings']                           = [
+                    $c['outbounds'][$index]['settings']['vnext'][0]['users'][0]["flow"] = "xtls-rprx-vision";
+                    $c['outbounds'][$index]['streamSettings']                           = [
                         "network"         => "tcp",
                         "security"        => "reality",
                         "realitySettings" => [
@@ -5145,29 +5157,29 @@ DNS-over-HTTPS with IP:
                             "shortId"     => '~short_id~',
                         ]
                     ];
-                    $c['outbounds'][0]['mux'] = [
+                    $c['outbounds'][$index]['mux'] = [
                         "enabled"     => false,
                         "concurrency" => -1
                     ];
                 }
                 break;
             case 'si':
-                $c['outbounds'][0]['server'] = '~domain~';
-                $c['outbounds'][0]['uuid']   = '~uid~';
+                $c['outbounds'][$index]['server'] = '~domain~';
+                $c['outbounds'][$index]['uuid']   = '~uid~';
                 if ($pac['transport'] == 'Websocket') {
-                    unset($c['outbounds'][0]['tls']['reality']);
-                    unset($c['outbounds'][0]['flow']);
-                    $c['outbounds'][0]["transport"] = [
+                    unset($c['outbounds'][$index]['tls']['reality']);
+                    unset($c['outbounds'][$index]['flow']);
+                    $c['outbounds'][$index]["transport"] = [
                         "type" => "ws",
                         "path" => "/ws"
                     ];
-                    $c['outbounds'][0]['tls']['server_name'] = '~domain~';
+                    $c['outbounds'][$index]['tls']['server_name'] = '~domain~';
                 } else {
-                    unset($c['outbounds'][0]["transport"]);
-                    $c['outbounds'][0]['flow']                         = 'xtls-rprx-vision';
-                    $c['outbounds'][0]['tls']['reality']['public_key'] = '~public_key~';
-                    $c['outbounds'][0]['tls']['server_name']           = '~server_name~';
-                    $c['outbounds'][0]['tls']['reality']['short_id']   = '~short_id~';
+                    unset($c['outbounds'][$index]["transport"]);
+                    $c['outbounds'][$index]['flow']                         = 'xtls-rprx-vision';
+                    $c['outbounds'][$index]['tls']['reality']['public_key'] = '~public_key~';
+                    $c['outbounds'][$index]['tls']['server_name']           = '~server_name~';
+                    $c['outbounds'][$index]['tls']['reality']['short_id']   = '~short_id~';
                 }
 
                 $c['route'] = $this->addRuleSet($c['route']);
@@ -5183,10 +5195,10 @@ DNS-over-HTTPS with IP:
             '~short_id~'         => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
             '~public_key~'       => $pac['xray'],
             '~server_name~'      => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
-            '~app_outbound~'     => $pac['app_outbound'] ? 'direct' : 'proxy',
-            '~process_outbound~' => $pac['process_outbound'] ? 'direct' : 'proxy',
-            '~domains_outbound~' => $pac['domains_outbound'] ? 'direct' : 'proxy',
-            '~final_outbound~'   => $pac['final_outbound'] ? 'proxy' : 'direct',
+            '~app_outbound~'     => $pac['app_outbound'] ? 'direct' : $outbound,
+            '~process_outbound~' => $pac['process_outbound'] ? 'direct' : $outbound,
+            '~domains_outbound~' => $pac['domains_outbound'] ? 'direct' : $outbound,
+            '~final_outbound~'   => $pac['final_outbound'] ? $outbound : 'direct',
         ]);
         $json = $this->clearEmptyRules($json);
 
