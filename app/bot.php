@@ -199,6 +199,9 @@ class Bot
             case preg_match('~^/applyupdatebot$~', $this->input['callback'], $m):
                 $this->applyupdatebot();
                 break;
+            case preg_match('~^/restart$~', $this->input['callback'], $m):
+                $this->restart();
+                break;
             case preg_match('~^/branches$~', $this->input['callback'], $m):
                 $this->branches();
                 break;
@@ -5693,6 +5696,20 @@ DNS-over-HTTPS with IP:
         $this->delete($this->input['from'], $this->input['message_id']);
     }
 
+    public function restart()
+    {
+        $r = $this->send($this->input['from'], 'restart...');
+        file_put_contents('/update/reload_message', "{$this->input['from']}:{$r['result']['message_id']}");
+        file_put_contents('/update/key', $this->key);
+        file_put_contents('/update/curl', json_encode([
+            'chat_id'    => $this->input['chat'],
+            'message_id' => $r['result']['message_id'],
+            'text'       => '~t~'
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        file_put_contents('/update/pipe', '2');
+        $this->delete($this->input['from'], $this->input['message_id']);
+    }
+
     public function configMenu()
     {
         exec('git -C / fetch');
@@ -5839,6 +5856,10 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n(exec('git -C / rev-list --count HEAD..@{u}') ? 'have updates' : 'no updates'),
                 'callback_data' => "/menu update",
+            ],
+            [
+                'text'          => $this->i18n('restart'),
+                'callback_data' => "/restart",
             ],
         ];
         $data[] = [

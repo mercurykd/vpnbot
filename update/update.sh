@@ -12,17 +12,20 @@ do
         key=$(cat $pwd/update/key)
         curl -H "Content-Type: application/json" -X POST https://api.telegram.org/bot$key/editMessageText -d "$(cat $pwd/update/curl | sed 's/"text":"~t~"/"text": "останавливаю бота"/')"
         docker compose down --remove-orphans
-        curl -H "Content-Type: application/json" -X POST https://api.telegram.org/bot$key/editMessageText -d "$(cat $pwd/update/curl | sed 's/"text":"~t~"/"text": "очищаю директорию"/')"
-        git reset --hard && git clean -fd
-        curl -H "Content-Type: application/json" -X POST https://api.telegram.org/bot$key/editMessageText -d "$(cat $pwd/update/curl | sed 's/"text":"~t~"/"text": "скачиваю обновление"/')"
-        git fetch
-        if [[ -n "$branch" ]]
+        if [[ "$cmd" == 1]]
         then
-            curl -H "Content-Type: application/json" -X POST https://api.telegram.org/bot$key/editMessageText -d "$(cat $pwd/update/curl | sed 's/"text":"~t~"/"text": "меняю ветку"/')"
-            git checkout -t origin/$branch || git checkout $branch
+            curl -H "Content-Type: application/json" -X POST https://api.telegram.org/bot$key/editMessageText -d "$(cat $pwd/update/curl | sed 's/"text":"~t~"/"text": "очищаю директорию"/')"
+            git reset --hard && git clean -fd
+            curl -H "Content-Type: application/json" -X POST https://api.telegram.org/bot$key/editMessageText -d "$(cat $pwd/update/curl | sed 's/"text":"~t~"/"text": "скачиваю обновление"/')"
+            git fetch
+            if [[ -n "$branch" ]]
+            then
+                curl -H "Content-Type: application/json" -X POST https://api.telegram.org/bot$key/editMessageText -d "$(cat $pwd/update/curl | sed 's/"text":"~t~"/"text": "меняю ветку"/')"
+                git checkout -t origin/$branch || git checkout $branch
+            fi
+            curl -H "Content-Type: application/json" -X POST https://api.telegram.org/bot$key/editMessageText -d "$(cat $pwd/update/curl | sed 's/"text":"~t~"/"text": "применяю обновления"/')"
+            git pull > ./update/message
         fi
-        curl -H "Content-Type: application/json" -X POST https://api.telegram.org/bot$key/editMessageText -d "$(cat $pwd/update/curl | sed 's/"text":"~t~"/"text": "применяю обновления"/')"
-        git pull > ./update/message
         curl -H "Content-Type: application/json" -X POST https://api.telegram.org/bot$key/editMessageText -d "$(cat $pwd/update/curl | sed 's/"text":"~t~"/"text": "запускаю бота"/')"
         IP=$(curl ipinfo.io/ip) VER=$(git describe --tags) docker compose --env-file ./.env --env-file ./override.env up -d --force-recreate
         bash $pwd/update/update.sh &
