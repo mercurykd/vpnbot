@@ -22,3 +22,4 @@ update/*
 override.env
 override.html
 override.php
+docker-compose.override.yml

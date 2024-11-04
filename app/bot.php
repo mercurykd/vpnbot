@@ -142,6 +142,9 @@ class Bot
             case preg_match('~^/autoupdate$~', $this->input['message'], $m):
                 $this->autoupdate();
                 break;
+            case preg_match('~^/ports$~', $this->input['callback'], $m):
+                $this->ports();
+                break;
             case preg_match('~^/adgFillAllowedClients(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->adgFillAllowedClients($m[1] ?: false);
                 break;
@@ -180,6 +183,9 @@ class Bot
                 break;
             case preg_match('~^/exportList (\w+)$~', $this->input['callback'], $m):
                 $this->exportList($m[1]);
+                break;
+            case preg_match('~^/hidePort (\w+)$~', $this->input['callback'], $m):
+                $this->hidePort($m[1]);
                 break;
             case preg_match('~^/deleteYes (\w+)$~', $this->input['callback'], $m):
                 $this->deleteYes($m[1]);
@@ -5814,6 +5820,10 @@ DNS-over-HTTPS with IP:
                 'text'          => $this->i18n('fake html'),
                 'callback_data' => "/addOverrideHtml",
             ],
+            [
+                'text'          => $this->i18n('ports'),
+                'callback_data' => "/ports",
+            ],
         ];
         $data[] = [
             [
@@ -5841,6 +5851,69 @@ DNS-over-HTTPS with IP:
             'text' => implode("\n", $text),
             'data' => $data,
         ];
+    }
+
+    public function ports()
+    {
+        $text[] = 'Settings -> Ports';
+        $f = '/docker/compose';
+        $c = yaml_parse_file($f)['services'];
+        $data = [
+            [[
+                'text'          => 'Letsencrypt 80 ' . $this->i18n($c['ng'] ? 'off' : 'on'),
+                'callback_data' => "/hidePort ng",
+            ]],
+            [[
+                'text'          => 'Shadowsocks ' . getenv('SSPORT') . ' ' . $this->i18n($c['ss'] ? 'off' : 'on'),
+                'callback_data' => "/hidePort ss",
+            ]],
+            [[
+                'text'          => 'DoT 853 ' . $this->i18n($c['ad'] ? 'off' : 'on'),
+                'callback_data' => "/hidePort ad",
+            ]],
+            [[
+                'text'          => 'Wireguard-1 ' . getenv('WGPORT') . ' ' . $this->i18n($c['wg'] ? 'off' : 'on'),
+                'callback_data' => "/hidePort wg",
+            ]],
+            [[
+                'text'          => 'Wireguard-2 ' . getenv('WG1PORT') . ' ' . $this->i18n($c['wg1'] ? 'off' : 'on'),
+                'callback_data' => "/hidePort wg1",
+            ]],
+            [[
+                'text'          => 'MTProto ' . getenv('TGPORT') . ' ' . $this->i18n($c['tg'] ? 'off' : 'on'),
+                'callback_data' => "/hidePort tg",
+            ]],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu config",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
+    public function hidePort($container)
+    {
+        $f = '/docker/compose';
+        $c = yaml_parse_file($f);
+        if (!empty($c['services'][$container])) {
+            unset($c['services'][$container]);
+        } else {
+            $c['services'][$container]['ports'] = [];
+        }
+        if (empty($c['services'])) {
+            file_put_contents($f, '');
+        } else {
+            yaml_emit_file($f, $c);
+            file_put_contents($f, str_replace('ports:', 'ports: !override', file_get_contents($f)));
+        }
+        $this->ports();
     }
 
     public function branches()
