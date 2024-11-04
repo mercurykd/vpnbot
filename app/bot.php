@@ -4462,7 +4462,7 @@ DNS-over-HTTPS with IP:
         $pac = $this->getPacConf();
         switch ($name) {
             case 'origin':
-                file_put_contents("/config/$type.json", $json);
+                file_put_contents("/config/$type.json", json_encode(json_decode($json, true), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
                 break;
 
             default:
