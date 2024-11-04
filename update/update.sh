@@ -12,7 +12,7 @@ do
         key=$(cat $pwd/update/key)
         curl -H "Content-Type: application/json" -X POST https://api.telegram.org/bot$key/editMessageText -d "$(cat $pwd/update/curl | sed 's/"text":"~t~"/"text": "останавливаю бота"/')"
         docker compose down --remove-orphans
-        if [[ "$cmd" == "1"]]
+        if [[ "$cmd" == "1" ]]
         then
             curl -H "Content-Type: application/json" -X POST https://api.telegram.org/bot$key/editMessageText -d "$(cat $pwd/update/curl | sed 's/"text":"~t~"/"text": "очищаю директорию"/')"
             git reset --hard && git clean -fd
