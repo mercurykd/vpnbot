@@ -3,7 +3,7 @@ b:
 u: # запуск контейнеров
 	$(eval IP := $(shell curl -s -t 1 2ip.io || curl -s -t 1 ipinfo.io/ip || curl -s -t 1 ifconfig.me))
 	bash ./update/update.sh &
-	touch ./override.env
+	touch ./override.env ./docker-compose.override.yml
 	IP=$(IP) VER=$(shell git describe --tags) docker compose --env-file ./.env --env-file ./override.env up -d --force-recreate
 d: # остановка контейнеров
 	-kill -9 $(shell cat ./update/update_pid) > /dev/null

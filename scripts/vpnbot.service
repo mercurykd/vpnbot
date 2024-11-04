@@ -6,7 +6,7 @@ After=docker.service
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=path
-ExecStartPre=/bin/sh -c "touch ./override.env"
+ExecStartPre=/bin/sh -c "touch ./override.env ./docker-compose.override.yml"
 ExecStart=/bin/sh -c "IP=$(curl https://ipinfo.io/ip) VER=$(git describe --tags) docker compose --env-file ./.env --env-file ./override.env up -d --force-recreate"
 ExecStartPost=/bin/sh -c "bash ./update/update.sh &"
 ExecStop=/bin/sh -c "docker compose down --remove-orphans"
