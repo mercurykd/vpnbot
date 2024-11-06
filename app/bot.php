@@ -5210,6 +5210,7 @@ DNS-over-HTTPS with IP:
             '~process_outbound~' => $pac['process_outbound'] ? 'direct' : $outbound,
             '~domains_outbound~' => $pac['domains_outbound'] ? 'direct' : $outbound,
             '~final_outbound~'   => $pac['final_outbound'] ? $outbound : 'direct',
+            '~ip~'               => $this->ip,
         ]);
         $json = $this->clearEmptyRules($json);
 
