@@ -2088,10 +2088,12 @@ class Bot
     public function adguardSync()
     {
         $pac = $this->getPacConf();
+        $pac['adpswd'] = $pac['adpswd'] ?: substr(hash('md5', time()), 0, 10);
+        $this->setPacConf($pac);
         $ssl = $this->nginxGetTypeCert();
         $c   = yaml_parse_file($this->adguard);
         $this->stopAd();
-        $c['users'][0]['password'] = $pac['adpswd'] ?: password_hash(substr(hash('md5', time()), 0, 10), PASSWORD_DEFAULT);
+        $c['users'][0]['password'] = password_hash($pac['adpswd'], PASSWORD_DEFAULT);
         if (!empty($ssl) && !empty($pac['domain']) && empty($c['tls']['enabled'])) {
             $c['tls']['enabled']     = true;
             $c['tls']['server_name'] = $pac['domain'];
