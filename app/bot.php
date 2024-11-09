@@ -4009,7 +4009,7 @@ DNS-over-HTTPS with IP:
                     [
                         [
                             'text' => $this->i18n('chat'),
-                            'url'  => "https://t.me/+BYuWVd36cZYwNTMy",
+                            'url'  => "https://t.me/+Wfxg6-nrokBlMmYy",
                         ],
                         [
                             'text' => $this->i18n('donate'),
