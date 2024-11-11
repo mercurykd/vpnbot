@@ -413,6 +413,7 @@ services:
             - ./config/sshd_config:/etc/ssh/sshd_config
             - ./config/xray.json:/xray.json
             - ./scripts/start_xray.sh:/start_xray.sh
+            - ./logs:/logs
         hostname: xray
         container_name: xray-${VER}
         depends_on:

@@ -42,7 +42,8 @@
         }
     ],
     "log": {
-        "loglevel": "info"
+        "loglevel": "info",
+        "access": "/logs/xray"
     },
     "outbounds": [
         {
