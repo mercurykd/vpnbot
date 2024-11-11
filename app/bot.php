@@ -5587,8 +5587,8 @@ DNS-over-HTTPS with IP:
         } else {
             $c['dns']['allowed_clients'] = [];
             $c['dns']['allowed_clients'][] = '10.10.0.0/24';
-            if (!empty($pac['adguardKey'])) {
-                $c['dns']['allowed_clients'][] = $pac['adguardKey'];
+            if (!empty($pac['adguardkey'])) {
+                $c['dns']['allowed_clients'][] = $pac['adguardkey'];
             }
             $c['dns']['allowed_clients'][] = getenv('WGADDRESS');
             $c['dns']['allowed_clients'][] = getenv('WG1ADDRESS');
