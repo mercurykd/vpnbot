@@ -20,4 +20,5 @@ if (!empty($bot->selfupdate)) {
 $bot->dontshowcron = 1;
 $bot->adguardSync();
 $bot->sslip();
+$bot->syncDeny();
 $bot->cleanDocker();

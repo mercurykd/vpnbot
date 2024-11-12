@@ -29,6 +29,7 @@ services:
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - ./config/upstream.conf:/etc/nginx/nginx.conf
+            - ./config/deny:/etc/nginx/deny
             - ./scripts/start_upstream.sh:/start_upstream.sh
             - ./ssh:/ssh
             - ./config/sshd_config:/etc/ssh/sshd_config
@@ -95,7 +96,7 @@ services:
                 ipv4_address: 10.10.1.2
         logging: *default-logging
     php:
-        image: mercurykd/vpnbot-php:1.5
+        image: mercurykd/vpnbot-php:1.6
         build:
             dockerfile: dockerfile/php.dockerfile
             args:
@@ -146,7 +147,7 @@ services:
             timeout: 5s
             retries: 5
     service:
-        image: mercurykd/vpnbot-php:1.5
+        image: mercurykd/vpnbot-php:1.6
         build:
             dockerfile: dockerfile/php.dockerfile
             args:

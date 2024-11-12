@@ -32,4 +32,6 @@ RUN apk add --no-cache --update php81 \
     && mv sing-box-1.8.11-linux-amd64/sing-box /usr/bin \
     && rm sing-box-1.8.11-linux-amd64.tar.gz \
     && rm -rf /sing-box-1.8.11-linux-amd64
-ENV ENV="/root/.ashrc"
+RUN apk add openssh \
+    && mkdir /root/.ssh
+    ENV ENV="/root/.ashrc"
