@@ -4280,24 +4280,27 @@ DNS-over-HTTPS with IP:
                 $ips[$k] = $v;
             }
         }
+        $i = 0;
         if (!empty($ips)) {
             foreach ($ips as $k => $v) {
-                if (!in_array($k, $pac['deny'] ?: [])) {
-                    $comment = implode(', ', array_unique($v));
-                    if (!empty($return)) {
-                        $ret[$k] = $v;
-                    } else {
-                        $this->send($this->input['from'], "$k $comment\n", button: [[
-                            [
-                                'text'          => $this->i18n('search'),
-                                'callback_data' => "/searchIp $k",
-                            ],
-                            [
-                                'text'          => $this->i18n('disallow'),
-                                'callback_data' => "/denyIp $k",
-                            ],
-                        ]]);
-                    }
+                if ($i > 20) {
+                    break;
+                }
+                $comment = implode(', ', array_unique($v));
+                if (!empty($return)) {
+                    $ret[$k] = $v;
+                } else {
+                    $this->send($this->input['from'], "$k $comment\n", button: [[
+                        [
+                            'text'          => $this->i18n('search'),
+                            'callback_data' => "/searchIp $k",
+                        ],
+                        [
+                            'text'          => $this->i18n('disallow'),
+                            'callback_data' => "/denyIp $k",
+                        ],
+                    ]]);
+                    $i++;
                 }
             }
             if (!empty($return)) {
