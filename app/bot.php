@@ -264,6 +264,9 @@ class Bot
             case preg_match('~^/clearLog (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->clearLog(...explode('_', $m['arg']));
                 break;
+            case preg_match('~^/cleanLog$~', $this->input['callback'], $m):
+                $this->cleanLog();
+                break;
             case preg_match('~^/delLog (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->delLog(...explode('_', $m['arg']));
                 break;
@@ -4091,7 +4094,7 @@ DNS-over-HTTPS with IP:
                     ],
                     [
                         [
-                            'text'          => $this->i18n('IP'),
+                            'text'          => $this->i18n('IP ban'),
                             'callback_data' => "/ipMenu",
                         ],
                     ],
@@ -6488,20 +6491,22 @@ DNS-over-HTTPS with IP:
                 $size   = filesize("/logs/$v");
                 $data[] = [
                     [
-                        'text'          => "$v ($size)",
+                        'text'          => "$size $v",
                         'callback_data' => "/getLog $k",
                     ],
                     [
-                        'text'          => $this->i18n('clear'),
+                        'text'          => $this->i18n('clean'),
                         'callback_data' => "/clearLog $k",
-                    ],
-                    [
-                        'text'          => $this->i18n('delete'),
-                        'callback_data' => "/delLog $k",
                     ],
                 ];
             }
         }
+        $data[] = [
+            [
+                'text'          => $this->i18n('clean all'),
+                'callback_data' => "/cleanLog",
+            ],
+        ];
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -6536,6 +6541,14 @@ DNS-over-HTTPS with IP:
                 file_put_contents("/logs/$v", '');
                 break;
             }
+        }
+        $this->logs();
+    }
+
+    public function cleanLog()
+    {
+        foreach (scandir('/logs/') as $k => $v) {
+            file_put_contents("/logs/$v", '');
         }
         $this->logs();
     }
