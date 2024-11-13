@@ -152,6 +152,9 @@ class Bot
             case preg_match('~^/switchScanIp$~', $this->input['callback'], $m):
                 $this->switchScanIp();
                 break;
+            case preg_match('~^/autoScanTimeout$~', $this->input['callback'], $m):
+                $this->autoScanTimeout();
+                break;
             case preg_match('~^/autoupdate$~', $this->input['message'], $m):
                 $this->autoupdate();
                 break;
@@ -165,20 +168,26 @@ class Bot
             case preg_match('~^/ipMenu$~', $this->input['callback'], $m):
                 $this->ipMenu();
                 break;
-            case preg_match('~^/cleanDeny$~', $this->input['callback'], $m):
-                $this->cleanDeny();
+            case preg_match('~^/cleanDeny(?:\s(\d))?$~', $this->input['callback'], $m):
+                $this->cleanDeny($m[1]);
                 break;
-            case preg_match('~^/denyList (\d+)$~', $this->input['callback'], $m):
-                $this->denyList($m[1]);
+            case preg_match('~^/denyList (.+?)(?:\s(\d))?$~', $this->input['callback'], $m):
+                $this->denyList($m[1], $m[2] ?: 0);
                 break;
-            case preg_match('~^/allowIp (.+?) (\d+)$~', $this->input['callback'], $m):
-                $this->allowIp($m[1], $m[2]);
+            case preg_match('~^/cleanLogs (.+?)(?:\s(1))?$~', $this->input['callback'], $m):
+                $this->cleanLogs($m[1], $m[2]);
+                break;
+            case preg_match('~^/allowIp (\d+\.\d+\.\d+\.\d+) (\d+)(?:\s(\d+))?$~', $this->input['callback'], $m):
+                $this->allowIp($m[1], $m[2], $m[3]);
                 break;
             case preg_match('~^/searchIp (.+)$~', $this->input['callback'], $m):
                 $this->searchIp($m[1]);
                 break;
-            case preg_match('~^/denyIp (.+)$~', $this->input['callback'], $m):
-                $this->denyIp($m[1]);
+            case preg_match('~^/denyIp (.+?)(?:\s(\d)\s(\d+?)\s(\d))?$~', $this->input['callback'], $m):
+                $this->denyIp($m[1], $m[2], $m[3], $m[4]);
+                break;
+            case preg_match('~^/whiteIp (.+?)(?:\s(\d)\s(\d+?)\s(\d))?$~', $this->input['callback'], $m):
+                $this->whiteIp($m[1], $m[2], $m[3], $m[4]);
                 break;
             case preg_match('~^/adgFillAllowedClients(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->adgFillAllowedClients($m[1] ?: false);
@@ -1144,7 +1153,7 @@ class Bot
             if (!empty($pac['autoscan'])) {
                 $r = $this->analysisIp(1);
                 require __DIR__ . '/config.php';
-                if (!empty($c['admin']) && (empty($this->time3) || ((time() - $this->time3) > 60 * 60))) {
+                if (!empty($c['admin']) && (empty($this->time3) || ((time() - $this->time3) > $pac['autoscan_timeout']))) {
                     $this->time3 = time();
                     if (!empty($r)) {
                         foreach ($r as $k => $v) {
@@ -1159,10 +1168,15 @@ class Bot
                         if (!empty($pac['autodeny'])) {
                             $this->denyIp(array_keys($r));
                             $ban = count(array_keys($r));
-                            $ips = implode("\n", array_keys($r));
+                            foreach (array_keys($r) as $v) {
+                                $ips[] = [[
+                                    'text'          => "logs $v",
+                                    'callback_data' => "/searchIp $v",
+                                ]];
+                            }
                         }
                         foreach ($c['admin'] as $k => $v) {
-                            $this->send($v, "suspicious ips found: $text" . ($ban ? "\nbanned:$ban\n$ips" : ''), button: $pac['autodeny'] ? false : [[
+                            $this->send($v, "suspicious ips found: $text" . ($ban ? "\nbanned:$ban" : ''), button: $ips ?: [[
                                 [
                                     'text'          => $this->i18n('analyze'),
                                     'callback_data' => '/analysisIp',
@@ -4159,20 +4173,32 @@ DNS-over-HTTPS with IP:
     {
         $text   = 'Menu -> IP';
         $pac    = $this->getPacConf();
+        $d      = count($pac['deny'] ?: []);
+        $w      = count($pac['white'] ?: []);
         $data[] = [
             [
-                'text'          => $this->i18n('autoscan') . ': ' . $this->i18n($pac['autoscan'] ? 'on' : 'off'),
-                'callback_data' => '/switchScanIp',
+                'text'          => $this->i18n('autoscan') . ': ' . ($pac['autoscan'] ? $this->getTime(strtotime(($pac['autoscan_timeout'] ?: 3600) . ' seconds')) : $this->i18n('off')),
+                'callback_data' => '/autoScanTimeout',
             ],
+        ];
+        if (!empty($pac['autoscan'])) {
+            $data[] = [
+                [
+                    'text'          => $this->i18n('autodeny') . ': ' . $this->i18n($pac['autodeny'] ? 'on' : 'off'),
+                    'callback_data' => '/switchBanIp',
+                ],
+            ];
+        }
+        $data[] = [
             [
-                'text'          => $this->i18n('autodeny') . ': ' . $this->i18n($pac['autodeny'] ? 'on' : 'off'),
-                'callback_data' => '/switchBanIp',
+                'text'          => $this->i18n('allow list') . ": $w",
+                'callback_data' => '/denyList 0 1',
             ],
         ];
         $data[] = [
             [
-                'text'          => $this->i18n('deny list'),
-                'callback_data' => '/denyList 0',
+                'text'          => $this->i18n('deny list') . ": $d",
+                'callback_data' => '/denyList 0 0',
             ],
         ];
         $data[] = [
@@ -4197,6 +4223,10 @@ DNS-over-HTTPS with IP:
 
     public function analysisIp($return = false)
     {
+        $pac = $this->getPacConf();
+        foreach (array_merge($pac['white'] ?: [], $pac['deny'] ?: [], ['10.10.0.10']) as $v) {
+            $xr[$v] = true;
+        }
         if ($r = fopen('/logs/nginx_tlgrm_access', 'r')) {
             while (feof($r) === false) {
                 $l = fgets($r);
@@ -4215,7 +4245,6 @@ DNS-over-HTTPS with IP:
             }
             fclose($r);
         }
-        $xr = array_merge(['10.10.0.10' => true], $xr ?: []);
 
         if ($r = fopen('/logs/upstream_access', 'r')) {
             while (feof($r) === false) {
@@ -4274,16 +4303,10 @@ DNS-over-HTTPS with IP:
             fclose($r);
         }
 
-        $pac = $this->getPacConf();
-        foreach ($ip as $k => $v) {
-            if (!in_array($k, $pac['deny'] ?: [])) {
-                $ips[$k] = $v;
-            }
-        }
         $i = 0;
-        if (!empty($ips)) {
-            foreach ($ips as $k => $v) {
-                if ($i > 20) {
+        if (!empty($ip)) {
+            foreach ($ip as $k => $v) {
+                if ($i > 10) {
                     break;
                 }
                 $comment = implode(', ', array_unique($v));
@@ -4292,12 +4315,20 @@ DNS-over-HTTPS with IP:
                 } else {
                     $this->send($this->input['from'], "$k $comment\n", button: [[
                         [
-                            'text'          => $this->i18n('search'),
+                            'text'          => $this->i18n('deny'),
+                            'callback_data' => "/denyIp $k",
+                        ],
+                        [
+                            'text'          => $this->i18n('allow'),
+                            'callback_data' => "/whiteIp $k",
+                        ],
+                        [
+                            'text'          => $this->i18n('logs'),
                             'callback_data' => "/searchIp $k",
                         ],
                         [
-                            'text'          => $this->i18n('disallow'),
-                            'callback_data' => "/denyIp $k",
+                            'text'          => $this->i18n('clean logs'),
+                            'callback_data' => "/cleanLogs $k",
                         ],
                     ]]);
                     $i++;
@@ -4309,7 +4340,6 @@ DNS-over-HTTPS with IP:
         } else {
             $this->answer($this->input['callback_id'], 'empty');
         }
-
     }
 
     public function searchIp($ip)
@@ -4325,24 +4355,28 @@ DNS-over-HTTPS with IP:
                 fclose($r);
             }
         }
-        foreach ($res as $k => $v) {
-            $head= "$k:\n";
-            $t = array_chunk($v, 10);
-            foreach ($t as $j) {
-                $text = "$head<pre>";
-                foreach ($j as $i) {
-                    $text .= htmlspecialchars($i, ENT_HTML5, 'UTF-8');
+        if (!empty($res)) {
+            foreach ($res as $k => $v) {
+                $head= "$k:\n";
+                $t = array_chunk($v, 10);
+                foreach ($t as $j) {
+                    $text = "$head<pre>";
+                    foreach ($j as $i) {
+                        $text .= htmlspecialchars($i, ENT_HTML5, 'UTF-8');
+                    }
+                    $text .= '</pre>';
+                    $this->send($this->input['from'], $text, $this->input['message_id']);
                 }
-                $text .= '</pre>';
-                $this->send($this->input['from'], $text, $this->input['message_id']);
             }
+        } else {
+            $this->answer($this->input['callback_id'], 'empty');
         }
     }
 
-    public function denyList($page = 0)
+    public function denyList($page = 0, $white = 0)
     {
-        $text    = 'Menu -> IP -> deny list';
-        $domains = $this->getPacConf()['deny'] ?: [];
+        $text    = 'Menu -> IP -> ' . ($white ? 'white' : 'deny') . ' list';
+        $domains = $this->getPacConf()[$white ? 'white' : 'deny'] ?: [];
         $all     = (int) ceil(count($domains) / $this->limit);
         $page    = min($page, $all - 1);
         $page    = $page < 0 ? $all - 1 : $page;
@@ -4352,11 +4386,19 @@ DNS-over-HTTPS with IP:
                 $data[] = [
                     [
                         'text'          => $this->i18n('delete') . " $v",
-                        'callback_data' => "/allowIp $v $page",
+                        'callback_data' => "/allowIp $v $page" . ($white ? " 1" : ''),
                     ],
                     [
-                        'text'          => $this->i18n('search'),
+                        'text'          => $this->i18n($white ? 'deny' : 'allow'),
+                        'callback_data' => ($white ? "/denyIp" : "/whiteIp") . " $v 1 $page $white",
+                    ],
+                    [
+                        'text'          => $this->i18n('logs'),
                         'callback_data' => "/searchIp $v",
+                    ],
+                    [
+                        'text'          => $this->i18n('clean logs'),
+                        'callback_data' => "/cleanLogs $v 1",
                     ],
                 ];
             }
@@ -4364,18 +4406,18 @@ DNS-over-HTTPS with IP:
                 $data[] = [
                     [
                         'text'          => '<<',
-                        'callback_data' => "/denyList " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
+                        'callback_data' => "/denyList " . ($page - 1 >= 0 ? $page - 1 : $all - 1) . ($white ? " 1" : ' 0'),
                     ],
                     [
                         'text'          => '>>',
-                        'callback_data' => "/denyList " . ($page < $all - 1 ? $page + 1 : 0),
+                        'callback_data' => "/denyList " . ($page < $all - 1 ? $page + 1 : 0) . ($white ? " 1" : ' 0'),
                     ]
                 ];
             }
             $data[] = [
                 [
                     'text'          => $this->i18n('delete all'),
-                    'callback_data' => "/cleanDeny",
+                    'callback_data' => "/cleanDeny" . ($white ? " 1" : ''),
                 ],
             ];
         }
@@ -4394,55 +4436,102 @@ DNS-over-HTTPS with IP:
         );
     }
 
-    public function cleanDeny()
+    public function cleanDeny($white = 0)
     {
         $pac = $this->getPacConf();
-        unset($pac['deny']);
+        unset($pac[$white ? 'white' : 'deny']);
         $this->setPacConf($pac);
         $this->syncDeny();
-        $this->denyList(0);
+        $this->ipMenu();
     }
 
-    public function denyIp($ip)
+    public function denyIp($ip, $nodelete = false, $page = 0, $white = 0)
     {
         $pac = $this->getPacConf();
         if (is_array($ip)) {
             foreach ($ip as $v) {
                 $pac['deny'][] = $v;
+                if (($t = array_search($v, $pac['white'] ?: [])) !== false) {
+                    unset($pac['white'][$t]);
+                }
             }
         } else {
             $pac['deny'][] = $ip;
+            if (($t = array_search($ip, $pac['white'] ?: [])) !== false) {
+                unset($pac['white'][$t]);
+            }
         }
         $this->setPacConf($pac);
-        $this->delete($this->input['from'], $this->input['message_id']);
+        if (empty($nodelete)) {
+            $this->delete($this->input['from'], $this->input['message_id']);
+        }
         $this->syncDeny();
+        if (!empty($nodelete)) {
+            $this->denyList($page, $white);
+        }
     }
 
-    public function allowIp($ip, $page)
+    public function whiteIp($ip, $nodelete = false, $page = 0, $white = 0)
     {
         $pac = $this->getPacConf();
-        unset($pac['deny'][array_search($ip, $pac['deny'])]);
+        if (is_array($ip)) {
+            foreach ($ip as $v) {
+                $pac['white'][] = $v;
+                if (($t = array_search($v, $pac['deny'] ?: [])) !== false) {
+                    unset($pac['deny'][$t]);
+                }
+            }
+        } else {
+            $pac['white'][] = $ip;
+            if (($t = array_search($ip, $pac['deny'] ?: [])) !== false) {
+                unset($pac['deny'][$t]);
+            }
+        }
         $this->setPacConf($pac);
+        if (empty($nodelete)) {
+            $this->delete($this->input['from'], $this->input['message_id']);
+        }
         $this->syncDeny();
-        $this->denyList($page);
+        if (!empty($nodelete)) {
+            $this->denyList($page, $white);
+        }
     }
 
-    public function deleteFromLogs($ip)
+    public function allowIp($ip, $page, $white = 0)
+    {
+        $pac = $this->getPacConf();
+        unset($pac[$white ? 'white' : 'deny'][array_search($ip, $pac[$white ? 'white' : 'deny'])]);
+        $this->setPacConf($pac);
+        $this->syncDeny();
+        $this->denyList($page, $white);
+    }
+
+    public function cleanLogs($ip, $nodelete = false)
     {
         foreach ($this->logs as $v) {
-            exec("sed '/$ip/d' $v");
+            exec("sed -i '/$ip/d' /logs/$v");
+        }
+        if (empty($nodelete)) {
+            $this->delete($this->input['from'], $this->input['message_id']);
         }
     }
 
     public function syncDeny()
     {
         $pac = $this->getPacConf();
+        if (!empty($pac['white'])) {
+            $pac['white'] = array_unique($pac['white']);
+            foreach ($pac['white'] as $v) {
+                $text .= "allow $v;\n";
+            }
+        }
         if (!empty($pac['deny'])) {
-            foreach (array_unique($pac['deny']) as $v) {
-                // $this->deleteFromLogs($v);
+            $pac['deny'] = array_unique($pac['deny']);
+            foreach ($pac['deny'] as $v) {
                 $text .= "deny $v;\n";
             }
         }
+        $this->setPacConf($pac);
         file_put_contents('/config/deny', $text ?: '');
         $this->ssh('nginx -s reload', 'up');
     }
@@ -4815,6 +4904,36 @@ DNS-over-HTTPS with IP:
             'callback'       => 'addTemplate',
             'args'           => [$type],
         ];
+    }
+
+    public function autoScanTimeout()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} send time:",
+            $this->input['message_id'],
+            reply: 'send time:',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'setAutoScanTimeout',
+            'args'           => [],
+        ];
+    }
+
+    public function setAutoScanTimeout($time)
+    {
+        $pac = $this->getPacConf();
+        if (empty($time)) {
+            unset($pac['autoscan_timeout']);
+            unset($pac['autoscan']);
+        } else {
+            $pac['autoscan_timeout'] = strtotime($time, 0);
+            $pac['autoscan'] = 1;
+        }
+        $this->setPacConf($pac);
+        $this->ipMenu();
     }
 
     public function templateCopy($type)
