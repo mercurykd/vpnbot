@@ -4524,12 +4524,14 @@ DNS-over-HTTPS with IP:
         $pac = $this->getPacConf();
         if (!empty($pac['white'])) {
             $pac['white'] = array_unique($pac['white']);
+            sort($pac['white']);
             foreach ($pac['white'] as $v) {
                 $text .= "allow $v;\n";
             }
         }
         if (!empty($pac['deny'])) {
             $pac['deny'] = array_unique($pac['deny']);
+            sort($pac['deny']);
             foreach ($pac['deny'] as $v) {
                 $text .= "deny $v;\n";
             }
