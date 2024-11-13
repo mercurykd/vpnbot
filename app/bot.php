@@ -4934,9 +4934,11 @@ DNS-over-HTTPS with IP:
         if (empty($time)) {
             unset($pac['autoscan_timeout']);
             unset($pac['autoscan']);
-        } else {
-            $pac['autoscan_timeout'] = strtotime($time, 0);
+        } elseif ($t = strtotime($time, 0)) {
+            $pac['autoscan_timeout'] = $t;
             $pac['autoscan'] = 1;
+        } else {
+            $this->send($this->input['from'], "$time - wrong format", $this->input['message_id']);
         }
         $this->setPacConf($pac);
         $this->ipMenu();
