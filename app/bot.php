@@ -149,6 +149,9 @@ class Bot
             case preg_match('~^/switchBanIp$~', $this->input['callback'], $m):
                 $this->switchBanIp();
                 break;
+            case preg_match('~^/switchSilence$~', $this->input['callback'], $m):
+                $this->switchSilence();
+                break;
             case preg_match('~^/switchScanIp$~', $this->input['callback'], $m):
                 $this->switchScanIp();
                 break;
@@ -1179,13 +1182,15 @@ class Bot
                                 ]];
                             }
                         }
-                        foreach ($c['admin'] as $k => $v) {
-                            $this->send($v, "suspicious ips found: $text" . ($ban ? "\nbanned:$ban" : ''), button: $ips ?: [[
-                                [
-                                    'text'          => $this->i18n('analyze'),
-                                    'callback_data' => '/analysisIp',
-                                ],
-                            ]]);
+                        if (empty($pac['silence'])) {
+                            foreach ($c['admin'] as $k => $v) {
+                                $this->send($v, "suspicious ips found: $text" . ($ban ? "\nbanned:$ban" : ''), button: $ips ?: [[
+                                    [
+                                        'text'          => $this->i18n('analyze'),
+                                        'callback_data' => '/analysisIp',
+                                    ],
+                                ]]);
+                            }
                         }
                     }
                 }
@@ -4173,6 +4178,14 @@ DNS-over-HTTPS with IP:
         $this->ipMenu();
     }
 
+    public function switchSilence()
+    {
+        $c = $this->getPacConf();
+        $c['silence'] = $c['silence'] ? 0 : 1;
+        $this->setPacConf($c);
+        $this->ipMenu();
+    }
+
     public function ipMenu()
     {
         $text   = 'Menu -> IP';
@@ -4188,20 +4201,26 @@ DNS-over-HTTPS with IP:
         if (!empty($pac['autoscan'])) {
             $data[] = [
                 [
-                    'text'          => $this->i18n('autodeny') . ': ' . $this->i18n($pac['autodeny'] ? 'on' : 'off'),
+                    'text'          => $this->i18n('autoblock') . ': ' . $this->i18n($pac['autodeny'] ? 'on' : 'off'),
                     'callback_data' => '/switchBanIp',
+                ],
+            ];
+            $data[] = [
+                [
+                    'text'          => $this->i18n('silence') . ': ' . $this->i18n($pac['silence'] ? 'on' : 'off'),
+                    'callback_data' => '/switchSilence',
                 ],
             ];
         }
         $data[] = [
             [
-                'text'          => $this->i18n('allow list') . ": $w",
+                'text'          => $this->i18n('ignorelist') . ": $w",
                 'callback_data' => '/denyList 0 1',
             ],
         ];
         $data[] = [
             [
-                'text'          => $this->i18n('deny list') . ": $d",
+                'text'          => $this->i18n('blocklist') . ": $d",
                 'callback_data' => '/denyList 0 0',
             ],
         ];
@@ -4319,11 +4338,11 @@ DNS-over-HTTPS with IP:
                 } else {
                     $this->send($this->input['from'], "$k $comment\n", button: [[
                         [
-                            'text'          => $this->i18n('deny'),
+                            'text'          => $this->i18n('block'),
                             'callback_data' => "/denyIp $k",
                         ],
                         [
-                            'text'          => $this->i18n('allow'),
+                            'text'          => $this->i18n('ignore'),
                             'callback_data' => "/whiteIp $k",
                         ],
                         [
@@ -4393,7 +4412,7 @@ DNS-over-HTTPS with IP:
                         'callback_data' => "/allowIp $v $page" . ($white ? " 1" : ''),
                     ],
                     [
-                        'text'          => $this->i18n($white ? 'deny' : 'allow'),
+                        'text'          => $this->i18n($white ? 'block' : 'ignore'),
                         'callback_data' => ($white ? "/denyIp" : "/whiteIp") . " $v 1 $page $white",
                     ],
                     [
