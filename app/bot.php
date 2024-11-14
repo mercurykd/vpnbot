@@ -4247,7 +4247,23 @@ DNS-over-HTTPS with IP:
     public function analysisIp($return = false)
     {
         $pac = $this->getPacConf();
-        foreach (array_merge($pac['white'] ?: [], $pac['deny'] ?: [], ['10.10.0.10']) as $v) {
+        foreach (array_merge($pac['white'] ?: [], $pac['deny'] ?: [], [
+            '10.10.0.1' ,'10.10.1.1' ,
+            '10.10.0.2' ,'10.10.1.2' ,
+            '10.10.0.3' ,'10.10.1.3' ,
+            '10.10.0.4' ,'10.10.1.4' ,
+            '10.10.0.5' ,'10.10.1.5' ,
+            '10.10.0.6' ,'10.10.1.6' ,
+            '10.10.0.7' ,'10.10.1.7' ,
+            '10.10.0.8' ,'10.10.1.8' ,
+            '10.10.0.9' ,'10.10.1.9' ,
+            '10.10.0.10','10.10.1.10',
+            '10.10.0.11','10.10.1.11',
+            '10.10.0.12','10.10.1.12',
+            '10.10.0.13','10.10.1.13',
+            '10.10.0.14','10.10.1.14',
+            '10.10.0.15','10.10.1.15',
+            ]) as $v) {
             $xr[$v] = true;
         }
         if ($r = fopen('/logs/nginx_tlgrm_access', 'r')) {
@@ -4282,15 +4298,15 @@ DNS-over-HTTPS with IP:
         }
 
         $reg = [
-            'GET /ws.+ HTTP',
-            'GET /adguard/.+ HTTP',
-            'GET /webapp.+ HTTP',
-            'GET /pac.+ HTTP',
-            'GET \.well-known.+ HTTP',
-            'GET /v2ray.+ HTTP',
-            'GET /dns-query.+ HTTP',
+            'GET /ws(?:.+)? HTTP',
+            'GET /adguard/(?:.+)? HTTP',
+            'GET /webapp(?:.+)? HTTP',
+            'GET /pac(?:.+)? HTTP',
+            'GET \.well-known(?:.+)? HTTP',
+            'GET /v2ray(?:.+)? HTTP',
+            'GET /dns-query(?:.+)? HTTP',
             'GET / HTTP',
-            'GET /tlgrm.+ HTTP',
+            'GET /tlgrm(?:.+)? HTTP',
             'GET /jsoneditor.min.css HTTP',
             'GET /jsoneditor.min.js HTTP',
             'GET /jquery-3.7.1.min.js HTTP',
