@@ -149,6 +149,9 @@ class Bot
             case preg_match('~^/switchBanIp$~', $this->input['callback'], $m):
                 $this->switchBanIp();
                 break;
+            case preg_match('~^/searchLogs (.+)$~', $this->input['message'], $m):
+                $this->searchLogs($m[1]);
+                break;
             case preg_match('~^/switchSilence$~', $this->input['callback'], $m):
                 $this->switchSilence();
                 break;
@@ -1182,14 +1185,14 @@ class Bot
                                 ]];
                             }
                         }
-                        if (empty($pac['silence'])) {
+                        if ($pac['silence'] == 0 || $pac['silence'] == 1) {
                             foreach ($c['admin'] as $k => $v) {
                                 $this->send($v, "suspicious ips found: $text" . ($ban ? "\nbanned:$ban" : ''), button: $ips ?: [[
                                     [
                                         'text'          => $this->i18n('analyze'),
                                         'callback_data' => '/analysisIp',
                                     ],
-                                ]]);
+                                ]], disable_notification: $pac['silence'] ? true : false);
                             }
                         }
                     }
@@ -4100,7 +4103,7 @@ DNS-over-HTTPS with IP:
                     ],
                     [
                         [
-                            'text'          => $this->i18n('IP ban'),
+                            'text'          => $this->i18n('IP ban & Logs'),
                             'callback_data' => "/ipMenu",
                         ],
                     ],
@@ -4181,7 +4184,7 @@ DNS-over-HTTPS with IP:
     public function switchSilence()
     {
         $c = $this->getPacConf();
-        $c['silence'] = $c['silence'] ? 0 : 1;
+        $c['silence'] = (($c['silence'] ?: 0) + 1) % 3;
         $this->setPacConf($c);
         $this->ipMenu();
     }
@@ -4194,6 +4197,12 @@ DNS-over-HTTPS with IP:
         $w      = count($pac['white'] ?: []);
         $data[] = [
             [
+                'text'          => $this->i18n('logs'),
+                'callback_data' => "/logs",
+            ],
+        ];
+        $data[] = [
+            [
                 'text'          => $this->i18n('autoscan') . ': ' . ($pac['autoscan'] ? $this->getTime(strtotime(($pac['autoscan_timeout'] ?: 3600) . ' seconds')) : $this->i18n('off')),
                 'callback_data' => '/autoScanTimeout',
             ],
@@ -4204,10 +4213,17 @@ DNS-over-HTTPS with IP:
                     'text'          => $this->i18n('autoblock') . ': ' . $this->i18n($pac['autodeny'] ? 'on' : 'off'),
                     'callback_data' => '/switchBanIp',
                 ],
-            ];
-            $data[] = [
                 [
-                    'text'          => $this->i18n('silence') . ': ' . $this->i18n($pac['silence'] ? 'on' : 'off'),
+                    'text'          => $this->i18n('silence') . ': ' . ((function ($pac) {
+                        switch ($pac['silence']) {
+                            case 0:
+                                return $this->i18n('off');
+                            case 1:
+                                return '🟡';
+                            case 2:
+                                return $this->i18n('on');
+                        }
+                    })($pac)),
                     'callback_data' => '/switchSilence',
                 ],
             ];
@@ -4217,8 +4233,6 @@ DNS-over-HTTPS with IP:
                 'text'          => $this->i18n('ignorelist') . ": $w",
                 'callback_data' => '/denyList 0 1',
             ],
-        ];
-        $data[] = [
             [
                 'text'          => $this->i18n('blocklist') . ": $d",
                 'callback_data' => '/denyList 0 0',
@@ -4342,42 +4356,40 @@ DNS-over-HTTPS with IP:
             fclose($r);
         }
 
-        $i = 0;
         if (!empty($ip)) {
-            foreach ($ip as $k => $v) {
-                if ($i > 10) {
-                    break;
-                }
-                $comment = implode(', ', array_unique($v));
-                if (!empty($return)) {
-                    $ret[$k] = $v;
-                } else {
-                    $this->send($this->input['from'], "$k $comment\n", button: [[
-                        [
-                            'text'          => $this->i18n('block'),
-                            'callback_data' => "/denyIp $k",
-                        ],
-                        [
-                            'text'          => $this->i18n('ignore'),
-                            'callback_data' => "/whiteIp $k",
-                        ],
-                        [
-                            'text'          => $this->i18n('logs'),
-                            'callback_data' => "/searchIp $k",
-                        ],
-                        [
-                            'text'          => $this->i18n('clean logs'),
-                            'callback_data' => "/cleanLogs $k",
-                        ],
-                    ]]);
-                    $i++;
-                }
-            }
             if (!empty($return)) {
-                return $ret;
+                return $ip;
             }
+            foreach ($ip as $k => $v) {
+                $file .= "/searchLogs $k\n";
+            }
+            $this->sendFile($this->input['from'], new CURLStringFile($file, 'analyze_ip_' . date('Y_m_d_H_i_s')));
         } else {
             $this->answer($this->input['callback_id'], 'empty');
+        }
+    }
+
+    public function searchLogs($search)
+    {
+        if (preg_match('~^\d+\.\d+\.\d+\.\d+$~', $search)) {
+            $this->send($this->input['from'], $search, button: [[
+                [
+                    'text'          => $this->i18n('block'),
+                    'callback_data' => "/denyIp $search",
+                ],
+                [
+                    'text'          => $this->i18n('ignore'),
+                    'callback_data' => "/whiteIp $search",
+                ],
+                [
+                    'text'          => $this->i18n('logs'),
+                    'callback_data' => "/searchIp $search",
+                ],
+                [
+                    'text'          => $this->i18n('clean logs'),
+                    'callback_data' => "/cleanLogs $search",
+                ],
+            ]]);
         }
     }
 
@@ -4951,9 +4963,9 @@ DNS-over-HTTPS with IP:
     {
         $r = $this->send(
             $this->input['chat'],
-            "@{$this->input['username']} send time:",
+            "@{$this->input['username']} send time like 1 hour or 1 day etc",
             $this->input['message_id'],
-            reply: 'send time:',
+            reply: 'send time like 1 hour or 1 day etc',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message'  => $this->input['message_id'],
@@ -6398,10 +6410,6 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
-                'text'          => $this->i18n('logs'),
-                'callback_data' => "/logs",
-            ],
-            [
                 'text'          => $this->i18n('debug') . ': ' . $this->i18n($c['debug'] ? 'on' : 'off'),
                 'callback_data' => "/debug",
             ],
@@ -6550,7 +6558,7 @@ DNS-over-HTTPS with IP:
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
-                'callback_data' => "/menu config",
+                'callback_data' => "/ipMenu",
             ],
         ];
         $this->update(
@@ -7162,7 +7170,7 @@ DNS-over-HTTPS with IP:
         var_dump($this->request('setMyCommands', json_encode($data), 1));
     }
 
-    public function send($chat, $text, ?int $to = 0, $button = false, $reply = false, $mode = 'HTML')
+    public function send($chat, $text, ?int $to = 0, $button = false, $reply = false, $mode = 'HTML', $disable_notification = false)
     {
         if ($button) {
             $extra = ['inline_keyboard' => $button];
@@ -7183,7 +7191,7 @@ DNS-over-HTTPS with IP:
                     'text'                     => "$v\n",
                     'parse_mode'               => $mode,
                     // 'disable_web_page_preview' => true,
-                    // 'disable_notification'     => !empty($to) && 0 == $k,
+                    'disable_notification'     => $disable_notification,
                     'reply_to_message_id'      => 0 == $k && $to > 0 ? $to : false,
                 ];
                 if ($k == array_key_last($tails)) {
@@ -7199,7 +7207,7 @@ DNS-over-HTTPS with IP:
                 'text'                     => $text,
                 'parse_mode'               => $mode,
                 // 'disable_web_page_preview' => true,
-                // 'disable_notification'     => !empty($to),
+                'disable_notification'     => $disable_notification,
                 'reply_to_message_id'      => $to,
             ];
             if (!empty($extra)) {
