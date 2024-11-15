@@ -1293,9 +1293,13 @@ class Bot
                             $this->send($v, implode("\n", $diff), 0, [
                                 [
                                     [
-                                        'text' => 'changelog',
+                                        'text'    => 'changelog',
                                         'web_app' => ['url' => "https://raw.githubusercontent.com/mercurykd/vpnbot/$b/version"],
-                                    ]
+                                    ],
+                                    [
+                                        'text'          => $this->i18n('update bot'),
+                                        'callback_data' => "/applyupdatebot",
+                                    ],
                                 ]
                             ]);
                         }
