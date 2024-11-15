@@ -12,6 +12,7 @@ class Bot
     public $dns;
     public $mtu;
     public $logs;
+    public $reg;
 
     public function __construct($key, $i18n)
     {
@@ -35,6 +36,22 @@ class Bot
             'upstream_access',
             'xray',
         ];
+        $this->reg = '~' . implode('|', [
+            'GET /ws(?:.+)? HTTP',
+            'GET /adguard/(?:.+)? HTTP',
+            'GET /webapp(?:.+)? HTTP',
+            'GET /pac(?:.+)? HTTP',
+            'GET \.well-known(?:.+)? HTTP',
+            'GET /v2ray(?:.+)? HTTP',
+            'GET /dns-query(?:.+)? HTTP',
+            'GET / HTTP',
+            'GET /tlgrm(?:.+)? HTTP',
+            'GET /jsoneditor.min.css HTTP',
+            'GET /jsoneditor.min.js HTTP',
+            'GET /jquery-3.7.1.min.js HTTP',
+            'GET /img/jsoneditor-icons.svg HTTP',
+            'GET /favicon.ico HTTP',
+        ]) . '~';
     }
 
     public function input()
@@ -150,8 +167,10 @@ class Bot
                 $this->switchBanIp();
                 break;
             case preg_match('~^/searchLogs (.+)$~', $this->input['message'], $m):
-            case preg_match('~^/searchLogs (.+)$~', $this->input['callback'], $m):
                 $this->searchLogs($m[1]);
+                break;
+            case preg_match('~^/searchLogs (.+?)(?:\s(.+?))?(?:\s(.+?))?(?:\s(.+?))?$~', $this->input['callback'], $m):
+                $this->searchLogs($m[1], $m[2], $m[3], $m[4]);
                 break;
             case preg_match('~^/switchSilence$~', $this->input['callback'], $m):
                 $this->switchSilence();
@@ -168,9 +187,8 @@ class Bot
             case preg_match('~^/ports$~', $this->input['callback'], $m):
                 $this->ports();
                 break;
-            case preg_match('~^/ip$~', $this->input['message'], $m):
-            case preg_match('~^/analysisIp$~', $this->input['callback'], $m):
-                $this->analysisIp();
+            case preg_match('~^/analysisIp(?:\s(\d+))?$~', $this->input['callback'], $m):
+                $this->analysisIp($m[1] ?: 0);
                 break;
             case preg_match('~^/ipMenu$~', $this->input['callback'], $m):
                 $this->ipMenu();
@@ -190,10 +208,13 @@ class Bot
             case preg_match('~^/searchIp (.+)$~', $this->input['callback'], $m):
                 $this->searchIp($m[1]);
                 break;
-            case preg_match('~^/denyIp (.+?)(?:\s(\d)\s(\d+?)\s(\d))?$~', $this->input['callback'], $m):
+            case preg_match('~^/searchSuspiciousIp (.+)$~', $this->input['callback'], $m):
+                $this->searchSuspiciousIp($m[1]);
+                break;
+            case preg_match('~^/denyIp (.+?)(?:\s(.+?)\s(\d+?)\s(\d))?$~', $this->input['callback'], $m):
                 $this->denyIp($m[1], $m[2], $m[3], $m[4]);
                 break;
-            case preg_match('~^/whiteIp (.+?)(?:\s(\d)\s(\d+?)\s(\d))?$~', $this->input['callback'], $m):
+            case preg_match('~^/whiteIp (.+?)(?:\s(.+?)\s(\d+?)\s(\d))?$~', $this->input['callback'], $m):
                 $this->whiteIp($m[1], $m[2], $m[3], $m[4]);
                 break;
             case preg_match('~^/adgFillAllowedClients(?: (\d+))?$~', $this->input['callback'], $m):
@@ -1165,27 +1186,26 @@ class Bot
         try {
             $pac = $this->getPacConf();
             if (!empty($pac['autoscan'])) {
-                $r = $this->analysisIp(1);
+                $r = $this->analysisIp(return: 1);
                 require __DIR__ . '/config.php';
                 if (!empty($c['admin']) && (empty($this->time3) || ((time() - $this->time3) > $pac['autoscan_timeout']))) {
                     $this->time3 = time();
                     if (!empty($r)) {
                         foreach ($r as $k => $v) {
-                            $tmp = array_unique($v);
-                            foreach ($tmp as $i) {
-                                $t[$i]++;
+                            foreach ($v as $i) {
+                                $t[$i['title']][$k] = 1;
                             }
                         }
                         foreach ($t as $k => $v) {
-                            $text .= "\n$v $k";
+                            $text .= "\n" . count($v) . " $k";
                         }
                         if (!empty($pac['autodeny'])) {
                             $this->denyIp(array_keys($r));
                             $ban = count(array_keys($r));
                             foreach (array_keys($r) as $v) {
                                 $ips[] = [[
-                                    'text'          => "logs $v",
-                                    'callback_data' => "/searchIp $v",
+                                    'text'          => $v,
+                                    'callback_data' => "/searchLogs $v",
                                 ]];
                             }
                         }
@@ -4281,7 +4301,37 @@ DNS-over-HTTPS with IP:
         );
     }
 
-    public function analysisIp($return = false)
+    public function suspicious($regexp, $file, $ip, $title, $reverse = false)
+    {
+        if ($r = fopen($file, 'r')) {
+            while (feof($r) === false) {
+                $l = fgets($r);
+                if (preg_match('~(\d+\.\d+\.\d+\.\d+)~', $l, $m)) {
+                    if ($reverse xor preg_match($regexp, $l)) {
+                        if (is_array($ip)) {
+                            if (empty($ip[$m[1]])) {
+                                $ret[$m[1]][] = [
+                                    'title' => $title,
+                                    'log'   => $l,
+                                ];
+                            }
+                        } else {
+                            if ($ip == $m[1]) {
+                                $ret[$m[1]][] = [
+                                    'title' => $title,
+                                    'log'   => $l,
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+            fclose($r);
+        }
+        return $ret ?: [];
+    }
+
+    public function analysisIp(int $page = 0, $return = false)
     {
         $pac = $this->getPacConf();
         foreach (array_merge($pac['white'] ?: [], $pac['deny'] ?: [], [
@@ -4322,98 +4372,102 @@ DNS-over-HTTPS with IP:
             fclose($r);
         }
 
-        if ($r = fopen('/logs/upstream_access', 'r')) {
-            while (feof($r) === false) {
-                $l = fgets($r);
-                if (preg_match('~(\d+\.\d+\.\d+\.\d+).+200\s\d+\s0$~', $l, $m)) {
-                    if (empty($xr[$m[1]])) {
-                        $ip[$m[1]][] = 'possibly a Reality Degenerate';
-                    }
-                }
-            }
-            fclose($r);
-        }
-
-        $reg = [
-            'GET /ws(?:.+)? HTTP',
-            'GET /adguard/(?:.+)? HTTP',
-            'GET /webapp(?:.+)? HTTP',
-            'GET /pac(?:.+)? HTTP',
-            'GET \.well-known(?:.+)? HTTP',
-            'GET /v2ray(?:.+)? HTTP',
-            'GET /dns-query(?:.+)? HTTP',
-            'GET / HTTP',
-            'GET /tlgrm(?:.+)? HTTP',
-            'GET /jsoneditor.min.css HTTP',
-            'GET /jsoneditor.min.js HTTP',
-            'GET /jquery-3.7.1.min.js HTTP',
-            'GET /img/jsoneditor-icons.svg HTTP',
-            'GET /favicon.ico HTTP',
+        $t = [
+            $this->suspicious('~\d+\.\d+\.\d+\.\d+.+200\s\d+\s0$~', '/logs/upstream_access', $xr, 'possibly a Reality Degenerate'),
+            $this->suspicious($this->reg, '/logs/nginx_default_access', $xr, 'possibly a scanner', true),
+            $this->suspicious($this->reg, '/logs/nginx_domain_access', $xr, 'possibly a scanner', true),
         ];
 
-        if ($r = fopen('/logs/nginx_default_access', 'r')) {
-            while (feof($r) === false) {
-                $l = fgets($r);
-                if (!preg_match('~' . implode('|', $reg) . '~', $l)) {
-                    if (preg_match('~(\d+\.\d+\.\d+\.\d+)~', $l, $m)) {
-                        if (empty($xr[$m[1]])) {
-                            $ip[$m[1]][] = 'possibly a scanner';
-                        }
-                    }
-                }
+        $ip = [];
+        foreach ($t as $r) {
+            foreach ($r as $k => $v) {
+                $ip[$k] = $v;
             }
-            fclose($r);
         }
 
-        if ($r = fopen('/logs/nginx_domain_access', 'r')) {
-            while (feof($r) === false) {
-                $l = fgets($r);
-                if (!preg_match('~' . implode('|', $reg) . '~', $l)) {
-                    if (preg_match('~(\d+\.\d+\.\d+\.\d+)~', $l, $m)) {
-                        if (empty($xr[$m[1]])) {
-                            $ip[$m[1]][] = 'possibly a scanner';
-                        }
-                    }
-                }
-            }
-            fclose($r);
+        if (!empty($return)) {
+            return $ip;
         }
-
         if (!empty($ip)) {
-            if (!empty($return)) {
-                return $ip;
-            }
             foreach ($ip as $k => $v) {
-                $file .= "/searchLogs $k\n";
+                $data[] = [
+                    [
+                        'text'          => $k,
+                        'callback_data' => "/searchLogs $k analysisIp $page 0",
+                    ]
+                ];
             }
-            $this->sendFile($this->input['from'], new CURLStringFile($file, 'analyze_ip_' . date('Y_m_d_H_i_s')));
-        } else {
-            $this->answer($this->input['callback_id'], 'empty');
+            $all  = (int) ceil(count($data) / $this->limit);
+            $page = min($page, $all - 1);
+            $page = $page < 0 ? $all - 1 : $page;
+            $data = array_slice($data ?: [], $page * $this->limit, $this->limit);
+            if ($all > 1) {
+                $data[] = [
+                    [
+                        'text'          => '<<',
+                        'callback_data' => "/analysisIp " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
+                    ],
+                    [
+                        'text'          => '>>',
+                        'callback_data' => "/analysisIp " . ($page < $all - 1 ? $page + 1 : 0),
+                    ]
+                ];
+            }
         }
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/ipMenu",
+            ],
+        ];
+        $this->update($this->input['from'], $this->input['message_id'], count($ip) ?: 'empty', $data);
     }
 
-    public function searchLogs($search)
+    public function searchLogs($search, $fun = false, $page = 0, $white = 0)
     {
         if (preg_match('~^\d+\.\d+\.\d+\.\d+$~', $search)) {
             $info = file_get_contents("https://ipinfo.io/$search/json", context: stream_context_create(['http' => ['timeout' => 2]]));
-            $this->send($this->input['from'], "$search\n<pre>$info</pre>", button: [[
+            $text = "$search\n<pre>$info</pre>";
+            $data[] = [
                 [
                     'text'          => $this->i18n('block'),
-                    'callback_data' => "/denyIp $search",
+                    'callback_data' => "/denyIp $search" . ($fun ? " $fun $page $white" : ''),
                 ],
                 [
                     'text'          => $this->i18n('ignore'),
-                    'callback_data' => "/whiteIp $search",
+                    'callback_data' => "/whiteIp $search" . ($fun ? " $fun $page $white" : ''),
                 ],
+            ];
+            $data[] = [
                 [
-                    'text'          => $this->i18n('logs'),
+                    'text'          => $this->i18n('all logs'),
                     'callback_data' => "/searchIp $search",
                 ],
                 [
-                    'text'          => $this->i18n('clean logs'),
+                    'text'          => $this->i18n('suspicious log'),
+                    'callback_data' => "/searchSuspiciousIp $search",
+                ],
+            ];
+            $data[] = [
+                [
+                    'text'          => $this->i18n("clean logs $search"),
                     'callback_data' => "/cleanLogs $search",
                 ],
-            ]]);
+            ];
+            if (!empty($fun)) {
+                $data[] = [
+                    [
+                        'text'          => $this->i18n('back'),
+                        'callback_data' => "/$fun $page" . ($white ? " $white" : ''),
+                    ],
+                ];
+                $this->update($this->input['from'], $this->input['message_id'], $text, button: $data);
+            } else {
+                if (empty($this->input['callback_id'])) {
+                    $this->delete($this->input['from'], $this->input['message_id']);
+                }
+                $this->send($this->input['from'], $text, button: $data);
+            }
         }
     }
 
@@ -4448,6 +4502,40 @@ DNS-over-HTTPS with IP:
         }
     }
 
+    public function searchSuspiciousIp($ip)
+    {
+        $t = [
+            $this->suspicious('~\d+\.\d+\.\d+\.\d+.+200\s\d+\s0$~', '/logs/upstream_access', $ip, 'possibly a Reality Degenerate'),
+            $this->suspicious($this->reg, '/logs/nginx_default_access', $ip, 'possibly a scanner', true),
+            $this->suspicious($this->reg, '/logs/nginx_domain_access', $ip, 'possibly a scanner', true),
+        ];
+        foreach ($t as $r) {
+            if (!empty($r)) {
+                foreach ($r as $v) {
+                    foreach ($v as $k) {
+                        $logs[$k['title']][] = $k['log'];
+                    }
+                }
+            }
+        }
+        if (!empty($logs)) {
+            foreach ($logs as $k => $v) {
+                $head= "$k:\n";
+                $t = array_chunk($v, 10);
+                foreach ($t as $j) {
+                    $text = "$head<pre>";
+                    foreach ($j as $i) {
+                        $text .= htmlspecialchars($i, ENT_HTML5, 'UTF-8');
+                    }
+                    $text .= '</pre>';
+                    $this->send($this->input['from'], $text, $this->input['message_id']);
+                }
+            }
+        } else {
+            $this->answer($this->input['callback_id'], 'empty');
+        }
+    }
+
     public function denyList($page = 0, $white = 0)
     {
         $text    = 'Menu -> IP -> ' . ($white ? 'white' : 'deny') . ' list';
@@ -4461,7 +4549,7 @@ DNS-over-HTTPS with IP:
                 $data[] = [
                     [
                         'text'          => $v,
-                        'callback_data' => "/searchLogs $v",
+                        'callback_data' => "/searchLogs $v denyList $page $white",
                     ],
                     [
                         'text'          => $this->i18n('delete'),
@@ -4512,7 +4600,7 @@ DNS-over-HTTPS with IP:
         $this->ipMenu();
     }
 
-    public function denyIp($ip, $nodelete = false, $page = 0, $white = 0)
+    public function denyIp($ip, $fun = false, $page = 0, $white = 0)
     {
         $pac = $this->getPacConf();
         if (is_array($ip)) {
@@ -4529,16 +4617,16 @@ DNS-over-HTTPS with IP:
             }
         }
         $this->setPacConf($pac);
-        if (empty($nodelete)) {
+        if (empty($fun)) {
             $this->delete($this->input['from'], $this->input['message_id']);
         }
         $this->syncDeny();
-        if (!empty($nodelete)) {
-            $this->denyList($page, $white);
+        if (!empty($fun)) {
+            $this->{$fun}($page, $white);
         }
     }
 
-    public function whiteIp($ip, $nodelete = false, $page = 0, $white = 0)
+    public function whiteIp($ip, $fun = false, $page = 0, $white = 0)
     {
         $pac = $this->getPacConf();
         if (is_array($ip)) {
@@ -4555,12 +4643,12 @@ DNS-over-HTTPS with IP:
             }
         }
         $this->setPacConf($pac);
-        if (empty($nodelete)) {
+        if (empty($fun)) {
             $this->delete($this->input['from'], $this->input['message_id']);
         }
         $this->syncDeny();
-        if (!empty($nodelete)) {
-            $this->denyList($page, $white);
+        if (!empty($fun)) {
+            $this->{$fun}($page, $white);
         }
     }
 
