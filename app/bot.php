@@ -2584,9 +2584,9 @@ DNS-over-HTTPS with IP:
             default:
                 $r = $this->send(
                     $this->input['chat'],
-                    "@{$this->input['username']} list domains separated by commas",
+                    "@{$this->input['username']} list separated by commas",
                     $this->input['message_id'],
-                    reply: 'list domains separated by commas',
+                    reply: 'list separated by commas',
                 );
                 break;
         }
@@ -2608,7 +2608,11 @@ DNS-over-HTTPS with IP:
         if (!empty($domains)) {
             $conf = $this->getPacConf();
             foreach ($domains as $k => $v) {
-                $conf[$type][in_array($type, ['rulessetlist', 'packagelist', 'processlist']) ? trim($v) : idn_to_ascii(trim($v))] = true;
+                if (in_array($type, ['white', 'deny'])) {
+                    $conf[$type][] = $v;
+                } else {
+                    $conf[$type][in_array($type, ['rulessetlist', 'packagelist', 'processlist']) ? trim($v) : idn_to_ascii(trim($v))] = true;
+                }
             }
             ksort($conf[$type]);
             $this->setPacConf($conf);
@@ -2646,6 +2650,11 @@ DNS-over-HTTPS with IP:
             case 'rulessetlist':
                 $this->xrayUpdateRules();
                 $this->xtlsrulesset();
+                break;
+            case 'white':
+            case 'deny':
+                $this->syncDeny();
+                $this->denyList(0, $type == 'white' ? 1 : 0);
                 break;
         }
     }
@@ -4544,6 +4553,12 @@ DNS-over-HTTPS with IP:
         $page    = min($page, $all - 1);
         $page    = $page < 0 ? $all - 1 : $page;
 
+        $data[] = [
+            [
+                'text'          => $this->i18n('add'),
+                'callback_data' => "/include " . ($white ? 'white' : 'deny'),
+            ],
+        ];
         if (!empty($domains)) {
             foreach (array_slice($domains, $page * $this->limit, $this->limit) as $v) {
                 $data[] = [
