@@ -161,6 +161,7 @@ services:
             - ./app:/app
             - ./logs/:/logs/
             - ./update:/update
+            - ./.git:/.git
             - ./scripts/start_service.sh:/start_service.sh
             - /var/run/docker.sock:/var/run/docker.sock:ro
         environment:
