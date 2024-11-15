@@ -600,7 +600,7 @@ class Bot
                 $this->addOverrideHtml();
                 break;
             case preg_match('~^/export$~', $this->input['callback'], $m):
-                $this->exportManual();
+                $this->pinBackup();
                 break;
             case preg_match('~^/import$~', $this->input['callback'], $m):
                 $this->import();
@@ -1228,7 +1228,7 @@ class Bot
 
     public function checkBackup($delta)
     {
-        $c   = $this->getPacConf();
+        $c = $this->getPacConf();
         if (!empty($c['backup'])) {
             $now = strtotime(date('Y-m-d H:i:s'));
             [$start, $period] = explode('/', $c['backup']);
@@ -1241,9 +1241,6 @@ class Bot
                 && $now - $start >= 0
                 && (($now - $start) % $period < $delta)
             ) {
-                if (!empty($c['pinbackup'])) {
-                    $this->pinAdmin($c['pinbackup'], 1);
-                }
                 $this->pinBackup();
             }
         }
@@ -1265,12 +1262,19 @@ class Bot
         }
     }
 
-    public function pinBackup()
+    public function pinBackup($file = false)
     {
         require __DIR__ . '/config.php';
-        $conf              = $this->getPacConf();
-        $bot               = preg_replace('~[\W]~iu', '_', $this->request('getMyName', [])['result']['name']);
-        $conf['pinbackup'] = $this->upload("{$bot}_export_" . date('d_m_Y_H_i') . '.json', $this->export(), $c['admin'][0])['result']['message_id'];
+        $conf = $this->getPacConf();
+        $bot  = preg_replace('~[\W]~iu', '_', $this->request('getMyName', [])['result']['name']);
+        $json = $this->export();
+        if (!empty($file)) {
+            file_put_contents($file, $json);
+        }
+        if (!empty($conf['pinbackup'])) {
+            $this->pinAdmin($conf['pinbackup'], 1);
+        }
+        $conf['pinbackup'] = $this->upload("{$bot}_export_" . date('d_m_Y_H_i') . '.json', $json, $c['admin'][0])['result']['message_id'];
         $this->setPacConf($conf);
         $this->pinAdmin($conf['pinbackup']);
     }
@@ -1456,16 +1460,6 @@ class Bot
 
         ];
         return json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    }
-
-    public function exportManual($file = false)
-    {
-        $json = $this->export();
-        if (!empty($file)) {
-            file_put_contents($file, $json);
-        }
-        $bot = preg_replace('~[\W]~iu', '_', $this->request('getMyName', [])['result']['name']);
-        return $this->upload("{$bot}_export_" . date('d_m_Y_H_i') . '.json', $json);
     }
 
     public function import()
@@ -6372,7 +6366,7 @@ DNS-over-HTTPS with IP:
 
     public function applyupdatebot()
     {
-        $this->exportManual($this->update);
+        $this->pinBackup($this->update);
         $r = $this->send($this->input['from'], 'update...');
         file_put_contents('/update/reload_message', "{$this->input['from']}:{$r['result']['message_id']}");
         file_put_contents('/update/key', $this->key);
