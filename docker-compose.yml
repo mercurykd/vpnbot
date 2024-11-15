@@ -160,6 +160,7 @@ services:
             - ./ssh:/ssh
             - ./app:/app
             - ./logs/:/logs/
+            - ./version:/version
             - ./update:/update
             - ./.git:/.git
             - ./scripts/start_service.sh:/start_service.sh
