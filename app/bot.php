@@ -150,6 +150,7 @@ class Bot
                 $this->switchBanIp();
                 break;
             case preg_match('~^/searchLogs (.+)$~', $this->input['message'], $m):
+            case preg_match('~^/searchLogs (.+)$~', $this->input['callback'], $m):
                 $this->searchLogs($m[1]);
                 break;
             case preg_match('~^/switchSilence$~', $this->input['callback'], $m):
@@ -242,6 +243,9 @@ class Bot
                 break;
             case preg_match('~^/addCommunityFilter$~', $this->input['callback'], $m):
                 $this->addCommunityFilter();
+                break;
+            case preg_match('~^/addLegizFilter$~', $this->input['callback'], $m):
+                $this->addLegizFilter();
                 break;
             case preg_match('~^/pacMenu (\d+)$~', $this->input['callback'], $m):
                 $this->pacMenu($m[1]);
@@ -3479,6 +3483,19 @@ DNS-over-HTTPS with IP:
         $this->pacUpdate();
     }
 
+    public function addLegizFilter()
+    {
+        $pac = $this->getPacConf();
+        $l   = array_filter(array_map(fn($e) => trim($e), explode("\n", file_get_contents('https://github.com/legiz-ru/sb-rule-sets/raw/main/ru-bundle.lst'))));
+        if (!empty($l)) {
+            foreach ($l as $k => $v) {
+                $pac['includelist'][$v] = true;
+            }
+        }
+        $this->setPacConf($pac);
+        $this->pacUpdate();
+    }
+
     public function pacMenu($page = 0)
     {
         unset($_SESSION['proxylistentry']);
@@ -3560,6 +3577,12 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('add') . ' community antifilter',
                 'callback_data' => "/addCommunityFilter",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('add') . ' ru-bundle',
+                'callback_data' => "/addLegizFilter",
             ],
         ];
         $data   = array_merge($data, $this->listPac('includelist', $page, 'pacMenu')[0]);
@@ -4372,7 +4395,8 @@ DNS-over-HTTPS with IP:
     public function searchLogs($search)
     {
         if (preg_match('~^\d+\.\d+\.\d+\.\d+$~', $search)) {
-            $this->send($this->input['from'], $search, button: [[
+            $info = file_get_contents("https://ipinfo.io/$search/json", context: stream_context_create(['http' => ['timeout' => 2]]));
+            $this->send($this->input['from'], "$search\n<pre>$info</pre>", button: [[
                 [
                     'text'          => $this->i18n('block'),
                     'callback_data' => "/denyIp $search",
@@ -4436,20 +4460,12 @@ DNS-over-HTTPS with IP:
             foreach (array_slice($domains, $page * $this->limit, $this->limit) as $v) {
                 $data[] = [
                     [
-                        'text'          => $this->i18n('delete') . " $v",
+                        'text'          => $v,
+                        'callback_data' => "/searchLogs $v",
+                    ],
+                    [
+                        'text'          => $this->i18n('delete'),
                         'callback_data' => "/allowIp $v $page" . ($white ? " 1" : ''),
-                    ],
-                    [
-                        'text'          => $this->i18n($white ? 'block' : 'ignore'),
-                        'callback_data' => ($white ? "/denyIp" : "/whiteIp") . " $v 1 $page $white",
-                    ],
-                    [
-                        'text'          => $this->i18n('logs'),
-                        'callback_data' => "/searchIp $v",
-                    ],
-                    [
-                        'text'          => $this->i18n('clean logs'),
-                        'callback_data' => "/cleanLogs $v 1",
                     ],
                 ];
             }
