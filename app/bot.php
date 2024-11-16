@@ -4545,7 +4545,7 @@ DNS-over-HTTPS with IP:
 
     public function denyList($page = 0, $white = 0)
     {
-        $text    = 'Menu -> IP -> ' . ($white ? 'white' : 'deny') . ' list';
+        $text    = 'Menu -> IP -> ' . ($white ? 'ignore' : 'block') . 'list';
         $domains = $this->getPacConf()[$white ? 'white' : 'deny'] ?: [];
         $all     = (int) ceil(count($domains) / $this->limit);
         $page    = min($page, $all - 1);
