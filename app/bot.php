@@ -1223,6 +1223,7 @@ class Bot
                 }
             }
         } catch (Exception $e) {
+            file_put_contents('/logs/php_error', $e->getMessage());
         }
     }
 
@@ -4696,8 +4697,10 @@ DNS-over-HTTPS with IP:
             }
             fclose($r);
         }
-        foreach (array_keys($xr) as $v) {
-            $text .= "allow $v;\n";
+        if (!empty($xr)) {
+            foreach (array_keys($xr) as $v) {
+                $text .= "allow $v;\n";
+            }
         }
         if (!empty($pac['white'])) {
             $pac['white'] = array_unique($pac['white']);
