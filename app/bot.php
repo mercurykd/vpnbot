@@ -4687,6 +4687,18 @@ DNS-over-HTTPS with IP:
     public function syncDeny()
     {
         $pac = $this->getPacConf();
+        if ($r = fopen('/logs/nginx_tlgrm_access', 'r')) {
+            while (feof($r) === false) {
+                $l = fgets($r);
+                if (preg_match('~(\d+\.\d+\.\d+\.\d+)~', $l, $m)) {
+                    $xr[$m[1]] = true;
+                }
+            }
+            fclose($r);
+        }
+        foreach (array_keys($xr) as $v) {
+            $text .= "allow $v;\n";
+        }
         if (!empty($pac['white'])) {
             $pac['white'] = array_unique($pac['white']);
             sort($pac['white']);
