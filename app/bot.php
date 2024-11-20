@@ -3137,6 +3137,9 @@ DNS-over-HTTPS with IP:
             $this->setPacConf($c);
             $page = floor(count($c['subnets']) / $this->limit);
         }
+        if (!empty($openconnect)) {
+            $this->ocservRoute();
+        }
         $this->subnet($wgpage, $page, $openconnect);
     }
 
@@ -3145,7 +3148,31 @@ DNS-over-HTTPS with IP:
         $c = $this->getPacConf();
         unset($c['subnets'][$k]);
         $this->setPacConf($c);
+        if (!empty($openconnect)) {
+            $this->ocservRoute();
+        }
         $this->subnet($wgpage, $page, $openconnect);
+    }
+
+    public function ocservRoute()
+    {
+        $p = $this->getPacConf();
+        $c = file_get_contents('/config/ocserv.conf');
+        $t = preg_replace('~^route[^\n]+~sm', '', $c);
+        if (!empty($p['subnets'])) {
+            foreach ($p['subnets'] as $v) {
+                if (preg_match('~^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}~', $v)) {
+                    $t .= "route = $v";
+                    $flag = true;
+                }
+            }
+            if (empty($flag)) {
+                $t .= 'route = default';
+            }
+        } else {
+            $t .= 'route = default';
+        }
+        $this->restartOcserv($t);
     }
 
     public function calc()
