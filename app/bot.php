@@ -166,6 +166,9 @@ class Bot
             case preg_match('~^/mainOutbound$~', $this->input['callback'], $m):
                 $this->mainOutbound();
                 break;
+            case preg_match('~^/importIps (.+)$~', $this->input['callback'], $m):
+                $this->importIps($m[1]);
+                break;
             case preg_match('~^/switchBanIp$~', $this->input['callback'], $m):
                 $this->switchBanIp();
                 break;
@@ -3797,7 +3800,7 @@ DNS-over-HTTPS with IP:
         [$data] = $this->listPac('includelist', $page, 'xtlsproxy');
         $data[] = [
             [
-                'text'          => 'set to ' . ($p['domains_outbound'] ? 'proxy' : 'direct'),
+                'text'          => 'set to ' . ($p['domains_outbound'] ? ($p['outbound'] ?: 'proxy') : 'direct'),
                 'callback_data' => "/domainsOutbound",
             ],
         ];
@@ -3855,7 +3858,7 @@ DNS-over-HTTPS with IP:
         $p      = $this->getPacConf();
         $data[] = [
             [
-                'text'          => 'set to ' . ($p['app_outbound'] ? 'proxy' : 'direct'),
+                'text'          => 'set to ' . ($p['app_outbound'] ? ($p['outbound'] ?: 'proxy') : 'direct'),
                 'callback_data' => "/appOutbound",
             ],
         ];
@@ -3881,7 +3884,7 @@ DNS-over-HTTPS with IP:
         $p      = $this->getPacConf();
         $data[] = [
             [
-                'text'          => 'set to ' . ($p['process_outbound'] ? 'proxy' : 'direct'),
+                'text'          => 'set to ' . ($p['process_outbound'] ? ($p['outbound'] ?: 'proxy') : 'direct'),
                 'callback_data' => "/processOutbound",
             ],
         ];
@@ -4537,6 +4540,33 @@ DNS-over-HTTPS with IP:
         }
     }
 
+    public function importIps($type)
+    {
+        switch ($type) {
+            case 'telegram':
+                $r = file_get_contents('https://core.telegram.org/resources/cidr.txt');
+                if (!empty($r)) {
+                    $domains = explode("\n", $r);
+                }
+                break;
+            case 'gcore':
+                $r = json_decode(file_get_contents('https://api.gcore.com/cdn/public-ip-list'), true);
+                if (!empty($r['addresses'])) {
+                    $domains = $r['addresses'];
+                }
+                break;
+            case 'cloudflare':
+                $r = json_decode(file_get_contents('https://api.cloudflare.com/client/v4/ips'), true);
+                if (!empty($r['result']['ipv4_cidrs'])) {
+                    $domains = $r['result']['ipv4_cidrs'];
+                }
+                break;
+        }
+        if (!empty($domains = array_filter($domains ?: [], fn($e) => preg_match('~^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}~', $e)))) {
+            $this->addInclude(implode(',', $domains), 'white');
+        }
+    }
+
     public function denyList($page = 0, $white = 0)
     {
         $text    = 'Menu -> IP -> ' . ($white ? 'ignore' : 'block') . 'list';
@@ -4545,6 +4575,24 @@ DNS-over-HTTPS with IP:
         $page    = min($page, $all - 1);
         $page    = $page < 0 ? $all - 1 : $page;
 
+        $data[] = [
+            [
+                'text'          => $this->i18n('telegram IPs'),
+                'callback_data' => "/importIps telegram",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('gcore IPs'),
+                'callback_data' => "/importIps gcore",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('cloudflare IPs'),
+                'callback_data' => "/importIps cloudflare",
+            ],
+        ];
         $data[] = [
             [
                 'text'          => $this->i18n('add'),
