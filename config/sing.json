@@ -111,6 +111,7 @@
                 "outbound": "dns-out"
             },
             {
+                "addruleset": true,
                 "createruleset": [
                     {
                         "name": "pac",
@@ -125,6 +126,7 @@
                 "outbound": "~domains_outbound~"
             },
             {
+                "addruleset": true,
                 "createruleset": [
                     {
                         "name": "package",
@@ -139,6 +141,7 @@
                 "outbound": "~app_outbound~"
             },
             {
+                "addruleset": true,
                 "createruleset": [
                     {
                         "name": "process",
@@ -153,6 +156,7 @@
                 "outbound": "~process_outbound~"
             },
             {
+                "addruleset": true,
                 "createruleset": [
                     {
                         "name": "block",
@@ -167,6 +171,7 @@
                 "outbound": "block"
             },
             {
+                "addruleset": true,
                 "createruleset": [
                     {
                         "name": "warp",

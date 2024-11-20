@@ -163,6 +163,9 @@ class Bot
             case preg_match('~^/mirror$~', $this->input['message'], $m):
                 $this->menu('mirror');
                 break;
+            case preg_match('~^/mainOutbound$~', $this->input['callback'], $m):
+                $this->mainOutbound();
+                break;
             case preg_match('~^/switchBanIp$~', $this->input['callback'], $m):
                 $this->switchBanIp();
                 break;
@@ -5235,6 +5238,23 @@ DNS-over-HTTPS with IP:
         $domain    = $this->getDomain();
         $hash      = substr(md5($this->key), 0, 8);
         $text[]    = "Menu -> " . $this->i18n('xray') . " -> $type templates";
+        $text[]    = <<<TEXT
+            <code>~outbound~</code>
+            <code>"~pac~"</code>
+            <code>~dns~</code>
+            <code>~uid~</code>
+            <code>~domain~</code>
+            <code>~directdomain~</code>
+            <code>~cdndomain~</code>
+            <code>~short_id~</code>
+            <code>~public_key~</code>
+            <code>~server_name~</code>
+            <code>~app_outbound~</code>
+            <code>~process_outbound~</code>
+            <code>~domains_outbound~</code>
+            <code>~final_outbound~</code>
+            <code>~ip~</code>
+            TEXT;
         $templates = $pac["{$type}templates"];
 
         $data[] = [
@@ -5296,6 +5316,34 @@ DNS-over-HTTPS with IP:
         );
     }
 
+    public function mainOutbound()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} send name",
+            $this->input['message_id'],
+            reply: 'send name',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'setMainOutbound',
+            'args'           => [],
+        ];
+    }
+
+    public function setMainOutbound($text)
+    {
+        $pac = $this->getPacConf();
+        if (!empty($text)) {
+            $pac['outbound'] = $text;
+        } else {
+            unset($pac['outbound']);
+        }
+        $this->setPacConf($pac);
+        $this->xray();
+    }
+
     public function xray($page = 0)
     {
         if (!$this->ssh('pgrep xray', 'xr')) {
@@ -5308,6 +5356,12 @@ DNS-over-HTTPS with IP:
             $text[] = "fake domain: <code>$fake</code>";
         }
         $text[] = 'transport: ' . ($p['transport'] ?: 'Reality');
+        $data[] = [
+            [
+                'text'          => $this->i18n('main outbound: ') . ($p['outbound'] ?: 'proxy'),
+                'callback_data' => '/mainOutbound',
+            ],
+        ];
         $data[] = [
             [
                 'text'          => $p['linkdomain'] ?: $this->i18n('cdn'),
@@ -5888,7 +5942,6 @@ DNS-over-HTTPS with IP:
                     $c['outbounds'][$index]['tls']['reality']['short_id']   = '~short_id~';
                 }
 
-                $c['route'] = $this->addRuleSet($c['route']);
                 $c['route'] = $this->createRuleSet($c['route'], $uid, $domain);
                 break;
         }
@@ -5898,6 +5951,8 @@ DNS-over-HTTPS with IP:
             '~dns~'              => "https://$domain/dns-query/$uid",
             '~uid~'              => $uid,
             '~domain~'           => $domain,
+            '~directdomain~'     => $pac['domain'],
+            '~cdndomain~'        => $pac['linkdomain'],
             '~short_id~'         => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
             '~public_key~'       => $pac['xray'],
             '~server_name~'      => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
@@ -5907,6 +5962,7 @@ DNS-over-HTTPS with IP:
             '~final_outbound~'   => $pac['final_outbound'] ? $outbound : 'direct',
             '~ip~'               => $this->ip,
         ]);
+        $json = $this->addRuleSet($json);
         $json = $this->clearEmptyRules($json);
 
         header('Content-type: application/json');
@@ -5940,29 +5996,40 @@ DNS-over-HTTPS with IP:
         return json_encode($json);
     }
 
-    public function addRuleSet($route)
+    public function addRuleSet($json)
     {
-        foreach ($route['rules'] as $k => $v) {
-            $t[$v['outbound']] = $k;
-        }
-        $p = $this->getPacConf();
-        if (!empty($p['rulessetlist'])) {
-            foreach ($p['rulessetlist'] as $k => $v) {
-                if (!empty($v)) {
-                    [$type, $time, $url] = explode(':', $k, 3);
-                    $route['rule_set'][] = [
-                        "tag"             => $k,
-                        "type"            => "remote",
-                        "format"          => "binary",
-                        "url"             => $url,
-                        "download_detour" => "direct",
-                        "update_interval" => $time
-                    ];
-                    $route['rules'][$t[$type]]['rule_set'][] = $k;
+        $json = json_decode($json, 1);
+        if (!empty($json['route']['rules'])) {
+            foreach ($json['route']['rules'] as $k => $v) {
+                if (!empty($v['addruleset'])) {
+                    $t[$v['outbound']] = $k;
                 }
             }
+            $this->sd($t, 1);
+            $p = $this->getPacConf();
+            if (!empty($p['rulessetlist'])) {
+                foreach ($p['rulessetlist'] as $k => $v) {
+                    if (!empty($v)) {
+                        [$type, $time, $url] = explode(':', $k, 3);
+                        if (!empty($json['route']['rules'][$t[$type]])) {
+                            $json['route']['rule_set'][] = [
+                                "tag"             => $k,
+                                "type"            => "remote",
+                                "format"          => "binary",
+                                "url"             => $url,
+                                "download_detour" => "direct",
+                                "update_interval" => $time
+                            ];
+                            $json['route']['rules'][$t[$type]]['rule_set'][] = $k;
+                        }
+                    }
+                }
+            }
+            foreach ($json['route']['rules'] as $k => $v) {
+                unset($json['route']['rules'][$k]['addruleset']);
+            }
         }
-        return $route;
+        return json_encode($json);
     }
 
     public function createRuleSet($route, $uid, $domain)
