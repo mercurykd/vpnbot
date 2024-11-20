@@ -205,7 +205,7 @@ class Bot
             case preg_match('~^/cleanLogs (.+?)(?:\s(1))?$~', $this->input['callback'], $m):
                 $this->cleanLogs($m[1], $m[2]);
                 break;
-            case preg_match('~^/allowIp (\d+\.\d+\.\d+\.\d+) (\d+)(?:\s(\d+))?$~', $this->input['callback'], $m):
+            case preg_match('~^/allowIp (.+?) (\d+)(?:\s(\d+))?$~', $this->input['callback'], $m):
                 $this->allowIp($m[1], $m[2], $m[3]);
                 break;
             case preg_match('~^/searchIp (.+)$~', $this->input['callback'], $m):
@@ -4345,24 +4345,14 @@ DNS-over-HTTPS with IP:
     public function analysisIp(int $page = 0, $return = false)
     {
         $pac = $this->getPacConf();
-        foreach (array_merge($pac['white'] ?: [], $pac['deny'] ?: [], [
-            '10.10.0.1' ,'10.10.1.1' ,
-            '10.10.0.2' ,'10.10.1.2' ,
-            '10.10.0.3' ,'10.10.1.3' ,
-            '10.10.0.4' ,'10.10.1.4' ,
-            '10.10.0.5' ,'10.10.1.5' ,
-            '10.10.0.6' ,'10.10.1.6' ,
-            '10.10.0.7' ,'10.10.1.7' ,
-            '10.10.0.8' ,'10.10.1.8' ,
-            '10.10.0.9' ,'10.10.1.9' ,
-            '10.10.0.10','10.10.1.10',
-            '10.10.0.11','10.10.1.11',
-            '10.10.0.12','10.10.1.12',
-            '10.10.0.13','10.10.1.13',
-            '10.10.0.14','10.10.1.14',
-            '10.10.0.15','10.10.1.15',
-            ]) as $v) {
-            $xr[$v] = true;
+        foreach (array_merge($pac['white'] ?: [], $pac['deny'] ?: [], ['10.10.0.0/23']) as $v) {
+            if (!empty(preg_match('~^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/(\d{1,2})~', $v, $m))) {
+                for ($i = ip2long($m[1]); $i < ip2long($m[1]) + pow(2, 32 - $m[2]) - 1; $i++) {
+                    $xr[long2ip($i)] = true;
+                }
+            } else {
+                $xr[$v] = true;
+            }
         }
         if ($r = fopen('/logs/nginx_tlgrm_access', 'r')) {
             while (feof($r) === false) {
@@ -4715,8 +4705,12 @@ DNS-over-HTTPS with IP:
         if (!empty($pac['deny'])) {
             $pac['deny'] = array_unique($pac['deny']);
             sort($pac['deny']);
-            foreach ($pac['deny'] as $v) {
-                $text .= "deny $v;\n";
+            foreach ($pac['deny'] as $k => $v) {
+                if (!in_array($v, $pac['white'] ?: []) && !in_array($v, array_keys($xr ?: []))) {
+                    $text .= "deny $v;\n";
+                } else {
+                    unset($pac['deny'][$k]);
+                }
             }
         }
         $this->setPacConf($pac);
@@ -5358,7 +5352,7 @@ DNS-over-HTTPS with IP:
         $text[] = 'transport: ' . ($p['transport'] ?: 'Reality');
         $data[] = [
             [
-                'text'          => $this->i18n('main outbound: ') . ($p['outbound'] ?: 'proxy'),
+                'text'          => $this->i18n('main outbound name: ') . ($p['outbound'] ?: 'proxy'),
                 'callback_data' => '/mainOutbound',
             ],
         ];
