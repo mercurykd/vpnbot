@@ -4377,7 +4377,7 @@ DNS-over-HTTPS with IP:
         $pac = $this->getPacConf();
         foreach (array_merge($pac['white'] ?: [], $pac['deny'] ?: [], ['10.10.0.0/23']) as $v) {
             if (!empty(preg_match('~^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/(\d{1,2})~', $v, $m))) {
-                for ($i = ip2long($m[1]); $i < ip2long($m[1]) + pow(2, 32 - $m[2]) - 1; $i++) {
+                for ($i = ip2long($m[1]); $i <= ip2long($m[1]) + pow(2, 32 - $m[2]) - 1; $i++) {
                     $xr[long2ip($i)] = true;
                 }
             } else {
