@@ -3130,6 +3130,9 @@ DNS-over-HTTPS with IP:
 
     public function subnetSave($text, $wgpage, $page, $openconnect)
     {
+        if (!preg_match('~^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$~', $text)) {
+            return $this->send($this->input['chat'], "wrong format: $text", $this->input['message_id']);
+        }
         $c = $this->getPacConf();
         $subnets = explode(',', $text);
         if ($subnets) {
@@ -4342,22 +4345,34 @@ DNS-over-HTTPS with IP:
         );
     }
 
-    public function suspicious($regexp, $file, $ip, $title, $reverse = false)
+    public function ipInRange($ip, $range) {
+        [$range, $netmask] = explode('/', $range, 2);
+        $rangeDecimal      = ip2long($range);
+        $ipDecimal         = ip2long($ip);
+        $wildcardDecimal   = pow(2, 32 - $netmask) - 1;
+        $netmaskDecimal    = ~$wildcardDecimal;
+        return ($ipDecimal & $netmaskDecimal) == ($rangeDecimal & $netmaskDecimal);
+    }
+
+    public function suspicious($regexp, $file, $ranges, $title, $reverse = false)
     {
         if ($r = fopen($file, 'r')) {
             while (feof($r) === false) {
                 $l = fgets($r);
                 if (preg_match('~(\d+\.\d+\.\d+\.\d+)~', $l, $m)) {
                     if ($reverse xor preg_match($regexp, $l)) {
-                        if (is_array($ip)) {
-                            if (empty($ip[$m[1]])) {
-                                $ret[$m[1]][] = [
-                                    'title' => $title,
-                                    'log'   => $l,
-                                ];
+                        if (is_array($ranges)) {
+                            foreach ($ranges as $range) {
+                                if (!$this->ipInRange($m[1], $range)) {
+                                    $ret[$m[1]][] = [
+                                        'title' => $title,
+                                        'log'   => $l,
+                                    ];
+                                    break;
+                                }
                             }
                         } else {
-                            if ($ip == $m[1]) {
+                            if ($this->ipInRange($m[1], $ranges)) {
                                 $ret[$m[1]][] = [
                                     'title' => $title,
                                     'log'   => $l,
@@ -4375,20 +4390,21 @@ DNS-over-HTTPS with IP:
     public function analysisIp(int $page = 0, $return = false)
     {
         $pac = $this->getPacConf();
+        $xr  = [];
         foreach (array_merge($pac['white'] ?: [], $pac['deny'] ?: [], ['10.10.0.0/23']) as $v) {
-            if (!empty(preg_match('~^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/(\d{1,2})~', $v, $m))) {
-                for ($i = ip2long($m[1]); $i <= ip2long($m[1]) + pow(2, 32 - $m[2]) - 1; $i++) {
-                    $xr[long2ip($i)] = true;
+            if (preg_match('~^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:(/\d{1,2}))?$~', $v, $m)) {
+                if (!in_array($m[1] . ($m[2] ?: '/32'), $xr)) {
+                    $xr[] = $m[1] . ($m[2] ?: '/32');
                 }
-            } else {
-                $xr[$v] = true;
             }
         }
         if ($r = fopen('/logs/nginx_tlgrm_access', 'r')) {
             while (feof($r) === false) {
                 $l = fgets($r);
                 if (preg_match('~(\d+\.\d+\.\d+\.\d+)~', $l, $m)) {
-                    $xr[$m[1]] = true;
+                    if (!in_array("{$m[1]}/32", $xr)) {
+                        $xr[] = "{$m[1]}/32";
+                    }
                 }
             }
             fclose($r);
@@ -4397,7 +4413,9 @@ DNS-over-HTTPS with IP:
             while (feof($r) === false) {
                 $l = fgets($r);
                 if (preg_match('~(\d+\.\d+\.\d+\.\d+)(?=.+accepted)~', $l, $m)) {
-                    $xr[$m[1]] = true;
+                    if (!in_array("{$m[1]}/32", $xr)) {
+                        $xr[] = "{$m[1]}/32";
+                    }
                 }
             }
             fclose($r);
@@ -4536,9 +4554,9 @@ DNS-over-HTTPS with IP:
     public function searchSuspiciousIp($ip)
     {
         $t = [
-            $this->suspicious('~\d+\.\d+\.\d+\.\d+.+200\s\d+\s0$~', '/logs/upstream_access', $ip, 'possibly a Reality Degenerate'),
-            $this->suspicious($this->reg, '/logs/nginx_default_access', $ip, 'possibly a scanner', true),
-            $this->suspicious($this->reg, '/logs/nginx_domain_access', $ip, 'possibly a scanner', true),
+            $this->suspicious('~\d+\.\d+\.\d+\.\d+.+200\s\d+\s0$~', '/logs/upstream_access', "$ip/32", 'possibly a Reality Degenerate'),
+            $this->suspicious($this->reg, '/logs/nginx_default_access', "$ip/32", 'possibly a scanner', true),
+            $this->suspicious($this->reg, '/logs/nginx_domain_access', "$ip/32", 'possibly a scanner', true),
         ];
         foreach ($t as $r) {
             if (!empty($r)) {
@@ -4602,24 +4620,26 @@ DNS-over-HTTPS with IP:
         $page    = min($page, $all - 1);
         $page    = $page < 0 ? $all - 1 : $page;
 
-        $data[] = [
-            [
-                'text'          => $this->i18n('telegram IPs'),
-                'callback_data' => "/importIps telegram",
-            ],
-        ];
-        $data[] = [
-            [
-                'text'          => $this->i18n('gcore IPs'),
-                'callback_data' => "/importIps gcore",
-            ],
-        ];
-        $data[] = [
-            [
-                'text'          => $this->i18n('cloudflare IPs'),
-                'callback_data' => "/importIps cloudflare",
-            ],
-        ];
+        if (!empty($white)) {
+            $data[] = [
+                [
+                    'text'          => $this->i18n('telegram IPs'),
+                    'callback_data' => "/importIps telegram",
+                ],
+            ];
+            $data[] = [
+                [
+                    'text'          => $this->i18n('gcore IPs'),
+                    'callback_data' => "/importIps gcore",
+                ],
+            ];
+            $data[] = [
+                [
+                    'text'          => $this->i18n('cloudflare IPs'),
+                    'callback_data' => "/importIps cloudflare",
+                ],
+            ];
+        }
         $data[] = [
             [
                 'text'          => $this->i18n('add'),
@@ -5766,12 +5786,11 @@ DNS-over-HTTPS with IP:
         $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['email']}\n";
         $text[] = "<pre><code>{$this->linkXray($i)}</code></pre>\n";
 
-        $text[] = "import subscribe:";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=v&s={$c['id']}#{$c['email']}'>v2rayng</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=si&s={$c['id']}#{$c['email']}'>sing-box</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=st&s={$c['id']}#{$c['email']}'>streisand</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=h&s={$c['id']}#{$c['email']}'>hiddify</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=k&s={$c['id']}#{$c['email']}'>karing</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=v&s={$c['id']}#{$c['email']}'>import://v2rayng</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=si&s={$c['id']}#{$c['email']}'>import://sing-box</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=st&s={$c['id']}#{$c['email']}'>import://streisand</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=h&s={$c['id']}#{$c['email']}'>import://hiddify</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=k&s={$c['id']}#{$c['email']}'>import://karing</a>";
 
         $si = "$scheme://{$domain}/pac/" . base64_encode(serialize([
             'h' => $hash,
