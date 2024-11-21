@@ -6105,7 +6105,6 @@ DNS-over-HTTPS with IP:
                     $t[$v['outbound']] = $k;
                 }
             }
-            $this->sd($t, 1);
             $p = $this->getPacConf();
             if (!empty($p['rulessetlist'])) {
                 foreach ($p['rulessetlist'] as $k => $v) {
