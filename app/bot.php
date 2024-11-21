@@ -4362,14 +4362,18 @@ DNS-over-HTTPS with IP:
                 if (preg_match('~(\d+\.\d+\.\d+\.\d+)~', $l, $m)) {
                     if ($reverse xor preg_match($regexp, $l)) {
                         if (is_array($ranges)) {
+                            $flag = true;
                             foreach ($ranges as $range) {
-                                if (!$this->ipInRange($m[1], $range)) {
-                                    $ret[$m[1]][] = [
-                                        'title' => $title,
-                                        'log'   => $l,
-                                    ];
+                                if ($this->ipInRange($m[1], $range)) {
+                                    $flag = false;
                                     break;
                                 }
+                            }
+                            if ($flag) {
+                                $ret[$m[1]][] = [
+                                    'title' => $title,
+                                    'log'   => $l,
+                                ];
                             }
                         } else {
                             if ($this->ipInRange($m[1], $ranges)) {
