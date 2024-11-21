@@ -186,6 +186,7 @@
                 "outbound": "~outbound~"
             },
             {
+                "addruleset": true,
                 "outbound": "direct"
             }
         ],
