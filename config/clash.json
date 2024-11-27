@@ -109,7 +109,12 @@
         {
             "type": "PROCESS-NAME",
             "list": "~process~",
-            "action": "REJECT"
+            "action": "PROXY"
+        },
+        {
+            "type": "PROCESS-NAME",
+            "list": "~package~",
+            "action": "PROXY"
         },
         {
             "type": "MATCH",
