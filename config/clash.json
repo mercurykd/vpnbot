@@ -1,0 +1,119 @@
+{
+    "mixed-port": 2080,
+    "allow-lan": true,
+    "tcp-concurrent": true,
+    "enable-process": true,
+    "find-process-mode": "strict",
+    "global-client-fingerprint": "chrome",
+    "mode": "rule",
+    "log-level": "debug",
+    "ipv6": false,
+    "keep-alive-interval": 30,
+    "unified-delay": false,
+    "profile": {
+        "store-selected": true,
+        "store-fake-ip": true
+    },
+    "sniffer": {
+        "enable": true,
+        "sniff": {
+            "HTTP": {
+                "ports": [
+                    80,
+                    "8080-8880"
+                ],
+                "override-destination": true
+            },
+            "TLS": {
+                "ports": [
+                    443,
+                    8443
+                ]
+            },
+            "QUIC": {
+                "ports": [
+                    443,
+                    8443
+                ]
+            }
+        }
+    },
+    "tun": {
+        "enable": true,
+        "stack": "mixed",
+        "dns-hijack": [
+            "any:53"
+        ],
+        "auto-route": true,
+        "auto-detect-interface": true,
+        "strict-route": true
+    },
+    "dns": {
+        "enable": true,
+        "listen": ":1053",
+        "prefer-h3": false,
+        "ipv6": false,
+        "enhanced-mode": "fake-ip",
+        "fake-ip-filter": [
+            "~domain~",
+            "+.lan",
+            "+.local"
+        ],
+        "nameserver": [
+            "~dns~"
+        ]
+    },
+    "proxies": [
+        {
+            "name": "~outbound~",
+            "type": "vless",
+            "server": "~domain~",
+            "port": 443,
+            "uuid": "~uid~",
+            "network": "tcp",
+            "flow": "xtls-rprx-vision",
+            "tls": true,
+            "reality-opts": {
+                "public-key": "~public_key~",
+                "short-id": "~short_id~"
+            },
+            "servername": "~server_name~",
+            "client-fingerprint": "chrome"
+        }
+    ],
+    "proxy-groups": [
+        {
+            "name": "PROXY",
+            "type": "select",
+            "proxies": [
+                "~outbound~"
+            ]
+        }
+    ],
+    "rules": [
+        {
+            "type": "DOMAIN-SUFFIX",
+            "list": "~block~",
+            "action": "REJECT"
+        },
+        {
+            "type": "DOMAIN-SUFFIX",
+            "list": "~warp~",
+            "action": "PROXY"
+        },
+        {
+            "type": "DOMAIN-SUFFIX",
+            "list": "~pac~",
+            "action": "PROXY"
+        },
+        {
+            "type": "PROCESS-NAME",
+            "list": "~process~",
+            "action": "REJECT"
+        },
+        {
+            "type": "MATCH",
+            "action": "DIRECT"
+        }
+    ]
+}

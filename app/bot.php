@@ -5482,6 +5482,10 @@ DNS-over-HTTPS with IP:
                 'text'          => $this->i18n('sing-box templates'),
                 'callback_data' => "/templates sing",
             ],
+            [
+                'text'          => $this->i18n('clash templates'),
+                'callback_data' => "/templates clash",
+            ],
         ];
         $data[] = [
             [
@@ -5784,9 +5788,15 @@ DNS-over-HTTPS with IP:
             't' => 's',
             's' => $c['id'],
         ]));
+        $cl = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+            'h' => $hash,
+            't' => 'cl',
+            's' => $c['id'],
+        ]));
 
         $text[] = "\nxray config: <pre><code>$xr</code></pre>";
         $text[] = "sing-box config: <pre><code>$si</code></pre>";
+        $text[] = "clash config: <pre><code>$cl</code></pre>";
 
         $text[] = "sing-box windows: <a href='$scheme://{$domain}/pac?h=$hash&t=si&r=w&s={$c['id']}'>windows service</a>";
 
@@ -5812,6 +5822,7 @@ DNS-over-HTTPS with IP:
         ];
         $singtemplate  = $c['singtemplate'] ? base64_decode($c['singtemplate']) : 'default(' . ($pac['defaultsingtemplate'] && !empty($pac['singtemplates'][base64_decode($pac['defaultsingtemplate'])]) ? base64_decode($pac['defaultsingtemplate']) : 'origin') . ')';
         $v2raytemplate = $c['v2raytemplate'] ? base64_decode($c['v2raytemplate']) : 'default(' . ($pac['defaultv2raytemplate'] && !empty($pac['v2raytemplates'][base64_decode($pac['defaultv2raytemplate'])]) ? base64_decode($pac['defaultv2raytemplate']) : 'origin') . ')';
+        $clashtemplate = $c['clashtemplate'] ? base64_decode($c['clashtemplate']) : 'default(' . ($pac['defaultclashtemplate'] && !empty($pac['clashtemplates'][base64_decode($pac['defaultclashtemplate'])]) ? base64_decode($pac['defaultclashtemplate']) : 'origin') . ')';
         $data[]        = [
             [
                 'text'          => $this->i18n('v2ray') . ": $v2raytemplate",
@@ -5820,6 +5831,10 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('singbox') . ": $singtemplate",
                 'callback_data' => "/templateUser sing $i",
+            ],
+            [
+                'text'          => $this->i18n('clash') . ": $clashtemplate",
+                'callback_data' => "/templateUser clash $i",
             ],
         ];
         $data[] = [
@@ -5871,7 +5886,17 @@ DNS-over-HTTPS with IP:
 
     public function subscription()
     {
-        $type   = $_GET['t'] == 's' ? 'v2ray' : 'sing';
+        switch ($_GET['t']) {
+            case 's':
+                $type = 'v2ray';
+                break;
+            case 'si':
+                $type = 'sing';
+                break;
+            case 'cl':
+                $type = 'clash';
+                break;
+        }
         $pac    = $this->getPacConf();
         $domain = $_GET['cdn'] ?: ($_SERVER['SERVER_NAME'] ?: $this->getDomain($pac['transport'] == 'Websocket'));
         $xr     = $this->getXray();
@@ -5903,6 +5928,11 @@ DNS-over-HTTPS with IP:
             $v2 = "$scheme://{$domain}/pac/" . base64_encode(serialize([
                 'h' => $hash,
                 't' => 's',
+                's' => $uid,
+            ]));
+            $cl = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+                'h' => $hash,
+                't' => 'cl',
                 's' => $uid,
             ]));
             switch ($_GET['r']) {
@@ -5959,6 +5989,14 @@ DNS-over-HTTPS with IP:
             if ($v['tag'] == $outbound) {
                 $index = $k;
                 break;
+            }
+        }
+        if (!isset($index)) {
+            foreach ($c['proxies'] as $k => $v) {
+                if ($v['name'] == $outbound) {
+                    $index = $k;
+                    break;
+                }
             }
         }
 
@@ -6020,27 +6058,103 @@ DNS-over-HTTPS with IP:
                     $c['outbounds'][$index]['tls']['reality']['short_id']   = '~short_id~';
                 }
 
+                $c['route'] = $this->addRuleSet($c['route']);
                 $c['route'] = $this->createRuleSet($c['route'], $uid, $domain);
+                break;
+            case 'cl':
+                $c['proxies'][$index]['server'] = '~domain~';
+                $c['proxies'][$index]['uuid']   = '~uid~';
+                if ($pac['transport'] == 'Websocket') {
+                    unset($c['proxies'][$index]['flow']);
+                    unset($c['proxies'][$index]['reality-opts']);
+                    $c['proxies'][$index]["network"]          = "ws";
+                    $c['proxies'][$index]["ws-opts"]['path']  = '/ws';
+                    $c['proxies'][$index]["skip-cert-verify"] = false;
+                    $c['proxies'][$index]['servername']      = '~domain~';
+                } else {
+                    unset($c['proxies'][$index]["ws-opts"]);
+                    unset($c['proxies'][$index]["skip-cert-verify"]);
+                    $c['proxies'][$index]["network"]      = "tcp";
+                    $c['proxies'][$index]['flow']         = 'xtls-rprx-vision';
+                    $c['proxies'][$index]['servername']  = '~server_name~';
+                    $c['proxies'][$index]['reality-opts'] = [
+                        'public-key' => '~public_key~',
+                        'short-id'   => '~short_id~',
+                    ];
+                }
+                break;
+        }
+        $c = json_decode($this->replaceTags(json_encode($c), [
+            '"~pac~"'        => json_encode(array_keys(array_filter($pac['includelist'] ?: []))),
+            '"~block~"'      => json_encode(array_keys(array_filter($pac['blocklist'] ?: []))),
+            '"~warp~"'       => json_encode(array_keys(array_filter($pac['warplist'] ?: []))),
+            '"~process~"'    => json_encode(array_keys(array_filter($pac['processlist'] ?: []))),
+            '"~package~"'    => json_encode(array_keys(array_filter($pac['packagelist'] ?: []))),
+            '~dns~'          => "https://$domain/dns-query/$uid",
+            '~uid~'          => $uid,
+            '~domain~'       => $domain,
+            '~directdomain~' => $pac['domain'],
+            '~cdndomain~'    => $pac['linkdomain'],
+            '~short_id~'     => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
+            '~public_key~'   => $pac['xray'],
+            '~server_name~'  => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
+            '~ip~'           => $this->ip,
+        ]), true);
+
+        switch ($_GET['t']) {
+            case 's':
+                if (!empty($c['routing']['rules'])) {
+                    foreach ($c['routing']['rules'] as $k => $v) {
+                        if (array_key_exists('domain', $v) && empty($v['domain'])) {
+                            unset($c['routing']['rules'][$k]);
+                        }
+                    }
+                    $c['routing']['rules'] = array_values($c['routing']['rules']);
+                }
+                break;
+            case 'si':
+                $c['route'] = $this->addRuleSet($c['route']);
+                $c['route'] = $this->createRuleSet($c['route'], $uid, $domain);
+                if (!empty($c['route']['rules'])) {
+                    foreach ($c['route']['rules'] as $k => $v) {
+                        if (count($v) < 2) {
+                            unset($c['route']['rules'][$k]);
+                        }
+                    }
+                    $c['route']['rules'] = array_values($c['route']['rules']);
+                }
+                break;
+            case 'cl':
+                if (!empty($c['rules'])) {
+                    $c['rules'] = $this->clashRules($c['rules']);
+                }
                 break;
         }
 
-        $json = $this->replaceTags(json_encode($c), [
-            '"~pac~"'            => json_encode(array_keys(array_filter($pac['includelist'] ?: []))),
-            '~dns~'              => "https://$domain/dns-query/$uid",
-            '~uid~'              => $uid,
-            '~domain~'           => $domain,
-            '~directdomain~'     => $pac['domain'],
-            '~cdndomain~'        => $pac['linkdomain'],
-            '~short_id~'         => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
-            '~public_key~'       => $pac['xray'],
-            '~server_name~'      => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
-            '~ip~'               => $this->ip,
-        ]);
-        $json = $this->addRuleSet($json);
-        $json = $this->clearEmptyRules($json);
+        if ($_GET['t'] == 'cl') {
+            header('Content-type: text/yaml');
+            echo yaml_emit($c);
+            return;
+        }
 
         header('Content-type: application/json');
-        echo $json;
+        echo json_encode($c);
+    }
+
+    public function clashRules($rules)
+    {
+        foreach ($rules as $v) {
+            if (isset($v['list'])) {
+                if (!empty($v['list'])) {
+                    foreach ($v['list'] as $j) {
+                        $tmp[] = "{$v['type']}, $j, {$v['action']}";
+                    }
+                }
+            } else {
+                $tmp[] = "{$v['type']}, {$v['action']}";
+            }
+        }
+        return $tmp;
     }
 
     public function replaceTags($subject, $tags)
@@ -6048,33 +6162,10 @@ DNS-over-HTTPS with IP:
         return str_replace(array_keys($tags), array_values($tags), $subject);
     }
 
-    public function clearEmptyRules($json)
+    public function addRuleSet($route)
     {
-        $json = json_decode($json, 1);
-        if (!empty($json['routing']['rules'])) {
-            foreach ($json['routing']['rules'] as $k => $v) {
-                if (array_key_exists('domain', $v) && empty($v['domain'])) {
-                    unset($json['routing']['rules'][$k]);
-                }
-            }
-            $json['routing']['rules'] = array_values($json['routing']['rules']);
-        }
-        if (!empty($json['route']['rules'])) {
-            foreach ($json['route']['rules'] as $k => $v) {
-                if (count($v) < 2) {
-                    unset($json['route']['rules'][$k]);
-                }
-            }
-            $json['route']['rules'] = array_values($json['route']['rules']);
-        }
-        return json_encode($json);
-    }
-
-    public function addRuleSet($json)
-    {
-        $json = json_decode($json, 1);
-        if (!empty($json['route']['rules'])) {
-            foreach ($json['route']['rules'] as $k => $v) {
+        if (!empty($route['rules'])) {
+            foreach ($route['rules'] as $k => $v) {
                 if (!empty($v['addruleset'])) {
                     $t[$v['outbound']] = $k;
                 }
@@ -6084,8 +6175,8 @@ DNS-over-HTTPS with IP:
                 foreach ($p['rulessetlist'] as $k => $v) {
                     if (!empty($v)) {
                         [$type, $time, $url] = explode(':', $k, 3);
-                        if (!empty($json['route']['rules'][$t[$type]])) {
-                            $json['route']['rule_set'][] = [
+                        if (!empty($route['rules'][$t[$type]])) {
+                            $route['rule_set'][] = [
                                 "tag"             => $k,
                                 "type"            => "remote",
                                 "format"          => "binary",
@@ -6093,16 +6184,16 @@ DNS-over-HTTPS with IP:
                                 "download_detour" => "direct",
                                 "update_interval" => $time
                             ];
-                            $json['route']['rules'][$t[$type]]['rule_set'][] = $k;
+                            $route['rules'][$t[$type]]['rule_set'][] = $k;
                         }
                     }
                 }
             }
-            foreach ($json['route']['rules'] as $k => $v) {
-                unset($json['route']['rules'][$k]['addruleset']);
+            foreach ($route['rules'] as $k => $v) {
+                unset($route['rules'][$k]['addruleset']);
             }
         }
-        return json_encode($json);
+        return $route;
     }
 
     public function createRuleSet($route, $uid, $domain)
@@ -6114,39 +6205,6 @@ DNS-over-HTTPS with IP:
         foreach ($route['rules'] as $k => $v) {
             if (!empty($v['createruleset'])) {
                 foreach ($v['createruleset'] as $r) {
-                    foreach ($r['rules'] as $l => $n) {
-                        switch (true) {
-                            case array_key_exists('domain_suffix', $n):
-                                switch ($n['domain_suffix']) {
-                                    case '~pac~':
-                                        $t = 'includelist';
-                                        break;
-                                    case '~warp~':
-                                        $t = 'warplist';
-                                        break;
-                                    case '~block~':
-                                        $t = 'blocklist';
-                                        break;
-                                }
-                                $r['rules'][$l]['domain_suffix'] = array_keys(array_filter($pac[$t] ?: []));
-                                if (empty($r['rules'][$l]['domain_suffix'])) {
-                                    unset($r['rules'][$l]);
-                                }
-                                break;
-                            case array_key_exists('package_name', $n):
-                                $r['rules'][$l]['package_name'] = array_keys(array_filter($pac['packagelist'] ?: []));
-                                if (empty($r['rules'][$l]['package_name'])) {
-                                    unset($r['rules'][$l]);
-                                }
-                                break;
-                            case array_key_exists('process_name', $n):
-                                $r['rules'][$l]['process_name'] = array_keys(array_filter($pac['processlist'] ?: []));
-                                if (empty($r['rules'][$l]['process_name'])) {
-                                    unset($r['rules'][$l]);
-                                }
-                                break;
-                        }
-                    }
                     if (!empty($_GET['r']) && $r['name'] == $_GET['r']) {
                         header("Content-Disposition: attachment; filename={$r['name']}.srs");
                         header('Content-Type: application/binary');
