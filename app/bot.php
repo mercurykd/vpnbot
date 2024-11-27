@@ -1192,10 +1192,10 @@ class Bot
         try {
             $pac = $this->getPacConf();
             if (!empty($pac['autoscan'])) {
-                $r = $this->analysisIp(return: 1);
                 require __DIR__ . '/config.php';
                 if (!empty($c['admin']) && (empty($this->time3) || ((time() - $this->time3) > $pac['autoscan_timeout']))) {
                     $this->time3 = time();
+                    $r = $this->analysisIp(return: 1);
                     if (!empty($r)) {
                         foreach ($r as $k => $v) {
                             foreach ($v as $i) {
