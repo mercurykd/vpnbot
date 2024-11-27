@@ -123,7 +123,7 @@
                         ]
                     }
                 ],
-                "outbound": "~domains_outbound~"
+                "outbound": "~outbound~"
             },
             {
                 "addruleset": true,
@@ -138,7 +138,7 @@
                         ]
                     }
                 ],
-                "outbound": "~app_outbound~"
+                "outbound": "~outbound~"
             },
             {
                 "addruleset": true,
@@ -153,7 +153,7 @@
                         ]
                     }
                 ],
-                "outbound": "~process_outbound~"
+                "outbound": "~outbound~"
             },
             {
                 "addruleset": true,
@@ -184,12 +184,8 @@
                     }
                 ],
                 "outbound": "~outbound~"
-            },
-            {
-                "addruleset": true,
-                "outbound": "direct"
             }
         ],
-        "final": "~final_outbound~"
+        "final": "direct"
     }
 }

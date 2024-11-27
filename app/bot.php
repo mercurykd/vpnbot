@@ -37,7 +37,7 @@ class Bot
             'xray',
         ];
         $this->reg = '~' . implode('|', [
-            'GET /ws(?:.+)? HTTP',
+            'GET /ws HTTP',
             'GET /adguard/(?:.+)? HTTP',
             'GET /webapp(?:.+)? HTTP',
             'GET /pac(?:.+)? HTTP',
@@ -3830,12 +3830,6 @@ DNS-over-HTTPS with IP:
         [$data] = $this->listPac('includelist', $page, 'xtlsproxy');
         $data[] = [
             [
-                'text'          => 'set to ' . ($p['domains_outbound'] ? ($p['outbound'] ?: 'proxy') : 'direct'),
-                'callback_data' => "/domainsOutbound",
-            ],
-        ];
-        $data[] = [
-            [
                 'text'          => $this->i18n('back'),
                 'callback_data' => "/routes",
             ],
@@ -3888,12 +3882,6 @@ DNS-over-HTTPS with IP:
         $p      = $this->getPacConf();
         $data[] = [
             [
-                'text'          => 'set to ' . ($p['app_outbound'] ? ($p['outbound'] ?: 'proxy') : 'direct'),
-                'callback_data' => "/appOutbound",
-            ],
-        ];
-        $data[] = [
-            [
                 'text'          => $this->i18n('back'),
                 'callback_data' => "/routes",
             ],
@@ -3912,12 +3900,6 @@ DNS-over-HTTPS with IP:
 
         [$data] = $this->listPac('processlist', $page, 'xtlsprocess');
         $p      = $this->getPacConf();
-        $data[] = [
-            [
-                'text'          => 'set to ' . ($p['process_outbound'] ? ($p['outbound'] ?: 'proxy') : 'direct'),
-                'callback_data' => "/processOutbound",
-            ],
-        ];
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -5342,6 +5324,10 @@ DNS-over-HTTPS with IP:
         $text[]    = <<<TEXT
             <code>~outbound~</code>
             <code>"~pac~"</code>
+            <code>~package~</code>
+            <code>~process~</code>
+            <code>~block~</code>
+            <code>~warp~</code>
             <code>~dns~</code>
             <code>~uid~</code>
             <code>~domain~</code>
@@ -5350,10 +5336,6 @@ DNS-over-HTTPS with IP:
             <code>~short_id~</code>
             <code>~public_key~</code>
             <code>~server_name~</code>
-            <code>~app_outbound~</code>
-            <code>~process_outbound~</code>
-            <code>~domains_outbound~</code>
-            <code>~final_outbound~</code>
             <code>~ip~</code>
             TEXT;
         $templates = $pac["{$type}templates"];
@@ -5589,24 +5571,20 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/xtlswarp",
             ]],
             [[
-                'text'          => $this->i18n('rulesset'),
-                'callback_data' => "/xtlsrulesset",
-            ]],
-            [[
-                'text'          => 'domains: ' . ($p['domains_outbound'] ? 'direct' : $outbound),
+                'text'          => 'domains',
                 'callback_data' => "/xtlsproxy",
             ]],
             [[
-                'text'          => 'process: ' . ($p['process_outbound'] ? 'direct' : $outbound),
+                'text'          => 'process',
                 'callback_data' => "/xtlsprocess",
             ]],
             [[
-                'text'          => 'package: ' . ($p['app_outbound'] ? 'direct' : $outbound),
+                'text'          => 'package',
                 'callback_data' => "/xtlsapp",
             ]],
             [[
-                'text'          => 'final: ' . ($p['final_outbound'] ? $outbound : 'direct'),
-                'callback_data' => "/finalOutbound",
+                'text'          => $this->i18n('rulesset'),
+                'callback_data' => "/xtlsrulesset",
             ]],
         ];
         $data[] = [
@@ -6056,10 +6034,6 @@ DNS-over-HTTPS with IP:
             '~short_id~'         => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
             '~public_key~'       => $pac['xray'],
             '~server_name~'      => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
-            '~app_outbound~'     => $pac['app_outbound'] ? 'direct' : $outbound,
-            '~process_outbound~' => $pac['process_outbound'] ? 'direct' : $outbound,
-            '~domains_outbound~' => $pac['domains_outbound'] ? 'direct' : $outbound,
-            '~final_outbound~'   => $pac['final_outbound'] ? $outbound : 'direct',
             '~ip~'               => $this->ip,
         ]);
         $json = $this->addRuleSet($json);
