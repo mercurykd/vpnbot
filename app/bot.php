@@ -5778,7 +5778,6 @@ DNS-over-HTTPS with IP:
         $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=h&s={$c['id']}#{$c['email']}'>import://hiddify</a>";
         $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=k&s={$c['id']}#{$c['email']}'>import://karing</a>";
         $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=c&s={$c['id']}#{$c['email']}'>import://clash</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=cm&s={$c['id']}#{$c['email']}'>import://clashmeta</a>";
 
         $si = "$scheme://{$domain}/pac/" . base64_encode(serialize([
             'h' => $hash,
@@ -5954,10 +5953,7 @@ DNS-over-HTTPS with IP:
                     header("Location: hiddify://install-config/?url=$si");
                     exit;
                 case 'c':
-                    header("Location: clash://install-config/?url=$cl");
-                    exit;
-                case 'cm':
-                    header("Location: clashmeta://install-config/?url=$cl");
+                    header("Location: clash://install-config/?url=$cl&name=$email");
                     exit;
                 case 'w':
                     $link = htmlspecialchars($si, ENT_XML1, 'UTF-8');
