@@ -6208,9 +6208,40 @@ DNS-over-HTTPS with IP:
         return $route;
     }
 
+    public function cleanEmptyKeys(array $arr)
+    {
+        foreach ($arr as $k => $v) {
+            if (empty($v)) {
+                unset($arr[$k]);
+            } elseif (is_array($v)) {
+                $arr[$k] = $this->cleanEmptyKeys($v);
+                if (empty($arr[$k])) {
+                    unset($arr[$k]);
+                }
+            }
+        }
+        return $arr;
+    }
+
+    public function createSrs(string $name, array $rules)
+    {
+        $rules = $this->cleanEmptyKeys($rules);
+        header("Content-Disposition: attachment; filename=$name.srs");
+        header('Content-Type: application/binary');
+        $f = "/tmp/$name" . time() . rand(1, 100);
+        file_put_contents($f, json_encode([
+            'version' => 1,
+            'rules'   => $rules ?: [],
+        ]));
+        exec("sing-box rule-set compile $f");
+        echo file_get_contents("$f.srs");
+        unlink($f);
+        unlink("$f.srs");
+        exit;
+    }
+
     public function createRuleSet($route, $uid, $domain)
     {
-        $pac    = $this->getPacConf();
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $hash   = substr(md5($this->key), 0, 8);
 
@@ -6218,18 +6249,7 @@ DNS-over-HTTPS with IP:
             if (!empty($v['createruleset'])) {
                 foreach ($v['createruleset'] as $r) {
                     if (!empty($_GET['r']) && $r['name'] == $_GET['r']) {
-                        header("Content-Disposition: attachment; filename={$r['name']}.srs");
-                        header('Content-Type: application/binary');
-                        $f = "/tmp/{$r['name']}" . time() . rand(1, 100);
-                        file_put_contents($f, json_encode([
-                            'version' => 1,
-                            'rules'   => $r['rules'] ?: [],
-                        ]));
-                        exec("sing-box rule-set compile $f");
-                        echo file_get_contents("$f.srs");
-                        unlink($f);
-                        unlink("$f.srs");
-                        exit;
+                        $this->createSrs($r['name'], $r['rules']);
                     }
                     $ruleset[] = [
                         "tag"             => $r['name'],
