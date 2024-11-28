@@ -3130,9 +3130,6 @@ DNS-over-HTTPS with IP:
 
     public function subnetSave($text, $wgpage, $page, $openconnect)
     {
-        if (!preg_match('~^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$~', $text)) {
-            return $this->send($this->input['chat'], "wrong format: $text", $this->input['message_id']);
-        }
         $c = $this->getPacConf();
         $subnets = explode(',', $text);
         if ($subnets) {
