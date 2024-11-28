@@ -4395,6 +4395,17 @@ DNS-over-HTTPS with IP:
             }
             fclose($r);
         }
+        if ($r = fopen('/logs/nginx_doh_access', 'r')) {
+            while (feof($r) === false) {
+                $l = fgets($r);
+                if (preg_match('~(\d+\.\d+\.\d+\.\d+)~', $l, $m)) {
+                    if (!in_array("{$m[1]}/32", $xr)) {
+                        $xr[] = "{$m[1]}/32";
+                    }
+                }
+            }
+            fclose($r);
+        }
         if ($r = fopen('/logs/xray', 'r')) {
             while (feof($r) === false) {
                 $l = fgets($r);
