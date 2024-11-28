@@ -97,16 +97,6 @@
             "action": "REJECT"
         },
         {
-            "type": "DOMAIN-SUFFIX",
-            "list": "~warp~",
-            "action": "PROXY"
-        },
-        {
-            "type": "DOMAIN-SUFFIX",
-            "list": "~pac~",
-            "action": "PROXY"
-        },
-        {
             "type": "PROCESS-NAME",
             "list": "~process~",
             "action": "PROXY"
@@ -114,6 +104,16 @@
         {
             "type": "PROCESS-NAME",
             "list": "~package~",
+            "action": "PROXY"
+        },
+        {
+            "type": "DOMAIN-SUFFIX",
+            "list": "~warp~",
+            "action": "PROXY"
+        },
+        {
+            "type": "DOMAIN-SUFFIX",
+            "list": "~pac~",
             "action": "PROXY"
         },
         {
