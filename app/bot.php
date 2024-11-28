@@ -6061,9 +6061,6 @@ DNS-over-HTTPS with IP:
                     $c['outbounds'][$index]['tls']['server_name']           = '~server_name~';
                     $c['outbounds'][$index]['tls']['reality']['short_id']   = '~short_id~';
                 }
-
-                $c['route'] = $this->addRuleSet($c['route']);
-                $c['route'] = $this->createRuleSet($c['route'], $uid, $domain);
                 break;
             case 'cl':
                 $c['proxies'][$index]['server'] = '~domain~';
