@@ -5811,12 +5811,16 @@ DNS-over-HTTPS with IP:
 
         $data[] = [
             [
-                'text'    => 'xray',
+                'text'    => $this->i18n('v2ray'),
                 'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=s&s={$c['id']}"],
             ],
             [
-                'text'    => 'sing-box',
+                'text'    => $this->i18n('singbox'),
                 'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=si&s={$c['id']}"],
+            ],
+            [
+                'text'    => $this->i18n('clash'),
+                'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=cl&s={$c['id']}"],
             ],
         ];
         $data[] = [
@@ -6134,6 +6138,7 @@ DNS-over-HTTPS with IP:
                 }
                 break;
             case 'cl':
+                $c = $this->clashRuleSet($c);
                 if (!empty($c['rules'])) {
                     $c['rules'] = $this->clashRules($c['rules']);
                 }
@@ -6150,6 +6155,33 @@ DNS-over-HTTPS with IP:
         echo json_encode($c);
     }
 
+    public function clashRuleSet($c)
+    {
+        $p = $this->getPacConf();
+        if (!empty($p['rulessetlist']) && $c['add-rule-providers']) {
+            foreach ($p['rulessetlist'] as $k => $v) {
+                if (!empty($v)) {
+                    [$type, $time, $url] = explode(':', $k, 3);
+                    if (preg_match('~\.mrs$~', $url)) {
+                        $c['rule-providers'][$type] = [
+                            'type'     => 'http',
+                            'url'      => $url,
+                            'interval' => $time,
+                        ];
+                        array_unshift($c['rules'], [
+                            'RULE-SET', $url, strtoupper($type)
+                        ]);
+                    }
+                }
+            }
+        }
+        unset($c['add-rule-providers']);
+        if (empty($c['rule-providers'])) {
+            unset($c['rule-providers']);
+        }
+        return $c;
+    }
+
     public function clashRules($rules)
     {
         foreach ($rules as $v) {
@@ -6160,7 +6192,7 @@ DNS-over-HTTPS with IP:
                     }
                 }
             } else {
-                $tmp[] = "{$v['type']}, {$v['action']}";
+                $tmp[] = implode(', ', $v);
             }
         }
         return $tmp;
@@ -6184,7 +6216,7 @@ DNS-over-HTTPS with IP:
                 foreach ($p['rulessetlist'] as $k => $v) {
                     if (!empty($v)) {
                         [$type, $time, $url] = explode(':', $k, 3);
-                        if (!empty($route['rules'][$t[$type]])) {
+                        if (preg_match('~\.srs$~', $url) && !empty($route['rules'][$t[$type]])) {
                             $route['rule_set'][] = [
                                 "tag"             => $k,
                                 "type"            => "remote",

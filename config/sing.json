@@ -115,7 +115,7 @@
                 "createruleset": [
                     {
                         "name": "pac",
-                        "interval": "15s",
+                        "interval": "30s",
                         "rules": [
                             {
                                 "domain_suffix": "~pac~"
@@ -130,7 +130,7 @@
                 "createruleset": [
                     {
                         "name": "package",
-                        "interval": "15s",
+                        "interval": "30s",
                         "rules": [
                             {
                                 "package_name": "~package~"
@@ -145,7 +145,7 @@
                 "createruleset": [
                     {
                         "name": "process",
-                        "interval": "15s",
+                        "interval": "30s",
                         "rules": [
                             {
                                 "process_name": "~process~"
@@ -160,7 +160,7 @@
                 "createruleset": [
                     {
                         "name": "block",
-                        "interval": "15s",
+                        "interval": "30s",
                         "rules": [
                             {
                                 "domain_suffix": "~block~"
@@ -175,7 +175,7 @@
                 "createruleset": [
                     {
                         "name": "warp",
-                        "interval": "15s",
+                        "interval": "30s",
                         "rules": [
                             {
                                 "domain_suffix": "~warp~"
