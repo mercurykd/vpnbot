@@ -262,8 +262,8 @@ $i = [
         'ru' => 'очистить',
     ],
     'xray'  => [
-        'en' => 'Xray',
-        'ru' => 'Xray',
+        'en' => 'Vless',
+        'ru' => 'Vless',
     ],
     'geodb'  => [
         'en' => 'GeoIp/GeoSite',

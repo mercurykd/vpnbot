@@ -5491,7 +5491,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/templates sing",
             ],
             [
-                'text'          => $this->i18n('clash templates'),
+                'text'          => $this->i18n('mihomo templates'),
                 'callback_data' => "/templates clash",
             ],
         ];
@@ -5785,7 +5785,7 @@ DNS-over-HTTPS with IP:
         $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=st&s={$c['id']}#{$c['email']}'>import://streisand</a>";
         $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=h&s={$c['id']}#{$c['email']}'>import://hiddify</a>";
         $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=k&s={$c['id']}#{$c['email']}'>import://karing</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=c&s={$c['id']}#{$c['email']}'>import://clash</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=c&s={$c['id']}#{$c['email']}'>import://mihomo</a>";
 
         $si = "$scheme://{$domain}/pac/" . base64_encode(serialize([
             'h' => $hash,
@@ -5805,7 +5805,7 @@ DNS-over-HTTPS with IP:
 
         $text[] = "\nxray config: <pre><code>$xr</code></pre>";
         $text[] = "sing-box config: <pre><code>$si</code></pre>";
-        $text[] = "clash config: <pre><code>$cl</code></pre>";
+        $text[] = "mihomo config: <pre><code>$cl</code></pre>";
 
         $text[] = "sing-box windows: <a href='$scheme://{$domain}/pac?h=$hash&t=si&r=w&s={$c['id']}'>windows service</a>";
 
@@ -5819,7 +5819,7 @@ DNS-over-HTTPS with IP:
                 'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=si&s={$c['id']}"],
             ],
             [
-                'text'    => $this->i18n('clash'),
+                'text'    => $this->i18n('mihomo'),
                 'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=cl&s={$c['id']}"],
             ],
         ];
@@ -5846,7 +5846,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/templateUser sing $i",
             ],
             [
-                'text'          => $this->i18n('clash') . ": $clashtemplate",
+                'text'          => $this->i18n('mihomo') . ": $clashtemplate",
                 'callback_data' => "/templateUser clash $i",
             ],
         ];
