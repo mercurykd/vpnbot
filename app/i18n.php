@@ -265,6 +265,10 @@ $i = [
         'en' => 'Vless',
         'ru' => 'Vless',
     ],
+    'clash'  => [
+        'en' => 'mihomo',
+        'ru' => 'mihomo',
+    ],
     'geodb'  => [
         'en' => 'GeoIp/GeoSite',
         'ru' => 'GeoIp/GeoSite',

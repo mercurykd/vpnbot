@@ -5328,7 +5328,7 @@ DNS-over-HTTPS with IP:
         $pac       = $this->getPacConf();
         $domain    = $this->getDomain();
         $hash      = substr(md5($this->key), 0, 8);
-        $text[]    = "Menu -> " . $this->i18n('xray') . " -> $type templates";
+        $text[]    = "Menu -> " . $this->i18n('xray') . " -> " . $this->i18n($type) . " templates";
         $text[]    = <<<TEXT
             <code>~outbound~</code>
             <code>"~pac~"</code>
@@ -6141,6 +6141,9 @@ DNS-over-HTTPS with IP:
                 $c = $this->clashRuleSet($c);
                 if (!empty($c['rules'])) {
                     $c['rules'] = $this->clashRules($c['rules']);
+                    if (count($c['rules']) == 1) {
+                        unset($c['rules']);
+                    }
                 }
                 break;
         }
