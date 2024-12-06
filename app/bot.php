@@ -2580,9 +2580,9 @@ DNS-over-HTTPS with IP:
             case 'rulessetlist':
                 $r = $this->send(
                     $this->input['chat'],
-                    "@{$this->input['username']} [direct | block | proxy]:time:URL",
+                    "@{$this->input['username']} outbound[:behavior]:time:URL",
                     $this->input['message_id'],
-                    reply: '[direct | block | proxy]:time:URL',
+                    reply: 'outbound[:behavior]:time:URL',
                 );
                 break;
 
@@ -6161,16 +6161,27 @@ DNS-over-HTTPS with IP:
         if (!empty($p['rulessetlist']) && $c['add-rule-providers']) {
             foreach ($p['rulessetlist'] as $k => $v) {
                 if (!empty($v)) {
-                    [$type, $time, $url] = explode(':', $k, 3);
+                    [$type, $behavior, $time, $url] = explode(':', $k, 4);
                     if (preg_match('~\.mrs$~', $url)) {
-                        $c['rule-providers'][$type] = [
+                        $c['rule-providers'][$url] = [
                             'type'     => 'http',
                             'url'      => $url,
-                            'interval' => $time,
+                            'interval' => (int) $time,
+                            'behavior' => $behavior,
                         ];
-                        array_unshift($c['rules'], [
-                            'RULE-SET', $url, strtoupper($type)
-                        ]);
+                        switch ($type) {
+                            case 'reject':
+                                array_unshift($c['rules'], [
+                                    'RULE-SET', $url, strtoupper($type)
+                                ]);
+                                break;
+
+                            default:
+                                array_splice($c['rules'], count($c['rules']) - 1, 0, [[
+                                    'RULE-SET', $url, strtoupper($type)
+                                ]]);
+                                break;
+                        }
                     }
                 }
             }
