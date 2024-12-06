@@ -6162,7 +6162,7 @@ DNS-over-HTTPS with IP:
             foreach ($p['rulessetlist'] as $k => $v) {
                 if (!empty($v)) {
                     [$type, $behavior, $time, $url] = explode(':', $k, 4);
-                    if (preg_match('~\.mrs$~', $url)) {
+                    if (preg_match('~\.(?:mrs|yaml|yml)$~', $url)) {
                         $c['rule-providers'][$url] = [
                             'type'     => 'http',
                             'url'      => $url,
