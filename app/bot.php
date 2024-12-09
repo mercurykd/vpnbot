@@ -6165,15 +6165,17 @@ DNS-over-HTTPS with IP:
             foreach ($p['rulessetlist'] as $k => $v) {
                 if (!empty($v)) {
                     [$type, $behavior, $time, $url] = explode(':', $k, 4);
-                    if (preg_match('~\.(?:mrs|yaml|yml)$~', $url)) {
+                    if (preg_match('~\.(mrs|yaml|yml)$~', $url, $m)) {
                         $c['rule-providers'][$url] = [
                             'type'     => 'http',
                             'url'      => $url,
                             'interval' => (int) $time,
                             'behavior' => $behavior,
+                            'format'   => $m[1],
                         ];
                         switch ($type) {
                             case 'reject':
+                            case 'REJECT':
                                 array_unshift($c['rules'], [
                                     'RULE-SET', $url, strtoupper($type)
                                 ]);
