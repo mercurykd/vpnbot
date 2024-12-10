@@ -6138,7 +6138,8 @@ DNS-over-HTTPS with IP:
                 }
                 break;
             case 'cl':
-                $c = $this->clashRuleSet($c);
+                $c = $this->createClashRuleSet($c, $uid, $domain);
+                $c = $this->addClashRuleSet($c);
                 if (!empty($c['rules'])) {
                     $c['rules'] = $this->clashRules($c['rules']);
                     if (count($c['rules']) == 1) {
@@ -6158,7 +6159,60 @@ DNS-over-HTTPS with IP:
         echo json_encode($c);
     }
 
-    public function clashRuleSet($c)
+    public function createClashRuleSet($c, $uid, $domain)
+    {
+        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
+        $hash   = substr(md5($this->key), 0, 8);
+        if (!empty($c['rule-providers'])) {
+            foreach ($c['rule-providers'] as $k => $v) {
+                if (array_key_exists('list', $v)) {
+                    if (!empty($_GET['r']) && $k == $_GET['r']) {
+                        header("Content-Disposition: attachment; filename=$k.yaml");
+                        header('Content-Type: text/yaml');
+                        switch ($v['behavior']) {
+                            case 'domain':
+                                echo yaml_emit(['payload' => array_map(fn($e) => "+.$e", $v['list'])]);
+                                break;
+
+                            default:
+                                echo yaml_emit(['payload' => array_map(fn($e) => "PROCESS-NAME,$e", $v['list'])]);
+                                break;
+                        }
+                        exit;
+                    }
+                    $c['rule-providers'][$k] = [
+                        'type'     => 'http',
+                        'url'      => "$scheme://{$domain}/pac/" . base64_encode(serialize([
+                            'h' => $hash,
+                            't' => 'cl',
+                            's' => $uid,
+                            'r' => $k,
+                        ])),
+                        'interval' => $v['interval'],
+                        'behavior' => $v['behavior'],
+                        'format'   => 'yaml',
+                    ];
+                    switch ($v['action']) {
+                        case 'reject':
+                        case 'REJECT':
+                            array_unshift($c['rules'], [
+                                'RULE-SET', $k, strtoupper($v['action'])
+                            ]);
+                            break;
+
+                        default:
+                            array_splice($c['rules'], count($c['rules']) - 1, 0, [[
+                                'RULE-SET', $k, strtoupper($v['action'])
+                            ]]);
+                            break;
+                    }
+                }
+            }
+        }
+        return $c;
+    }
+
+    public function addClashRuleSet($c)
     {
         $p = $this->getPacConf();
         if (!empty($p['rulessetlist']) && $c['add-rule-providers']) {

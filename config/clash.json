@@ -6,7 +6,7 @@
     "find-process-mode": "strict",
     "global-client-fingerprint": "chrome",
     "mode": "rule",
-    "log-level": "debug",
+    "log-level": "info",
     "ipv6": false,
     "keep-alive-interval": 30,
     "unified-delay": false,
@@ -91,33 +91,39 @@
         }
     ],
     "add-rule-providers": true,
-    "rule-providers": {},
-    "rules": [
-        {
-            "type": "DOMAIN-SUFFIX",
+    "rule-providers": {
+        "block": {
             "list": "~block~",
-            "action": "REJECT"
+            "interval": 30,
+            "action": "REJECT",
+            "behavior": "domain"
         },
-        {
-            "type": "PROCESS-NAME",
-            "list": "~process~",
-            "action": "PROXY"
-        },
-        {
-            "type": "PROCESS-NAME",
-            "list": "~package~",
-            "action": "PROXY"
-        },
-        {
-            "type": "DOMAIN-SUFFIX",
-            "list": "~warp~",
-            "action": "PROXY"
-        },
-        {
-            "type": "DOMAIN-SUFFIX",
+        "pac": {
             "list": "~pac~",
-            "action": "PROXY"
+            "interval": 30,
+            "action": "PROXY",
+            "behavior": "domain"
         },
+        "warp": {
+            "list": "~warp~",
+            "interval": 30,
+            "action": "PROXY",
+            "behavior": "domain"
+        },
+        "package": {
+            "list": "~package~",
+            "interval": 30,
+            "action": "PROXY",
+            "behavior": "classical"
+        },
+        "process": {
+            "list": "~process~",
+            "interval": 30,
+            "action": "PROXY",
+            "behavior": "classical"
+        }
+    },
+    "rules": [
         {
             "type": "MATCH",
             "action": "DIRECT"
