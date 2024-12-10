@@ -91,39 +91,48 @@
         }
     ],
     "add-rule-providers": true,
-    "rule-providers": {
-        "block": {
-            "list": "~block~",
-            "interval": 30,
-            "action": "REJECT",
-            "behavior": "domain"
-        },
-        "pac": {
-            "list": "~pac~",
-            "interval": 30,
-            "action": "PROXY",
-            "behavior": "domain"
-        },
-        "warp": {
-            "list": "~warp~",
-            "interval": 30,
-            "action": "PROXY",
-            "behavior": "domain"
-        },
-        "package": {
-            "list": "~package~",
-            "interval": 30,
-            "action": "PROXY",
-            "behavior": "classical"
-        },
-        "process": {
-            "list": "~process~",
-            "interval": 30,
-            "action": "PROXY",
-            "behavior": "classical"
-        }
-    },
+    "rule-providers": {},
     "rules": [
+        {
+            "type": "RULE-SET",
+            "list": "~block~",
+            "action": "REJECT",
+            "interval": 30,
+            "behavior": "domain",
+            "name": "block"
+        },
+        {
+            "type": "RULE-SET",
+            "list": "~process~",
+            "action": "PROXY",
+            "interval": 30,
+            "behavior": "domain",
+            "name": "process"
+        },
+        {
+            "type": "RULE-SET",
+            "list": "~package~",
+            "action": "PROXY",
+            "interval": 30,
+            "behavior": "domain",
+            "name": "package"
+        },
+        {
+            "type": "RULE-SET",
+            "list": "~warp~",
+            "action": "PROXY",
+            "interval": 30,
+            "behavior": "domain",
+            "name": "warp"
+        },
+        {
+            "type": "RULE-SET",
+            "list": "~pac~",
+            "action": "PROXY",
+            "interval": 30,
+            "behavior": "domain",
+            "name": "pac"
+        },
         {
             "type": "MATCH",
             "action": "DIRECT"

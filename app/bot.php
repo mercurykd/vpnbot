@@ -6138,10 +6138,9 @@ DNS-over-HTTPS with IP:
                 }
                 break;
             case 'cl':
-                $c = $this->createClashRuleSet($c, $uid, $domain);
                 $c = $this->addClashRuleSet($c);
                 if (!empty($c['rules'])) {
-                    $c['rules'] = $this->clashRules($c['rules']);
+                    $c = $this->clashRules($c, $uid, $domain);
                     if (count($c['rules']) == 1) {
                         unset($c['rules']);
                     }
@@ -6157,59 +6156,6 @@ DNS-over-HTTPS with IP:
 
         header('Content-type: application/json');
         echo json_encode($c);
-    }
-
-    public function createClashRuleSet($c, $uid, $domain)
-    {
-        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
-        $hash   = substr(md5($this->key), 0, 8);
-        if (!empty($c['rule-providers'])) {
-            foreach ($c['rule-providers'] as $k => $v) {
-                if (array_key_exists('list', $v)) {
-                    if (!empty($_GET['r']) && $k == $_GET['r']) {
-                        header("Content-Disposition: attachment; filename=$k.yaml");
-                        header('Content-Type: text/yaml');
-                        switch ($v['behavior']) {
-                            case 'domain':
-                                echo yaml_emit(['payload' => array_map(fn($e) => "+.$e", $v['list'])]);
-                                break;
-
-                            default:
-                                echo yaml_emit(['payload' => array_map(fn($e) => "PROCESS-NAME,$e", $v['list'])]);
-                                break;
-                        }
-                        exit;
-                    }
-                    $c['rule-providers'][$k] = [
-                        'type'     => 'http',
-                        'url'      => "$scheme://{$domain}/pac/" . base64_encode(serialize([
-                            'h' => $hash,
-                            't' => 'cl',
-                            's' => $uid,
-                            'r' => $k,
-                        ])),
-                        'interval' => $v['interval'],
-                        'behavior' => $v['behavior'],
-                        'format'   => 'yaml',
-                    ];
-                    switch ($v['action']) {
-                        case 'reject':
-                        case 'REJECT':
-                            array_unshift($c['rules'], [
-                                'RULE-SET', $k, strtoupper($v['action'])
-                            ]);
-                            break;
-
-                        default:
-                            array_splice($c['rules'], count($c['rules']) - 1, 0, [[
-                                'RULE-SET', $k, strtoupper($v['action'])
-                            ]]);
-                            break;
-                    }
-                }
-            }
-        }
-        return $c;
     }
 
     public function addClashRuleSet($c)
@@ -6252,20 +6198,53 @@ DNS-over-HTTPS with IP:
         return $c;
     }
 
-    public function clashRules($rules)
+    public function clashRules($c, $uid, $domain)
     {
-        foreach ($rules as $v) {
-            if (isset($v['list'])) {
-                if (!empty($v['list'])) {
-                    foreach ($v['list'] as $j) {
-                        $tmp[] = "{$v['type']}, $j, {$v['action']}";
+        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
+        $hash   = substr(md5($this->key), 0, 8);
+        foreach ($c['rules'] as $v) {
+            if (array_key_exists('list', $v)) {
+                if ($v['type'] == 'RULE-SET') {
+                    if (!empty($_GET['r']) && $v['name'] == $_GET['r']) {
+                        header("Content-Disposition: attachment; filename={$v['name']}.yaml");
+                        header('Content-Type: text/yaml');
+                        switch ($v['behavior']) {
+                            case 'domain':
+                                echo yaml_emit(['payload' => array_map(fn($e) => "+.$e", $v['list'])]);
+                                break;
+
+                            default:
+                                echo yaml_emit(['payload' => array_map(fn($e) => "PROCESS-NAME,$e", $v['list'])]);
+                                break;
+                        }
+                        exit;
+                    }
+                    $c['rule-providers'][$v['name']] = [
+                        'type'     => 'http',
+                        'url'      => "$scheme://{$domain}/pac/" . base64_encode(serialize([
+                            'h' => $hash,
+                            't' => 'cl',
+                            's' => $uid,
+                            'r' => $v['name'],
+                        ])),
+                        'interval' => $v['interval'],
+                        'behavior' => $v['behavior'],
+                        'format'   => 'yaml',
+                    ];
+                    $tmp[] = "{$v['type']}, {$v['name']}, {$v['action']}";
+                } else {
+                    if (!empty($v['list'])) {
+                        foreach ($v['list'] as $j) {
+                            $tmp[] = "{$v['type']}, $j, {$v['action']}";
+                        }
                     }
                 }
             } else {
                 $tmp[] = implode(', ', $v);
             }
         }
-        return $tmp;
+        $c['rules'] = $tmp;
+        return $c;
     }
 
     public function replaceTags($subject, $tags)
