@@ -2554,6 +2554,7 @@ DNS-over-HTTPS with IP:
         $this->stopAd();
         $c = yaml_parse_file($this->adguard);
         unset($c['dns']['upstream_dns'][$k]);
+        $c['dns']['upstream_dns'] = array_values($c['dns']['upstream_dns']);
         yaml_emit_file($this->adguard, $c);
         $this->startAd();
         $this->menu('adguard');
