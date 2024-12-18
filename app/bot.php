@@ -802,6 +802,14 @@ class Bot
         ];
     }
 
+    public function ssPswdCheck()
+    {
+        $c = $this->getSSConfig();
+        if (empty($c['password']) || ($c['password'] == 'test')) {
+            $this->sspwdch(password_hash(time(), PASSWORD_DEFAULT), 1);
+        }
+    }
+
     public function changeCamouflage()
     {
         $r = $this->send(
@@ -1024,7 +1032,7 @@ class Bot
         $this->menu('oc');
     }
 
-    public function sspwdch($pass)
+    public function sspwdch($pass, $nomenu = false)
     {
         $this->ssh('pkill sslocal', 'proxy');
         $this->ssh('pkill ssserver', 'ss');
@@ -1035,7 +1043,11 @@ class Bot
         file_put_contents('/config/sslocal.json', json_encode($l, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         $this->ssh('ssserver -v -d -c /config.json', 'ss');
         $this->ssh('sslocal -v -d -c /config.json', 'proxy');
-        $this->menu('ss');
+
+        $this->sd($c, 1);
+        if (!empty($nomenu)) {
+            $this->menu('ss');
+        }
     }
 
     public function v2ray()
