@@ -4241,8 +4241,8 @@ DNS-over-HTTPS with IP:
         $text = $menu[$type ?: 'main' ]['text'];
         $data = $menu[$type ?: 'main' ]['data'];
 
-        if (empty($type)) {
-            $b      = exec('git -C / rev-parse --abbrev-ref HEAD');
+        if (empty($type) && $update) {
+            $b = exec('git -C / rev-parse --abbrev-ref HEAD');
             array_unshift($data, [
                 [
                     'text'    => 'changelog',
