@@ -1195,12 +1195,6 @@ class Bot
             $this->checkBackup($period);
             $this->checkCert();
             $this->autoAnalyzeLogs();
-            try {
-                if (empty($this->fetch) || (time() - $this->fetch > 60 * 30)) {
-                    exec('git -C / fetch');
-                }
-            } catch (\Throwable $th) {
-            }
             sleep($period);
         }
     }
@@ -1318,6 +1312,7 @@ class Bot
                     $diff       = array_slice(explode("\n", $last), 0, count(explode("\n", $last)) - count(explode("\n", $current)));
                     $diff       = array_slice($diff, 0, 10);
                     if (!empty($diff)) {
+                        exec('git -C / fetch');
                         foreach ($c['admin'] as $k => $v) {
                             $this->send($v, implode("\n", $diff), 0, [
                                 [
@@ -2153,6 +2148,7 @@ class Bot
         $conf = $this->getPacConf();
         unset($conf['domain']);
         $nginx = $t = file_get_contents('/config/nginx.conf');
+        $t = preg_replace('/server_name ([^\n]+)?/', "server_name _;", $nginx);
         preg_match_all('~##domain.+?##domain~s', $t, $m);
         foreach ($m[0] as $k => $v) {
             $t = preg_replace('~##domain.+?##domain~s', $this->comment($v, 'domain'), $t, 1);
@@ -4142,10 +4138,10 @@ DNS-over-HTTPS with IP:
             $c      = yaml_parse_file($f)['services'];
             $main[] = 'v' . getenv('VER') . ($update ? ' (have updates)' : '');
             $main[] = '';
-            $main[] = $this->i18n('on') . ' ' . getenv('WGPORT') . ' Wireguard';
-            $main[] = $this->i18n('on') . ' ' . getenv('WG1PORT') . ' Wireguard 1';
-            $main[] = $this->i18n('on') . ' ' . getenv('TGPORT') . ' MTProto';
-            $main[] = $this->i18n('on') . ' 853 AdguardHome DoT';
+            $main[] = $this->i18n($c['wg'] ? 'on' : 'off') . ' ' . getenv('WGPORT') . ' Wireguard';
+            $main[] = $this->i18n($c['wg1'] ? 'on' : 'off') . ' ' . getenv('WG1PORT') . ' Wireguard 1';
+            $main[] = $this->i18n($c['tg'] ? 'on' : 'off') . ' ' . getenv('TGPORT') . ' MTProto';
+            $main[] = $this->i18n($c['ad'] ? 'on' : 'off') . ' 853 AdguardHome DoT';
             $main[] = '';
             $main[] = $cron;
             $main[] = $this->i18n($backup ? 'on' : 'off') . ' autobackup' . ($backup ? " $backup" : '');
@@ -4244,6 +4240,20 @@ DNS-over-HTTPS with IP:
 
         $text = $menu[$type ?: 'main' ]['text'];
         $data = $menu[$type ?: 'main' ]['data'];
+
+        if (empty($type)) {
+            $b      = exec('git -C / rev-parse --abbrev-ref HEAD');
+            array_unshift($data, [
+                [
+                    'text'    => 'changelog',
+                    'web_app' => ['url' => "https://raw.githubusercontent.com/mercurykd/vpnbot/$b/version"],
+                ],
+                [
+                    'text'          => $this->i18n('update bot'),
+                    'callback_data' => "/applyupdatebot",
+                ],
+            ]);
+        }
 
         if ($return) {
             return [$text, $data];
@@ -6910,19 +6920,19 @@ DNS-over-HTTPS with IP:
         $c      = yaml_parse_file($f)['services'];
         $data   = [
             [[
-                'text'          => $this->i18n($c['wg'] ? 'off' : 'on') . ' ' . getenv('WGPORT') . ' Wireguard',
+                'text'          => $this->i18n($c['wg'] ? 'on' : 'off') . ' ' . getenv('WGPORT') . ' Wireguard',
                 'callback_data' => "/hidePort wg",
             ]],
             [[
-                'text'          => $this->i18n($c['wg1'] ? 'off' : 'on') . ' ' . getenv('WG1PORT') . ' Wireguard',
+                'text'          => $this->i18n($c['wg1'] ? 'on' : 'off') . ' ' . getenv('WG1PORT') . ' Wireguard',
                 'callback_data' => "/hidePort wg1",
             ]],
             [[
-                'text'          => $this->i18n($c['tg'] ? 'off' : 'on') . ' ' . getenv('TGPORT') . ' MTProto ',
+                'text'          => $this->i18n($c['tg'] ? 'on' : 'off') . ' ' . getenv('TGPORT') . ' MTProto ',
                 'callback_data' => "/hidePort tg",
             ]],
             [[
-                'text'          => $this->i18n($c['ad'] ? 'off' : 'on') . ' 853 AdguardHome DoT',
+                'text'          => $this->i18n($c['ad'] ? 'on' : 'off') . ' 853 AdguardHome DoT',
                 'callback_data' => "/hidePort ad",
             ]],
         ];
@@ -6953,15 +6963,14 @@ DNS-over-HTTPS with IP:
         if (!empty($c['services'][$container])) {
             unset($c['services'][$container]);
         } else {
-            $c['services'][$container]['ports'][] = $ports['container'];
+            $c['services'][$container]['ports'][] = $ports[$container];
         }
         if (empty($c['services'])) {
             file_put_contents($f, '');
         } else {
             yaml_emit_file($f, $c);
-            file_put_contents($f, str_replace('ports:', 'ports: !override', file_get_contents($f)));
         }
-        $this->ports();
+        $this->restart();
     }
 
     public function branches()
