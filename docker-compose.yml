@@ -44,8 +44,6 @@ services:
                 condition: service_healthy
             ad:
                 condition: service_started
-            ss:
-                condition: service_started
         env_file:
             - path: ./.env
               required: true # default
@@ -187,45 +185,13 @@ services:
             - up
             - ng
             - php
-            - proxy
             - wg
             - wg1
             - ad
-            - ss
             - tg
             - xr
             - oc
             - np
-    proxy:
-        image: mercurykd/vpnbot-ss:1.2
-        build:
-            dockerfile: dockerfile/shadowsocks.dockerfile
-            args:
-                image: ${IMAGE}
-        volumes:
-            - ./config/.profile:/root/.ashrc:ro
-            - ./config/sslocal.json:/config.json
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
-            - ./scripts/start_proxy.sh:/start_proxy.sh
-        hostname: proxy
-        container_name: proxy-${VER}
-        depends_on:
-            php:
-                condition: service_healthy
-        networks:
-            default:
-                ipv4_address: 10.10.0.3
-        environment:
-            TZ: ${TZ}
-        env_file:
-            - path: ./.env
-              required: true # default
-            - path: ./override.env
-              required: false
-        stop_grace_period: 1s
-        command: ["/bin/sh", "/start_proxy.sh"]
-        logging: *default-logging
     wg:
         image: mercurykd/vpnbot-wg:1.1
         build:
