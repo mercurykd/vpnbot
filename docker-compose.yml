@@ -247,8 +247,6 @@ services:
         depends_on:
             php:
                 condition: service_healthy
-        ports:
-            - ${WGPORT}:${WGPORT}/udp
         env_file:
             - path: ./.env
               required: true # default
@@ -287,8 +285,6 @@ services:
         depends_on:
             php:
                 condition: service_healthy
-        ports:
-            - ${WG1PORT}:${WG1PORT}/udp
         env_file:
             - path: ./.env
               required: true # default
@@ -312,8 +308,6 @@ services:
             dockerfile: dockerfile/adguard.dockerfile
             args:
                 image: ${IMAGE}
-        ports:
-            - 853:853
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - type: volume
@@ -343,37 +337,6 @@ services:
             - NET_ADMIN
         entrypoint: ["/bin/sh", "/start_ad.sh"]
         logging: *default-logging
-    ss:
-        image: mercurykd/vpnbot-ss:1.2
-        build:
-            dockerfile: dockerfile/shadowsocks.dockerfile
-            args:
-                image: ${IMAGE}
-        volumes:
-            - ./config/.profile:/root/.ashrc:ro
-            - ./config/ssserver.json:/config.json
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
-            - ./scripts/start_ss.sh:/start_ss.sh
-        hostname: shadowsocks
-        container_name: shadowsocks-${VER}
-        depends_on:
-            php:
-                condition: service_healthy
-        ports:
-            - ${SSPORT}:${SSPORT}/tcp
-            - ${SSPORT}:${SSPORT}/udp
-        env_file:
-            - path: ./.env
-              required: true # default
-            - path: ./override.env
-              required: false
-        stop_grace_period: 1s
-        command: ["/bin/sh", "/start_ss.sh"]
-        networks:
-            default:
-                ipv4_address: 10.10.0.6
-        logging: *default-logging
     tg:
         image: mercurykd/vpnbot-tg:1.1
         build:
@@ -389,8 +352,6 @@ services:
         depends_on:
             php:
                 condition: service_healthy
-        ports:
-            - ${TGPORT}:${TGPORT}
         environment:
             IP: ${IP}
         env_file:

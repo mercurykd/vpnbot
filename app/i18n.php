@@ -2,8 +2,8 @@
 
 $i = [
     'warp'             => [
-        'en' => 'warp',
-        'ru' => 'warp',
+        'en' => 'Warp',
+        'ru' => 'Warp',
     ],
     'wg_title'             => [
         'en' => 'Wireguard',
@@ -22,7 +22,7 @@ $i = [
         'ru' => 'AdGuard',
     ],
     'config'               => [
-        'en' => 'config',
+        'en' => 'Settings',
         'ru' => 'настройки',
     ],
     'pac'                  => [

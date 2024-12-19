@@ -187,7 +187,7 @@ class Bot
             case preg_match('~^/autoScanTimeout$~', $this->input['callback'], $m):
                 $this->autoScanTimeout();
                 break;
-            case preg_match('~^/autoupdate$~', $this->input['message'], $m):
+            case preg_match('~^/autoupdate$~', $this->input['callback'], $m):
                 $this->autoupdate();
                 break;
             case preg_match('~^/ports$~', $this->input['callback'], $m):
@@ -1195,6 +1195,12 @@ class Bot
             $this->checkBackup($period);
             $this->checkCert();
             $this->autoAnalyzeLogs();
+            try {
+                if (empty($this->fetch) || (time() - $this->fetch > 60 * 30)) {
+                    exec('git -C / fetch');
+                }
+            } catch (\Throwable $th) {
+            }
             sleep($period);
         }
     }
@@ -2061,12 +2067,7 @@ class Bot
                 $out[] = 'Install certificate:';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $adguardClient = $conf['adguardkey'] ? "-d {$conf['adguardkey']}.{$conf['domain']}" : '';
-                if (!empty($conf['subdomain'])) {
-                    foreach ($conf['subdomain'] as $v) {
-                        $custom .= " -d $v";
-                    }
-                }
-                exec("certbot certonly --force-renew --preferred-chain 'ISRG Root X1' -n --agree-tos --email mail@{$conf['domain']} -d {$conf['domain']} -d oc.{$conf['domain']} -d np.{$conf['domain']} $adguardClient $custom --webroot -w /certs/ --logs-dir /logs --max-log-backups 0 2>&1", $out, $code);
+                exec("certbot certonly --force-renew --preferred-chain 'ISRG Root X1' -n --agree-tos --email mail@{$conf['domain']} -d {$conf['domain']} -d oc.{$conf['domain']} -d np.{$conf['domain']} $adguardClient --webroot -w /certs/ --logs-dir /logs --max-log-backups 0 2>&1", $out, $code);
                 if ($code > 0) {
                     $this->send($this->input['chat'], "ERROR\n" . implode("\n", $out));
                     break;
@@ -4124,12 +4125,49 @@ DNS-over-HTTPS with IP:
 
     public function menu($type = false, $arg = false, $return = false)
     {
-        $domain = $this->getPacConf()['domain'] ?: $this->ip;
-        $cron   = $this->ssh('pgrep -f cron.php', 'service');
+        $conf   = $this->getPacConf();
+        $domain = $conf['domain'] ?: $this->ip;
+        $update = exec('git -C / rev-list --count HEAD..@{u}');
+        if ($type == false) {
+            $backup = array_filter(explode('/', $conf['backup']));
+            if (!empty($backup)) {
+                if (!empty(strtotime($backup[0])) && !empty(strtotime($backup[1]))) {
+                    $backup = "{$backup[0]} start / {$backup[1]} period";
+                } else {
+                    $backup = "{$conf['backup']} - wrong format";
+                }
+            }
+            $cron   = $this->dontshowcron ? '' : $this->i18n($this->ssh('pgrep -f cron.php', 'service') ? 'on' : 'off') . ' cron';
+            $f      = '/docker/compose';
+            $c      = yaml_parse_file($f)['services'];
+            $main[] = 'v' . getenv('VER') . ($update ? ' (have updates)' : '');
+            $main[] = '';
+            $main[] = $this->i18n('on') . ' ' . getenv('WGPORT') . ' Wireguard';
+            $main[] = $this->i18n('on') . ' ' . getenv('WG1PORT') . ' Wireguard 1';
+            $main[] = $this->i18n('on') . ' ' . getenv('TGPORT') . ' MTProto';
+            $main[] = $this->i18n('on') . ' 853 AdguardHome DoT';
+            $main[] = '';
+            $main[] = $cron;
+            $main[] = $this->i18n($backup ? 'on' : 'off') . ' autobackup' . ($backup ? " $backup" : '');
+            $main[] = $this->i18n($conf['autoupdate'] ? 'on' : 'off') . ' autoupdate';
+            $main[] = $this->i18n($conf['autodeny'] ? 'on' : 'off') . ' autoblock' . ($conf['deny'] ? ': ' . count($conf['deny']) : '');
+            if (!empty($conf['domain'])) {
+                $main[] = '';
+                $main[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\nnp.{$conf['domain']} (for naiveproxy)\noc.{$conf['domain']} (for openconnect)" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']} (for adguard DoT)" : '') : $this->i18n('domain explain');
+                $ssl    = $this->expireCert();
+                $main[] = $conf['domain'] ? "\nSSL: " . ($ssl ? date('Y-m-d H:i:s', $this->expireCert()) . "\n" . $this->domainsCert() : 'none') : '';
+            }
+        }
         $menu   = [
             'main' => [
-                'text' => 'v' . getenv('VER') . ($this->dontshowcron ? '' : "\ncron: " . $this->i18n($cron ? 'on' : 'off') . ($cron ? '' : ' show <code>logs/php_error</code>')),
+                'text' => implode("\n", $main ?: []),
                 'data' => [
+                    [
+                        [
+                            'text'          => $this->i18n('config'),
+                            'callback_data' => "/menu config",
+                        ],
+                    ],
                     [
                         [
                             'text'          => $this->i18n($this->getPacConf()['amnezia'] ? 'amnezia' : 'wg_title'),
@@ -4182,18 +4220,6 @@ DNS-over-HTTPS with IP:
                     ],
                     [
                         [
-                            'text'          => $this->i18n('IP ban & Logs'),
-                            'callback_data' => "/ipMenu",
-                        ],
-                    ],
-                    [
-                        [
-                            'text'          => $this->i18n('config'),
-                            'callback_data' => "/menu config",
-                        ],
-                    ],
-                    [
-                        [
                             'text' => $this->i18n('chat'),
                             'url'  => "https://t.me/+Wfxg6-nrokBlMmYy",
                         ],
@@ -4206,18 +4232,18 @@ DNS-over-HTTPS with IP:
                     ],
                 ],
             ],
-            'wg'           => $type == 'wg'           ? $this->statusWg($arg)                   : false,
-            'client'       => $type == 'client'       ? $this->getClient(...explode('_', $arg)) : false,
-            'addpeer'      => $type == 'addpeer'      ? $this->addWg(...explode('_', $arg))     : false,
-            'pac'          => $type == 'pac'          ? $this->pacMenu($arg)                    : false,
-            'adguard'      => $type == 'adguard'      ? $this->adguardMenu()                    : false,
-            'config'       => $type == 'config'       ? $this->configMenu()                     : false,
-            'ss'           => $type == 'ss'           ? $this->menuSS()                         : false,
-            'lang'         => $type == 'lang'         ? $this->menuLang()                       : false,
-            'oc'           => $type == 'oc'           ? $this->ocMenu()                         : false,
-            'naive'        => $type == 'naive'        ? $this->naiveMenu()                      : false,
-            'mirror'       => $type == 'mirror'       ? $this->mirrorMenu()                     : false,
-            'update'       => $type == 'update'       ? $this->updatebot()                      : false,
+            'wg'           => $type == 'wg'      ? $this->statusWg($arg)                   : false,
+            'client'       => $type == 'client'  ? $this->getClient(...explode('_', $arg)) : false,
+            'addpeer'      => $type == 'addpeer' ? $this->addWg(...explode('_', $arg))     : false,
+            'pac'          => $type == 'pac'     ? $this->pacMenu($arg)                    : false,
+            'adguard'      => $type == 'adguard' ? $this->adguardMenu()                    : false,
+            'config'       => $type == 'config'  ? $this->configMenu()                     : false,
+            'ss'           => $type == 'ss'      ? $this->menuSS()                         : false,
+            'lang'         => $type == 'lang'    ? $this->menuLang()                       : false,
+            'oc'           => $type == 'oc'      ? $this->ocMenu()                         : false,
+            'naive'        => $type == 'naive'   ? $this->naiveMenu()                      : false,
+            'mirror'       => $type == 'mirror'  ? $this->mirrorMenu()                     : false,
+            'update'       => $type == 'update'  ? $this->updatebot()                      : false,
         ];
 
         $text = $menu[$type ?: 'main' ]['text'];
@@ -4270,7 +4296,7 @@ DNS-over-HTTPS with IP:
 
     public function ipMenu()
     {
-        $text   = 'Menu -> IP';
+        $text   = 'Settings -> IP & Logs';
         $pac    = $this->getPacConf();
         $d      = count($pac['deny'] ?: []);
         $w      = count($pac['white'] ?: []);
@@ -4293,14 +4319,14 @@ DNS-over-HTTPS with IP:
                     'callback_data' => '/switchBanIp',
                 ],
                 [
-                    'text'          => $this->i18n('silence') . ': ' . ((function ($pac) {
+                    'text'          => $this->i18n('notify') . ': ' . ((function ($pac) {
                         switch ($pac['silence']) {
                             case 0:
-                                return $this->i18n('off');
+                                return '🔊';
                             case 1:
-                                return '🟡';
+                                return '🔈';
                             case 2:
-                                return $this->i18n('on');
+                                return '🔇';
                         }
                     })($pac)),
                     'callback_data' => '/switchSilence',
@@ -4326,7 +4352,7 @@ DNS-over-HTTPS with IP:
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
-                'callback_data' => "/menu",
+                'callback_data' => "/menu config",
             ],
         ];
         $this->update(
@@ -6731,7 +6757,6 @@ DNS-over-HTTPS with IP:
 
     public function configMenu()
     {
-        exec('git -C / fetch');
         $conf = $this->getPacConf();
         if (!empty($conf['subdomain'])) {
             $custom = "\ncustom:\n";
@@ -6739,7 +6764,7 @@ DNS-over-HTTPS with IP:
                 $custom .= "$v\n";
             }
         }
-        $text[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\nnp.{$conf['domain']} (for naiveproxy)\noc.{$conf['domain']} (for openconnect)" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']} (for adguard DoT)" : '') . $custom : $this->i18n('domain explain');
+        $text[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\nnp.{$conf['domain']} (for naiveproxy)\noc.{$conf['domain']} (for openconnect)" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']} (for adguard DoT)" : '') : $this->i18n('domain explain');
         $ssl    = $this->expireCert();
         $text[] = $conf['domain'] ? "\nSSL: " . ($ssl ? date('Y-m-d H:i:s', $this->expireCert()) . "\n" . $this->domainsCert() : 'none') : '';
 
@@ -6748,10 +6773,6 @@ DNS-over-HTTPS with IP:
                 [
                     'text'          => $conf['domain'] ? "{$this->i18n('delete')} {$conf['domain']}" : $this->i18n('install domain'),
                     'callback_data' => $conf['domain'] ? '/deldomain' : '/domain',
-                ],
-                [
-                    'text'          => $this->i18n('+ subdomain'),
-                    'callback_data' => '/addSubdomain',
                 ],
                 [
                     'text'          => $this->i18n('nip.io'),
@@ -6798,21 +6819,15 @@ DNS-over-HTTPS with IP:
         }
         $data[] = [
             [
-                'text'          => "{$this->i18n('add')} {$this->i18n('admin')}",
-                'callback_data' => "/addadmin",
+                'text'          => $this->i18n('Ports'),
+                'callback_data' => "/ports",
+            ],
+            [
+                'text'          => $this->i18n('IP ban & Logs'),
+                'callback_data' => "/ipMenu",
             ],
         ];
-        $file = __DIR__ . '/config.php';
-        opcache_invalidate($file);
-        require $file;
-        foreach ($c['admin'] as $k => $v) {
-            $data[] = [
-                [
-                    'text'          => $this->i18n('delete') . " $v",
-                    'callback_data' => "/deladmin $v",
-                ],
-            ];
-        }
+
         $data[] = [
             [
                 'text'          => $this->i18n('lang'),
@@ -6821,10 +6836,6 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => "{$this->i18n('page')}: " . ($conf['limitpage'] ?: 5),
                 'callback_data' => "/enterPage",
-            ],
-            [
-                'text'          => $this->i18n($conf['blinkmenu'] ? 'blinkmenuon' : 'blinkmenuoff'),
-                'callback_data' => "/blinkmenuswitch",
             ],
         ];
         $data[] = [
@@ -6853,23 +6864,13 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
-                'text'          => $this->i18n('fake html'),
-                'callback_data' => "/addOverrideHtml",
-            ],
-            [
-                'text'          => $this->i18n('ports'),
-                'callback_data' => "/ports",
+                'text'          => $this->i18n('autoupdate') . ': ' .  $this->i18n($conf['autoupdate'] ? 'on' : 'off'),
+                'callback_data' => "/autoupdate",
             ],
         ];
         $data[] = [
             [
-                'text'          => $this->i18n('debug') . ': ' . $this->i18n($c['debug'] ? 'on' : 'off'),
-                'callback_data' => "/debug",
-            ],
-        ];
-        $data[] = [
-            [
-                'text'          => $this->i18n(exec('git -C / rev-list --count HEAD..@{u}') ? 'have updates' : 'no updates'),
+                'text'          => $this->i18n('branches'),
                 'callback_data' => "/menu update",
             ],
             [
@@ -6877,6 +6878,23 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/restart",
             ],
         ];
+        $data[] = [
+            [
+                'text'          => "{$this->i18n('add')} {$this->i18n('admin')}",
+                'callback_data' => "/addadmin",
+            ],
+        ];
+        $file = __DIR__ . '/config.php';
+        opcache_invalidate($file);
+        require $file;
+        foreach ($c['admin'] as $k => $v) {
+            $data[] = [
+                [
+                    'text'          => $this->i18n('delete') . " $v",
+                    'callback_data' => "/deladmin $v",
+                ],
+            ];
+        }
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -6892,32 +6910,24 @@ DNS-over-HTTPS with IP:
     public function ports()
     {
         $text[] = 'Settings -> Ports';
-        $f = '/docker/compose';
-        $c = yaml_parse_file($f)['services'];
-        $data = [
+        $f      = '/docker/compose';
+        $c      = yaml_parse_file($f)['services'];
+        $data   = [
             [[
-                'text'          => 'Letsencrypt 80 ' . $this->i18n($c['ng'] ? 'off' : 'on'),
-                'callback_data' => "/hidePort ng",
-            ]],
-            [[
-                'text'          => 'Shadowsocks ' . getenv('SSPORT') . ' ' . $this->i18n($c['ss'] ? 'off' : 'on'),
-                'callback_data' => "/hidePort ss",
-            ]],
-            [[
-                'text'          => 'DoT 853 ' . $this->i18n($c['ad'] ? 'off' : 'on'),
-                'callback_data' => "/hidePort ad",
-            ]],
-            [[
-                'text'          => 'Wireguard-1 ' . getenv('WGPORT') . ' ' . $this->i18n($c['wg'] ? 'off' : 'on'),
+                'text'          => $this->i18n($c['wg'] ? 'off' : 'on') . ' ' . getenv('WGPORT') . ' Wireguard',
                 'callback_data' => "/hidePort wg",
             ]],
             [[
-                'text'          => 'Wireguard-2 ' . getenv('WG1PORT') . ' ' . $this->i18n($c['wg1'] ? 'off' : 'on'),
+                'text'          => $this->i18n($c['wg1'] ? 'off' : 'on') . ' ' . getenv('WG1PORT') . ' Wireguard',
                 'callback_data' => "/hidePort wg1",
             ]],
             [[
-                'text'          => 'MTProto ' . getenv('TGPORT') . ' ' . $this->i18n($c['tg'] ? 'off' : 'on'),
+                'text'          => $this->i18n($c['tg'] ? 'off' : 'on') . ' ' . getenv('TGPORT') . ' MTProto ',
                 'callback_data' => "/hidePort tg",
+            ]],
+            [[
+                'text'          => $this->i18n($c['ad'] ? 'off' : 'on') . ' 853 AdguardHome DoT',
+                'callback_data' => "/hidePort ad",
             ]],
         ];
         $data[] = [
@@ -6936,12 +6946,18 @@ DNS-over-HTTPS with IP:
 
     public function hidePort($container)
     {
+        $ports = [
+            'wg'  => getenv('WGPORT') . ':' . getenv('WGPORT') . '/udp',
+            'wg1' => getenv('WG1PORT') . ':' . getenv('WG1PORT') . '/udp',
+            'tg'  => getenv('TGPORT') . ':' . getenv('TGPORT'),
+            'ad'  => '853:853',
+        ];
         $f = '/docker/compose';
         $c = yaml_parse_file($f);
         if (!empty($c['services'][$container])) {
             unset($c['services'][$container]);
         } else {
-            $c['services'][$container]['ports'] = [];
+            $c['services'][$container]['ports'][] = $ports['container'];
         }
         if (empty($c['services'])) {
             file_put_contents($f, '');
@@ -7524,7 +7540,7 @@ DNS-over-HTTPS with IP:
         $p = $this->getPacConf();
         $p['autoupdate'] = !$p['autoupdate'];
         $this->setPacConf($p);
-        $this->send($this->input['from'], $this->i18n('autoupdate') . ' ' . $this->i18n($p['autoupdate'] ? 'on' : 'off'));
+        $this->menu('config');
     }
 
     public function disconnect(...$args)
