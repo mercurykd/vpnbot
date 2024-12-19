@@ -60,3 +60,11 @@ c:
 	git reset
 webhook:
 	docker compose exec php php checkwebhook.php
+reset:
+	make d
+	git reset --hard
+	git clean -fd
+	docker volume rm vpnbot_adguard vpnbot_warp
+	make u
+backup:
+	docker compose exec php php backup.php > backup.json

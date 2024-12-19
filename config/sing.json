@@ -111,10 +111,11 @@
                 "outbound": "dns-out"
             },
             {
+                "addruleset": true,
                 "createruleset": [
                     {
                         "name": "pac",
-                        "interval": "15s",
+                        "interval": "30s",
                         "rules": [
                             {
                                 "domain_suffix": "~pac~"
@@ -122,13 +123,14 @@
                         ]
                     }
                 ],
-                "outbound": "~domains_outbound~"
+                "outbound": "~outbound~"
             },
             {
+                "addruleset": true,
                 "createruleset": [
                     {
                         "name": "package",
-                        "interval": "15s",
+                        "interval": "30s",
                         "rules": [
                             {
                                 "package_name": "~package~"
@@ -136,13 +138,14 @@
                         ]
                     }
                 ],
-                "outbound": "~app_outbound~"
+                "outbound": "~outbound~"
             },
             {
+                "addruleset": true,
                 "createruleset": [
                     {
                         "name": "process",
-                        "interval": "15s",
+                        "interval": "30s",
                         "rules": [
                             {
                                 "process_name": "~process~"
@@ -150,13 +153,14 @@
                         ]
                     }
                 ],
-                "outbound": "~process_outbound~"
+                "outbound": "~outbound~"
             },
             {
+                "addruleset": true,
                 "createruleset": [
                     {
                         "name": "block",
-                        "interval": "15s",
+                        "interval": "30s",
                         "rules": [
                             {
                                 "domain_suffix": "~block~"
@@ -167,10 +171,11 @@
                 "outbound": "block"
             },
             {
+                "addruleset": true,
                 "createruleset": [
                     {
                         "name": "warp",
-                        "interval": "15s",
+                        "interval": "30s",
                         "rules": [
                             {
                                 "domain_suffix": "~warp~"
@@ -179,11 +184,8 @@
                     }
                 ],
                 "outbound": "~outbound~"
-            },
-            {
-                "outbound": "direct"
             }
         ],
-        "final": "~final_outbound~"
+        "final": "direct"
     }
 }

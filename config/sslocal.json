@@ -3,7 +3,7 @@
     "server_port": 8388,
     "local_address": "0.0.0.0",
     "local_port": 1080,
-    "password": "test",
+    "password": "",
     "timeout": 120,
     "method": "chacha20-ietf-poly1305",
     "no_delay": true,

@@ -1,0 +1,141 @@
+{
+    "mixed-port": 2080,
+    "allow-lan": true,
+    "tcp-concurrent": true,
+    "enable-process": true,
+    "find-process-mode": "strict",
+    "global-client-fingerprint": "chrome",
+    "mode": "rule",
+    "log-level": "info",
+    "ipv6": false,
+    "keep-alive-interval": 30,
+    "unified-delay": false,
+    "profile": {
+        "store-selected": true,
+        "store-fake-ip": true
+    },
+    "sniffer": {
+        "enable": true,
+        "sniff": {
+            "HTTP": {
+                "ports": [
+                    80,
+                    "8080-8880"
+                ],
+                "override-destination": true
+            },
+            "TLS": {
+                "ports": [
+                    443,
+                    8443
+                ]
+            },
+            "QUIC": {
+                "ports": [
+                    443,
+                    8443
+                ]
+            }
+        }
+    },
+    "tun": {
+        "enable": true,
+        "stack": "mixed",
+        "dns-hijack": [
+            "any:53"
+        ],
+        "auto-route": true,
+        "auto-detect-interface": true,
+        "strict-route": true
+    },
+    "dns": {
+        "enable": true,
+        "listen": ":1053",
+        "prefer-h3": false,
+        "ipv6": false,
+        "enhanced-mode": "fake-ip",
+        "fake-ip-filter": [
+            "~domain~",
+            "+.lan",
+            "+.local"
+        ],
+        "nameserver": [
+            "~dns~"
+        ]
+    },
+    "proxies": [
+        {
+            "name": "~outbound~",
+            "type": "vless",
+            "server": "~domain~",
+            "port": 443,
+            "uuid": "~uid~",
+            "network": "tcp",
+            "flow": "xtls-rprx-vision",
+            "tls": true,
+            "reality-opts": {
+                "public-key": "~public_key~",
+                "short-id": "~short_id~"
+            },
+            "servername": "~server_name~",
+            "client-fingerprint": "chrome"
+        }
+    ],
+    "proxy-groups": [
+        {
+            "name": "PROXY",
+            "type": "select",
+            "proxies": [
+                "~outbound~"
+            ]
+        }
+    ],
+    "add-rule-providers": true,
+    "rule-providers": {},
+    "rules": [
+        {
+            "type": "RULE-SET",
+            "list": "~block~",
+            "action": "REJECT",
+            "interval": 30,
+            "behavior": "domain",
+            "name": "block"
+        },
+        {
+            "type": "RULE-SET",
+            "list": "~process~",
+            "action": "PROXY",
+            "interval": 30,
+            "behavior": "classical",
+            "name": "process"
+        },
+        {
+            "type": "RULE-SET",
+            "list": "~package~",
+            "action": "PROXY",
+            "interval": 30,
+            "behavior": "classical",
+            "name": "package"
+        },
+        {
+            "type": "RULE-SET",
+            "list": "~warp~",
+            "action": "PROXY",
+            "interval": 30,
+            "behavior": "domain",
+            "name": "warp"
+        },
+        {
+            "type": "RULE-SET",
+            "list": "~pac~",
+            "action": "PROXY",
+            "interval": 30,
+            "behavior": "domain",
+            "name": "pac"
+        },
+        {
+            "type": "MATCH",
+            "action": "DIRECT"
+        }
+    ]
+}

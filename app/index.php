@@ -37,6 +37,7 @@ if ($hash == substr(md5($c['key']), 0, 8)) {
             break;
         case 's':
         case 'si':
+        case 'cl':
             $bot->subscription();
             exit;
 

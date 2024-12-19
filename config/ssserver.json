@@ -1,7 +1,7 @@
 {
     "server": "0.0.0.0",
     "server_port": 8388,
-    "password": "test",
+    "password": "",
     "timeout": 120,
     "method": "chacha20-ietf-poly1305",
     "no_delay": true,

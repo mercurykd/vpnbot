@@ -262,8 +262,12 @@ $i = [
         'ru' => 'очистить',
     ],
     'xray'  => [
-        'en' => 'Xray',
-        'ru' => 'Xray',
+        'en' => 'Vless',
+        'ru' => 'Vless',
+    ],
+    'clash'  => [
+        'en' => 'mihomo',
+        'ru' => 'mihomo',
     ],
     'geodb'  => [
         'en' => 'GeoIp/GeoSite',
