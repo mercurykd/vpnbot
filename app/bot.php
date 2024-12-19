@@ -4200,15 +4200,15 @@ DNS-over-HTTPS with IP:
                     ],
                     [
                         [
+                            'text'          => $this->i18n('ad_title'),
+                            'callback_data' => "/menu adguard",
+                        ],
+                        [
                             'text'          => $this->i18n('warp') . ': ' . $this->warpStatus(),
                             'callback_data' => "/warp",
                         ],
                     ],
                     [
-                        [
-                            'text'          => $this->i18n('ad_title'),
-                            'callback_data' => "/menu adguard",
-                        ],
                         [
                             'text'          => $this->i18n('pac'),
                             'callback_data' => "/pacMenu 0",
