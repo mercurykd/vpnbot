@@ -1015,8 +1015,9 @@ class Bot
 
     public function chocdomain($domain)
     {
-        $c = file_get_contents('/config/ocserv.conf');
-        $t = preg_replace('~^default-domain[^\n]+~sm', "default-domain = oc.$domain", $c);
+        $oc = $this->getHashSubdomain('oc');
+        $c  = file_get_contents('/config/ocserv.conf');
+        $t  = preg_replace('~^default-domain[^\n]+~sm', "default-domain = $oc.$domain", $c);
         $this->restartOcserv($t);
     }
 
@@ -2044,7 +2045,9 @@ class Bot
                 $out[] = 'Install certificate:';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $adguardClient = $conf['adguardkey'] ? "-d {$conf['adguardkey']}.{$conf['domain']}" : '';
-                exec("certbot certonly --force-renew --preferred-chain 'ISRG Root X1' -n --agree-tos --email mail@{$conf['domain']} -d {$conf['domain']} -d oc.{$conf['domain']} -d np.{$conf['domain']} $adguardClient --webroot -w /certs/ --logs-dir /logs --max-log-backups 0 2>&1", $out, $code);
+                $oc = $this->getHashSubdomain('oc');
+                $np = $this->getHashSubdomain('np');
+                exec("certbot certonly --force-renew --preferred-chain 'ISRG Root X1' -n --agree-tos --email mail@{$conf['domain']} -d {$conf['domain']} -d $oc.{$conf['domain']} -d $np.{$conf['domain']} $adguardClient --webroot -w /certs/ --logs-dir /logs --max-log-backups 0 2>&1", $out, $code);
                 if ($code > 0) {
                     $this->send($this->input['chat'], "ERROR\n" . implode("\n", $out));
                     break;
@@ -4131,7 +4134,9 @@ DNS-over-HTTPS with IP:
             $main[] = $this->i18n($conf['autodeny'] ? 'on' : 'off') . ' autoblock' . ($conf['deny'] ? ': ' . count($conf['deny']) : '');
             if (!empty($conf['domain'])) {
                 $main[] = '';
-                $main[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\nnp.{$conf['domain']} (for naiveproxy)\noc.{$conf['domain']} (for openconnect)" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']} (for adguard DoT)" : '') : $this->i18n('domain explain');
+                $oc     = $this->getHashSubdomain('oc');
+                $np     = $this->getHashSubdomain('np');
+                $main[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\n$np.{$conf['domain']} (for naiveproxy)\n$oc.{$conf['domain']} (for openconnect)" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']} (for adguard DoT)" : '') : $this->i18n('domain explain');
                 $ssl    = $this->expireCert();
                 $main[] = $conf['domain'] ? "\nSSL: " . ($ssl ? date('Y-m-d H:i:s', $this->expireCert()) . "\n" . $this->domainsCert() : 'none') : '';
             }
@@ -4914,7 +4919,8 @@ DNS-over-HTTPS with IP:
         $pac    = $this->getPacConf();
         $domain = $this->getDomain();
         $text[] = "Menu -> NaiveProxy";
-        $text[] = "<code>https://{$pac['naive']['user']}:{$pac['naive']['pass']}@np.$domain</code>";
+        $np     = $this->getHashSubdomain('np');
+        $text[] = "<code>https://{$pac['naive']['user']}:{$pac['naive']['pass']}@$np.$domain</code>";
         $data[] = [
             [
                 'text'          => $this->i18n('change login'),
@@ -5017,7 +5023,8 @@ DNS-over-HTTPS with IP:
         $pass   = htmlspecialchars($pac['ocserv']);
         $text[] = "Menu -> OpenConnect";
         if (!empty($cs)) {
-            $text[] = "<code>https://oc.$domain/?$cs</code>";
+            $oc = $this->getHashSubdomain('oc');
+            $text[] = "<code>https://$oc.$domain/?$cs</code>";
         }
         $text[] = "password: <span class='tg-spoiler'>$pass</span>";
         $data[] = [
@@ -6418,17 +6425,24 @@ DNS-over-HTTPS with IP:
     }
     public function setUpstreamDomainOcserv($domain)
     {
+        $sub   = $this->getHashSubdomain('oc');
         $nginx = file_get_contents('/config/upstream.conf');
-        $t = preg_replace('~#ocserv.+#ocserv~s', $domain ? "#ocserv\noc.$domain ocserv;\n#ocserv" : "#ocserv\n#oc.\$domain ocserv;\n#ocserv", $nginx);
+        $t     = preg_replace('~#ocserv.+#ocserv~s', $domain ? "#ocserv\n$sub.$domain ocserv;\n#ocserv" : "#ocserv\n#$sub.\$domain ocserv;\n#ocserv", $nginx);
         file_put_contents('/config/upstream.conf', $t);
         $this->ssh("nginx -s reload 2>&1", 'up');
     }
     public function setUpstreamDomainNaive($domain)
     {
+        $sub   = $this->getHashSubdomain('np');
         $nginx = file_get_contents('/config/upstream.conf');
-        $t = preg_replace('~#naive.+#naive~s', $domain ? "#naive\nnp.$domain naive;\n#naive" : "#naive\n#np.\$domain naive;\n#naive", $nginx);
+        $t = preg_replace('~#naive.+#naive~s', $domain ? "#naive\n$sub.$domain naive;\n#naive" : "#naive\n#$sub.\$domain naive;\n#naive", $nginx);
         file_put_contents('/config/upstream.conf', $t);
         $this->ssh("nginx -s reload 2>&1", 'up');
+    }
+
+    public function getHashSubdomain($subdomain)
+    {
+        return substr(hash('sha256', "$subdomain{$this->key}"), 0, 8);
     }
 
     public function addWg($page)
@@ -6752,7 +6766,9 @@ DNS-over-HTTPS with IP:
                 $custom .= "$v\n";
             }
         }
-        $text[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\nnp.{$conf['domain']} (for naiveproxy)\noc.{$conf['domain']} (for openconnect)" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']} (for adguard DoT)" : '') : $this->i18n('domain explain');
+        $oc   = $this->getHashSubdomain('oc');
+        $np   = $this->getHashSubdomain('np');
+        $text[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\n$np.{$conf['domain']} (for naiveproxy)\n$oc.{$conf['domain']} (for openconnect)" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']} (for adguard DoT)" : '') : $this->i18n('domain explain');
         $ssl    = $this->expireCert();
         $text[] = $conf['domain'] ? "\nSSL: " . ($ssl ? date('Y-m-d H:i:s', $this->expireCert()) . "\n" . $this->domainsCert() : 'none') : '';
 
