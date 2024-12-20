@@ -1464,8 +1464,6 @@ class Bot
         $conf = [
             'wg'  => $wg,
             'wg1' => $wg1,
-            'ss'  => $this->getSSConfig(),
-            'sl'  => $this->getSSLocalConfig(),
             'ad'  => yaml_parse_file($this->adguard),
             'pac' => $this->getPacConf(),
             'ssl' => file_exists('/certs/cert_private') && preg_match('~BEGIN PRIVATE KEY~', file_get_contents('/certs/cert_private')) ? [
@@ -1557,22 +1555,6 @@ class Bot
                 $this->stopAd();
                 yaml_emit_file($this->adguard, $json['ad']);
                 $this->startAd();
-            }
-            // ss
-            if (!empty($json['ss'])) {
-                $out[] = 'update shadowsocks server';
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $this->ssh('pkill ssserver', 'ss');
-                file_put_contents('/config/ssserver.json', json_encode($json['ss'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-                $this->ssh('ssserver -v -d -c /config.json', 'ss');
-            }
-            // sl
-            if (!empty($json['sl'])) {
-                $out[] = 'update shadowsocks proxy';
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $this->ssh('pkill sslocal', 'proxy');
-                file_put_contents('/config/sslocal.json', json_encode($json['sl'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-                $this->ssh('sslocal -v -d -c /config.json', 'proxy');
             }
             // mtproto
             if (!empty($json['mtproto'])) {
