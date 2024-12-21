@@ -1588,26 +1588,7 @@ class Bot
             $out[] = 'reset nginx';
             $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
 
-            $t = file_get_contents('/config/nginx_default.conf');
-            if (!empty($json['pac']['domain'])) {
-                $t = preg_replace('/server_name ([^\n]+)?/', "server_name *.{$json['pac']['domain']} {$json['pac']['domain']};", $t);
-                preg_match_all('~#-domain.+?#-domain~s', $t, $m);
-                foreach ($m[0] as $k => $v) {
-                    $t = preg_replace('~#-domain.+?#-domain~s', $this->uncomment($v, 'domain'), $t, 1);
-                }
-            }
-            if (!empty($json['ssl'])) {
-                $name = $json['pac']['letsencrypt'] ? 'letsencrypt' : 'self';
-                $t = preg_replace('/#~([^\n]+)?/', "#~$name", $t);
-                preg_match_all('~#-ssl.+?#-ssl~s', $t, $m);
-                foreach ($m[0] as $k => $v) {
-                    $t = preg_replace('~#-ssl.+?#-ssl~s', $this->uncomment($v, 'ssl'), $t, 1);
-                }
-            }
-            file_put_contents('/config/nginx.conf', $t);
-            $this->adguardProtect();
-            $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
-            $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+            $this->cloakNginx();
 
             $out[] = "end import";
             $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
@@ -1923,31 +1904,11 @@ class Bot
         if (!empty($domain)) {
             $conf = $this->getPacConf();
             $conf['domain'] = idn_to_ascii($domain);
-            $nginx = file_get_contents('/config/nginx.conf');
-            $t = preg_replace('/server_name ([^\n]+)?/', "server_name {$conf['domain']} *.{$conf['domain']};", $nginx);
-            preg_match_all('~#-domain.+?#-domain~s', $t, $m);
-            foreach ($m[0] as $k => $v) {
-                $t = preg_replace('~#-domain.+?#-domain~s', $this->uncomment($v, 'domain'), $t, 1);
-            }
-            file_put_contents('/config/nginx.conf', $t);
-            $this->adguardProtect();
-            $u = $this->ssh("nginx -t 2>&1", 'ng');
-            $out[] = $u;
-            if (empty($nomenu)) {
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-            }
-            if (preg_match('~test is successful~', $u)) {
-                $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
-                if (empty($nomenu)) {
-                    $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                }
-                $this->setPacConf($conf);
-                $this->chocdomain($domain);
-                $this->setUpstreamDomainOcserv($domain);
-                $this->setUpstreamDomainNaive($domain);
-            } else {
-                file_put_contents('/config/nginx.conf', $nginx);
-            }
+            $this->setPacConf($conf);
+            $this->chocdomain($domain);
+            $this->setUpstreamDomainOcserv($domain);
+            $this->setUpstreamDomainNaive($domain);
+            $this->cloakNginx();
         }
         if (empty($nomenu)) {
             sleep(3);
@@ -2000,32 +1961,13 @@ class Bot
 
     public function deleteSSL($notmenu = false)
     {
-        $nginx = file_get_contents('/config/nginx.conf');
-        $t = preg_replace("/#~[^\s]+/", '#~', $nginx);
-        preg_match_all('~##ssl.+?##ssl~s', $t, $m);
-        foreach ($m[0] as $k => $v) {
-            $t = preg_replace('~##ssl.+?##ssl~s', $this->comment($v, 'ssl'), $t, 1);
-        }
-        file_put_contents('/config/nginx.conf', $t);
-        $u = $this->ssh("nginx -t 2>&1", 'ng');
-        $this->update($this->input['chat'], $this->input['message_id'], $u);
-        if (preg_match('~test is successful~', $u)) {
-            $u .= $this->ssh("nginx -s reload 2>&1", 'ng');
-            $this->update($this->input['chat'], $this->input['message_id'], $u);
-            $u .= $this->stopAd();
-            $this->update($this->input['chat'], $this->input['message_id'], $u);
-            $c = yaml_parse_file($this->adguard);
-            $c['tls']['enabled'] = false;
-            $c['tls']['server_name'] = '';
-            yaml_emit_file($this->adguard, $c);
-            $u .= $this->startAd();
-            $this->update($this->input['chat'], $this->input['message_id'], $u);
-            unlink('/certs/cert_private');
-            unlink('/certs/cert_public');
-            sleep(3);
-        } else {
-            file_put_contents('/config/nginx.conf', $nginx);
-        }
+        unlink('/certs/cert_private');
+        unlink('/certs/cert_public');
+        $conf = $this->getPacConf();
+        unset($conf['letsencrypt']);
+        $this->setPacConf($conf);
+        $this->adguardSync();
+        $this->cloakNginx();
         if (!$notmenu) {
             $this->menu('config');
         }
@@ -2055,49 +1997,20 @@ class Bot
                 $out[] = 'Generate bundle';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $bundle = file_get_contents("/etc/letsencrypt/live/{$conf['domain']}/privkey.pem") . file_get_contents("/etc/letsencrypt/live/{$conf['domain']}/fullchain.pem");
-                $conf['letsencrypt'] = 1;
-                $this->setPacConf($conf);
+                $conf['letsencrypt'] = 'letsencrypt';
                 break;
             case 'self':
                 $r      = $this->request('getFile', ['file_id' => $this->input['file_id']]);
                 $bundle = file_get_contents($this->file . $r['result']['file_path']);
+                $conf['letsencrypt'] = 'self';
                 break;
         }
         if (preg_match('~[^\s]+BEGIN PRIVATE KEY.+?END PRIVATE KEY[^\s]+~s', $bundle, $m)) {
+            $this->setPacConf($conf);
             file_put_contents('/certs/cert_private', $m[0]);
             file_put_contents('/certs/cert_public', preg_replace('~[^\s]+BEGIN PRIVATE KEY.+?END PRIVATE KEY[^\s]+~s', '', $bundle));
-            $nginx = file_get_contents('/config/nginx.conf');
-            $t = preg_replace('/#~([^\n]+)?/', "#~$name", $nginx);
-            preg_match_all('~#-ssl.+?#-ssl~s', $t, $m);
-            foreach ($m[0] as $k => $v) {
-                $t = preg_replace('~#-ssl.+?#-ssl~s', $this->uncomment($v, 'ssl'), $t, 1);
-            }
-            file_put_contents('/config/nginx.conf', $t);
-            $u = $this->ssh("nginx -t 2>&1", 'ng');
-            $out[] = $u;
-            $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-            if (preg_match('~test is successful~', $u)) {
-                $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $out[] = 'Restart ocserv';
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $this->restartOcserv(file_get_contents('/config/ocserv.conf'));
-                $out[] = 'Restart NaiveProxy';
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $this->restartNaive();
-                $out[] = 'Restart Adguard Home';
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $out[] = $this->stopAd();
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $c = yaml_parse_file($this->adguard);
-                $c['tls']['enabled'] = true;
-                $c['tls']['server_name'] = $conf['domain'];
-                yaml_emit_file($this->adguard, $c);
-                $out[] = $this->startAd();
-                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-            } else {
-                file_put_contents('/config/nginx.conf', $nginx);
-            }
+            $this->adguardSync();
+            $this->cloakNginx();
         } else {
             $this->update($this->input['chat'], $this->input['message_id'], "wrong format key");
         }
@@ -2132,25 +2045,11 @@ class Bot
         $this->deleteSSL(1);
         $conf = $this->getPacConf();
         unset($conf['domain']);
-        $nginx = $t = file_get_contents('/config/nginx.conf');
-        $t = preg_replace('/server_name ([^\n]+)?/', "server_name _;", $nginx);
-        preg_match_all('~##domain.+?##domain~s', $t, $m);
-        foreach ($m[0] as $k => $v) {
-            $t = preg_replace('~##domain.+?##domain~s', $this->comment($v, 'domain'), $t, 1);
-        }
-        file_put_contents('/config/nginx.conf', $t);
-        $u = $this->ssh("nginx -t 2>&1", 'ng');
-        $out[] = $u;
-        $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-        if (preg_match('~test is successful~', $u)) {
-            $out[] = $this->ssh("nginx -s reload 2>&1", 'ng');
-            $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-            $this->setPacConf($conf);
-            $this->setUpstreamDomainOcserv('');
-            $this->chocdomain('');
-        } else {
-            file_put_contents('/config/nginx.conf', $nginx);
-        }
+        $this->setPacConf($conf);
+        $this->setUpstreamDomainOcserv('');
+        $this->chocdomain('');
+        $this->adguardSync();
+        $this->cloakNginx();
         $this->menu('config');
     }
 
@@ -2224,7 +2123,6 @@ class Bot
         }
         yaml_emit_file($this->adguard, $c);
         $this->startAd();
-        $this->adguardProtect();
     }
 
     public function adguardpsswd()
@@ -2413,6 +2311,7 @@ class Bot
         $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
         exec('git -C / checkout config/AdGuardHome.yaml');
         $this->adguardSync();
+        $this->cloakNginx();
         sleep(3);
         $this->menu('adguard');
     }
@@ -4131,6 +4030,7 @@ DNS-over-HTTPS with IP:
             $main[] = $cron;
             $main[] = $this->i18n($backup ? 'on' : 'off') . ' autobackup' . ($backup ? " $backup" : '');
             $main[] = $this->i18n($conf['autoupdate'] ? 'on' : 'off') . ' autoupdate';
+            $main[] = $this->i18n($conf['autoscan'] ? 'on' : 'off') . ' autoscan';
             $main[] = $this->i18n($conf['autodeny'] ? 'on' : 'off') . ' autoblock' . ($conf['deny'] ? ': ' . count($conf['deny']) : '');
             if (!empty($conf['domain'])) {
                 $main[] = '';
@@ -6440,6 +6340,45 @@ DNS-over-HTTPS with IP:
         $this->ssh("nginx -s reload 2>&1", 'up');
     }
 
+    public function cloakNginx()
+    {
+        $conf     = $this->getPacConf();
+        $template = file_get_contents('/config/nginx_default.conf');
+        if (!empty($conf['domain'])) {
+            $template = preg_replace('/server_name ([^\n]+)?/', "server_name *.{$conf['domain']} {$conf['domain']};", $template);
+            preg_match_all('~#-domain.+?#-domain~s', $template, $m);
+            foreach ($m[0] as $v) {
+                $template = preg_replace('~#-domain.+?#-domain~s', $this->uncomment($v, 'domain'), $template, 1);
+            }
+        }
+        if (!empty($conf['letsencrypt'])) {
+            $template = preg_replace('/#~([^\n]+)?/', "#~{$conf['letsencrypt']}", $template);
+            preg_match_all('~#-ssl.+?#-ssl~s', $template, $m);
+            foreach ($m[0] as $v) {
+                $template = preg_replace('~#-ssl.+?#-ssl~s', $this->uncomment($v, 'ssl'), $template, 1);
+            }
+        }
+        $h = substr(hash('sha256', $this->key), 0, 8);
+        $s = empty($conf['adgbrowser']) ? '' : '#';
+        $r = <<<CONF
+        location /adguard/ {
+                access_log /logs/nginx_adguard_access;
+                if (\$cookie_c != "$h") {
+                    $s rewrite .* /webapp redirect;
+                }
+                proxy_pass http://ad:80/;
+                proxy_redirect / /adguard/;
+                proxy_cookie_path / /adguard/;
+                proxy_set_header Authorization "Basic \$cookie_a";
+            }
+            location
+        CONF;
+        $template = preg_replace('~(location /adguard.+?})\s*location~s', $r, $template);
+        $template = preg_replace('~location(?!\s/tlgrm\s{)(?!\s/\s{)(?!\s~\\\.well-known\s{)\s(.+)\s{~', "location $1$h {", $template);
+        file_put_contents('/config/nginx.conf', $template);
+        return $this->ssh('nginx -s reload', 'ng');
+    }
+
     public function getHashSubdomain($subdomain)
     {
         return substr(hash('sha256', "$subdomain{$this->key}"), 0, 8);
@@ -6486,29 +6425,6 @@ DNS-over-HTTPS with IP:
         ];
     }
 
-    public function adguardProtect()
-    {
-        $h = substr(hash('sha256', $this->key), 0, 8);
-        $s = empty($this->getPacConf()['adgbrowser']) ? '' : '#';
-        $r = <<<CONF
-        location /adguard/ {
-                access_log /logs/nginx_adguard_access;
-                if (\$cookie_c != "$h") {
-                    $s rewrite .* /webapp redirect;
-                }
-                proxy_pass http://ad:80/;
-                proxy_redirect / /adguard/;
-                proxy_cookie_path / /adguard/;
-                proxy_set_header Authorization "Basic \$cookie_a";
-            }
-            location
-        CONF;
-        $f = '/config/nginx.conf';
-        $c = file_get_contents($f);
-        $t = preg_replace('~(location /adguard.+?})\s*location~s', $r, $c);
-        file_put_contents($f, $t);
-    }
-
     public function adguardBasicAuth()
     {
         return base64_encode('admin:' . $this->getPacConf()['adpswd']);
@@ -6519,8 +6435,7 @@ DNS-over-HTTPS with IP:
         $c = $this->getPacConf();
         $c['adgbrowser'] = $c['adgbrowser'] ? 0 : 1;
         $this->setPacConf($c);
-        $this->adguardProtect();
-        $this->ssh('nginx -s reload', 'ng');
+        $this->cloakNginx();
         $this->answer($this->input['callback_id'], $this->i18n($c['adgbrowser'] ? 'browser_notify_on' : 'browser_notify_off'), true);
         $this->menu('adguard');
     }
