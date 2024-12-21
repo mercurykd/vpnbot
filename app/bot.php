@@ -6374,7 +6374,7 @@ DNS-over-HTTPS with IP:
             location
         CONF;
         $template = preg_replace('~(location /adguard.+?})\s*location~s', $r, $template);
-        $template = preg_replace('~location(?!\s/tlgrm\s{)(?!\s/\s{)(?!\s~\\\.well-known\s{)\s(.+)\s{~', "location $1$h {", $template);
+        $template = preg_replace('~location(?!\s/tlgrm\s{)(?!\s/\s{)(?!\s\~\\\.well-known\s{)\s(.+?)\s{~', 'location ${1}' . $h . ' {', $template);
         file_put_contents('/config/nginx.conf', $template);
         return $this->ssh('nginx -s reload', 'ng');
     }
