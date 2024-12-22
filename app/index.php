@@ -76,9 +76,9 @@ switch (true) {
                             <meta charset="utf-8">
                             <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-                            <link href="jsoneditor.min.css" rel="stylesheet" type="text/css">
-                            <script src="jsoneditor.min.js"></script>
-                            <script src="jquery-3.7.1.min.js"></script>
+                            <link href="/webapp$hash/jsoneditor.min.css" rel="stylesheet" type="text/css">
+                            <script src="/webapp$hash/jsoneditor.min.js"></script>
+                            <script src="/webapp$hash/jquery-3.7.1.min.js"></script>
                             <script src="https://telegram.org/js/telegram-web-app.js"></script>
                         </head>
                         <body style="height:100%">
