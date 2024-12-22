@@ -5959,7 +5959,7 @@ DNS-over-HTTPS with IP:
                         "network"    => "ws",
                         "security"   => "tls",
                         "wsSettings" => [
-                            "path" => "/ws?ed=2560"
+                            "path" => "/ws$hash?ed=2560"
                         ],
                         "tlsSettings" => [
                             "allowInsecure" => false,
@@ -5994,7 +5994,7 @@ DNS-over-HTTPS with IP:
                     unset($c['outbounds'][$index]['flow']);
                     $c['outbounds'][$index]["transport"] = [
                         "type" => "ws",
-                        "path" => "/ws"
+                        "path" => "/ws$hash"
                     ];
                     $c['outbounds'][$index]['tls']['server_name'] = '~domain~';
                 } else {
@@ -6012,7 +6012,7 @@ DNS-over-HTTPS with IP:
                     unset($c['proxies'][$index]['flow']);
                     unset($c['proxies'][$index]['reality-opts']);
                     $c['proxies'][$index]["network"]          = "ws";
-                    $c['proxies'][$index]["ws-opts"]['path']  = '/ws';
+                    $c['proxies'][$index]["ws-opts"]['path']  = "/ws$hash";
                     $c['proxies'][$index]["skip-cert-verify"] = false;
                     $c['proxies'][$index]['servername']      = '~domain~';
                 } else {
@@ -6348,11 +6348,11 @@ DNS-over-HTTPS with IP:
         $template = file_get_contents('/config/nginx_default.conf');
         $template = preg_replace('~server_name ip~', "server_name {$this->ip}", $template);
         $template = preg_replace('~server_name domain~', "server_name " . ($conf['domain'] ? " *.{$conf['domain']} {$conf['domain']}" : '_'), $template);
-        if (!empty($conf['letsencrypt'])) {
+        if ($conf['domain'] && $conf['letsencrypt']) {
             $template = preg_replace('/#~([^\n]+)?/', "#~{$conf['letsencrypt']}", $template);
-            preg_match_all('~#-ssl.+?#-ssl~s', $template, $m);
+            preg_match_all('~#-domain.+?#-domain~s', $template, $m);
             foreach ($m[0] as $v) {
-                $template = preg_replace('~#-ssl.+?#-ssl~s', $this->uncomment($v, 'ssl'), $template, 1);
+                $template = preg_replace('~#-domain.+?#-domain~s', $this->uncomment($v, 'domain'), $template, 1);
             }
         }
         $h = $this->getHashBot();
@@ -7096,7 +7096,9 @@ DNS-over-HTTPS with IP:
         $p = $this->getPacConf();
         $x = $this->getXray();
         $h = $this->getHashBot();
-        $p['transport'] = $ws ? 'Websocket' : 'Reality';
+        $p['reality']['domain']      = $p['reality']['domain'] ?: 'web.telegram.org';
+        $p['reality']['destination'] = $p['reality']['destination'] ?: $p['reality']['domain'] . ':443';
+        $p['transport']              = $ws ? 'Websocket' : 'Reality';
         if (!empty($ws)) {
             $p['reality']['domain']      = $x['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0] ?: $p['reality']['domain'];
             $p['reality']['destination'] = $x['inbounds'][0]['streamSettings']['realitySettings']['dest'] ?: $p['reality']['destination'];

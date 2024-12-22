@@ -112,6 +112,10 @@
             },
             {
                 "addruleset": true,
+                "outbound": "direct"
+            },
+            {
+                "addruleset": true,
                 "createruleset": [
                     {
                         "name": "pac",
