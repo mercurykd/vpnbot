@@ -5860,7 +5860,8 @@ DNS-over-HTTPS with IP:
             }
         }
         if ($flag) {
-            return false;
+            header('500', true, 500);
+            exit;
         }
 
         if (!empty($_GET['r'])) {
@@ -6363,7 +6364,7 @@ DNS-over-HTTPS with IP:
                 if (\$cookie_c != "$h") {
                     $s rewrite .* /webapp redirect;
                 }
-                proxy_pass http://ad;
+                proxy_pass http://ad/;
                 proxy_redirect / /adguard/;
                 proxy_cookie_path / /adguard/;
             }
