@@ -6035,7 +6035,7 @@ DNS-over-HTTPS with IP:
             '"~warp~"'       => json_encode(array_keys(array_filter($pac['warplist'] ?: []))),
             '"~process~"'    => json_encode(array_keys(array_filter($pac['processlist'] ?: []))),
             '"~package~"'    => json_encode(array_keys(array_filter($pac['packagelist'] ?: []))),
-            '~dns~'          => "https://$domain/dns-query/$uid",
+            '~dns~'          => "https://$domain/dns-query$hash/$uid",
             '~uid~'          => $uid,
             '~domain~'       => $domain,
             '~directdomain~' => $pac['domain'],
@@ -6371,7 +6371,7 @@ DNS-over-HTTPS with IP:
             location
         CONF;
         $template = preg_replace('~(location /adguard.+?})\s*location~s', $r, $template);
-        $template = preg_replace('~(/webapp|/pac|/adguard|/ws)~', '${1}' . $h, $template);
+        $template = preg_replace('~(/webapp|/pac|/adguard|/ws|/dns-query)~', '${1}' . $h, $template);
         file_put_contents('/config/nginx.conf', $template);
         $x = $this->getXray();
         if (!empty($x['inbounds'][0]['streamSettings']['wsSettings']['path'])) {
@@ -6446,7 +6446,7 @@ DNS-over-HTTPS with IP:
         $scheme = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
         $text   = "$scheme://$domain/adguard$hash\nLogin: admin\nPass: <span class='tg-spoiler'>{$conf['adpswd']}</span>\n\n";
         if ($ssl) {
-            $text .= "DNS over HTTPS:\n<code>$ip</code>\n<code>$scheme://$domain/dns-query" . ($conf['adguardkey'] ? "/{$conf['adguardkey']}" : '') . "</code>\n\n";
+            $text .= "DNS over HTTPS:\n<code>$ip</code>\n<code>$scheme://$domain/dns-query$hash" . ($conf['adguardkey'] ? "/{$conf['adguardkey']}" : '') . "</code>\n\n";
             $text .= "DNS over TLS:\n<code>tls://" . ($conf['adguardkey'] ? "{$conf['adguardkey']}." : '') . "$domain</code>";
         }
         $status = $this->i18n(exec("JSON=1 timeout 2 dnslookup google.com ad") ? 'on' : 'off');
