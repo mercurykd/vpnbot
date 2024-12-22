@@ -16,27 +16,10 @@
                 "enabled": true
             },
             "streamSettings": {
-                "network": "tcp",
-                "realitySettings": {
-                    "dest": "telegram.org:443",
-                    "maxClientVer": "",
-                    "maxTimeDiff": 0,
-                    "minClientVer": "",
-                    "privateKey": "",
-                    "serverNames": [
-                        "telegram.org"
-                    ],
-                    "shortIds": [],
-                    "show": false,
-                    "xver": 0
-                },
-                "tcpSettings": {
-                    "acceptProxyProtocol": true
-                },
-                "sockopt": {
-                    "acceptProxyProtocol": true
-                },
-                "security": "reality"
+                "network": "ws",
+                "wsSettings": {
+                    "path": "/ws"
+                }
             },
             "tag": "vless_tls"
         }

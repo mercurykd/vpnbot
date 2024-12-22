@@ -1571,7 +1571,7 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->restartXray($json['xray']);
                 $this->adguardXrayClients();
-                $this->setUpstreamDomain($json['pac']['transport'] == 'Websocket' ? 't' : ($json['pac']['reality']['domain'] ?: $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]));
+                $this->setUpstreamDomain($json['pac']['transport'] != 'Reality' ? 't' : ($json['pac']['reality']['domain'] ?: $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]));
             }
             // ocserv
             if (!empty($json['oc'])) {
@@ -3460,7 +3460,7 @@ DNS-over-HTTPS with IP:
         $pac    = stat(__DIR__ . '/zapretlists/pac');
         $conf   = $this->getPacConf();
         $ip     = $this->getDomain();
-        $hash   = substr(md5($this->key), 0, 8);
+        $hash   = $this->getHashBot();
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $text   = <<<text
                 Menu -> pac
@@ -3472,11 +3472,11 @@ DNS-over-HTTPS with IP:
 
 
                     <b>PAC ({$pac['time']} / {$pac['sz']}):</b>
-                    <code>$scheme://$ip/pac?h=$hash&a=127.0.0.1&p=1080</code>
+                    <code>$scheme://$ip/pac$hash?a=127.0.0.1&p=1080</code>
                     text;
             $urls[0][] = [
                 'text'    => "PAC",
-                'web_app' => ['url'  => "https://$ip/pac?h=$hash&a=127.0.0.1&p=1080"],
+                'web_app' => ['url'  => "https://$ip/pac$hash&a=127.0.0.1&p=1080"],
             ];
         }
         if ($mpac) {
@@ -3486,11 +3486,11 @@ DNS-over-HTTPS with IP:
 
 
                     <b>Shadowsocks-android PAC ({$mpac['time']} / {$mpac['sz']}):</b>
-                    <code>$scheme://$ip/pac?h=$hash&t=mpac</code>
+                    <code>$scheme://$ip/pac$hash&t=mpac</code>
                     text;
             $urls[0][] = [
                 'text'    => "PAC ShadowSocks(Android)",
-                'web_app' => ['url'  => "https://$ip/pac?h=$hash&t=mpac"],
+                'web_app' => ['url'  => "https://$ip/pac$hash&t=mpac"],
             ];
         }
         if ($rpac) {
@@ -3500,15 +3500,15 @@ DNS-over-HTTPS with IP:
 
 
                     <b>Reverse PAC ({$rpac['time']} / {$rpac['sz']}):</b>
-                    <code>$scheme://$ip/pac?h=$hash&t=rpac&a=127.0.0.1&p=1080</code>
+                    <code>$scheme://$ip/pac$hash&t=rpac&a=127.0.0.1&p=1080</code>
                     text;
             $urls[0][] = [
                 'text' => "Reverse PAC",
-                'url'  => "$scheme://$ip/pac?h=$hash&t=rpac",
+                'url'  => "$scheme://$ip/pac$hash&t=rpac",
             ];
             $urls[1][] = [
                 'text' => "Reverse PAC Wireguard proxy",
-                'url'  => "$scheme://$ip/pac?h=$hash&t=rpac&a=10.10.0.3",
+                'url'  => "$scheme://$ip/pac$hash&t=rpac&a=10.10.0.3",
             ];
         }
         if ($rmpac) {
@@ -3518,11 +3518,11 @@ DNS-over-HTTPS with IP:
 
 
                     <b>Reverse shadowsocks-android PAC ({$rmpac['time']} / {$rmpac['sz']}):</b>
-                    <code>$scheme://$ip/pac?h=$hash&t=rmpac</code>
+                    <code>$scheme://$ip/pac$hash&t=rmpac</code>
                     text;
             $urls[2][] = [
                 'text' => "Reverse PAC SS(Android)",
-                'url'  => "$scheme://$ip/pac?h=$hash&t=rmpac",
+                'url'  => "$scheme://$ip/pac$hash&t=rmpac",
             ];
         }
         if ($urls) {
@@ -4743,15 +4743,15 @@ DNS-over-HTTPS with IP:
     {
         $c      = $this->getXray();
         $pac    = $this->getPacConf();
-        $domain = $this->getDomain($pac['transport'] == 'Websocket');
+        $domain = $this->getDomain($pac['transport'] != 'Reality');
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
-        $hash   = substr(md5($this->key), 0, 8);
-        $si     = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+        $hash   = $this->getHashBot();
+        $si     = "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
             'h' => $hash,
             't' => 'si',
             's' => $c['inbounds'][0]['settings']['clients'][$i]['id'],
         ]));
-        $v2     = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+        $v2     = "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
             'h' => $hash,
             't' => 's',
             's' => $c['inbounds'][0]['settings']['clients'][$i]['id'],
@@ -4764,8 +4764,8 @@ DNS-over-HTTPS with IP:
                 return "sing-box://import-remote-profile/?url={$si}#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
 
             default:
-                if ($pac['transport'] == 'Websocket') {
-                    return "vless://{$c['inbounds'][0]['settings']['clients'][$i]['id']}@$domain:443?flow=&path=%2Fws&security=tls&sni=$domain&fp=chrome&type=ws#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
+                if ($pac['transport'] != 'Reality') {
+                    return "vless://{$c['inbounds'][0]['settings']['clients'][$i]['id']}@$domain:443?flow=&path=%2Fws$hash&security=tls&sni=$domain&fp=chrome&type=ws#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
                 }
                 return "vless://{$c['inbounds'][0]['settings']['clients'][$i]['id']}@$domain:443?security=reality&sni={$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}&fp=chrome&pbk={$pac['xray']}&sid={$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}&type=tcp&flow=xtls-rprx-vision#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
         }
@@ -4846,8 +4846,6 @@ DNS-over-HTTPS with IP:
     public function mirrorMenu()
     {
         $ip     = $this->getPacConf()['domain'] ?: $this->ip;
-        $hash   = substr(md5($this->key), 0, 8);
-        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
         $text[] = "Menu -> Mirror";
         $text[] = <<<PNG
                     <pre>client -> intermediate VPS -> vpnbot
@@ -4857,7 +4855,6 @@ DNS-over-HTTPS with IP:
                                           -----------
                     </pre>
                     PNG;
-        $text[] = "<code>$scheme://$ip/pac?h=$hash&t=mirror</code>";
         $data[] = [
             [
                 'text'          => $this->i18n('download'),
@@ -5035,7 +5032,7 @@ DNS-over-HTTPS with IP:
         $c    = $this->getXray();
         $p    = $this->getPacConf();
         $uuid = trim($this->ssh('xray uuid', 'xr'));
-        $c['inbounds'][0]['settings']['clients'][] = $p['transport'] == 'Websocket' ? [
+        $c['inbounds'][0]['settings']['clients'][] = $p['transport'] != 'Reality' ? [
                 'id'    => $uuid,
                 'email' => $user,
             ] : [
@@ -5259,13 +5256,13 @@ DNS-over-HTTPS with IP:
 
     public function templates($type)
     {
-        $pac       = $this->getPacConf();
-        $domain    = $this->getDomain();
-        $hash      = substr(md5($this->key), 0, 8);
-        $text[]    = "Menu -> " . $this->i18n('xray') . " -> " . $this->i18n($type) . " templates";
-        $text[]    = <<<TEXT
+        $pac    = $this->getPacConf();
+        $domain = $this->getDomain();
+        $hash   = $this->getHashBot();
+        $text[] = "Menu -> " . $this->i18n('xray') . " -> " . $this->i18n($type) . " templates";
+        $text[] = <<<TEXT
             <code>~outbound~</code>
-            <code>"~pac~"</code>
+            <code>~pac~</code>
             <code>~package~</code>
             <code>~process~</code>
             <code>~block~</code>
@@ -5291,7 +5288,7 @@ DNS-over-HTTPS with IP:
         $data[] = [
             [
                 'text'          => "origin",
-                'web_app' => ['url' => "https://$domain/pac?h=$hash&t=te&ty=$type"],
+                'web_app' => ['url' => "https://$domain/pac$hash?t=te&ty=$type"],
             ],
             [
                 'text'          => $this->i18n('download'),
@@ -5310,7 +5307,7 @@ DNS-over-HTTPS with IP:
             $data[] = [
                 [
                     'text'          => $k,
-                    'web_app' => ['url' => "https://$domain/pac?h=$hash&t=te&ty=$type&te=" . urlencode($k)],
+                    'web_app' => ['url' => "https://$domain/pac$hash?t=te&ty=$type&te=" . urlencode($k)],
                 ],
                 [
                     'text'          => $this->i18n('download'),
@@ -5380,7 +5377,7 @@ DNS-over-HTTPS with IP:
         if (!empty($fake = $c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0])) {
             $text[] = "fake domain: <code>$fake</code>";
         }
-        $text[] = 'transport: ' . ($p['transport'] ?: 'Reality');
+        $text[] = 'transport: ' . ($p['transport'] ?: 'Websocket');
         $data[] = [
             [
                 'text'          => $this->i18n('main outbound name: ') . ($p['outbound'] ?: 'proxy'),
@@ -5395,15 +5392,15 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
-                'text'          => $this->i18n('Reality') . ' ' . ($p['transport'] != 'Websocket' ? $this->i18n('on') : $this->i18n('off')),
+                'text'          => $this->i18n('Reality') . ' ' . ($p['transport'] == 'Reality' ? $this->i18n('on') : $this->i18n('off')),
                 'callback_data' => "/changeTransport",
             ],
             [
-                'text'          => $this->i18n('Websocket') . ' ' . ($p['transport'] == 'Websocket' ? $this->i18n('on') : $this->i18n('off')),
+                'text'          => $this->i18n('Websocket') . ' ' . ($p['transport'] != 'Reality' ? $this->i18n('on') : $this->i18n('off')),
                 'callback_data' => "/changeTransport 1",
             ],
         ];
-        if ($p['transport'] != 'Websocket') {
+        if ($p['transport'] == 'Reality') {
             $data[] = [
                 [
                     'text'          => $this->i18n('changeFakeDomain'),
@@ -5707,31 +5704,31 @@ DNS-over-HTTPS with IP:
     {
         $c      = $this->getXray()['inbounds'][0]['settings']['clients'][$i];
         $pac    = $this->getPacConf();
-        $domain = $this->getDomain($pac['transport'] == 'Websocket');
+        $domain = $this->getDomain($pac['transport'] != 'Reality');
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
-        $hash   = substr(md5($this->key), 0, 8);
+        $hash   = $this->getHashBot();
 
         $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['email']}\n";
         $text[] = "<pre><code>{$this->linkXray($i)}</code></pre>\n";
 
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=v&s={$c['id']}#{$c['email']}'>import://v2rayng</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=si&s={$c['id']}#{$c['email']}'>import://sing-box</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=s&r=st&s={$c['id']}#{$c['email']}'>import://streisand</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=h&s={$c['id']}#{$c['email']}'>import://hiddify</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=k&s={$c['id']}#{$c['email']}'>import://karing</a>";
-        $text[] = "<a href='$scheme://{$domain}/pac?h=$hash&t=si&r=c&s={$c['id']}#{$c['email']}'>import://mihomo</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac$hash?t=s&r=v&s={$c['id']}#{$c['email']}'>import://v2rayng</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac$hash?t=si&r=si&s={$c['id']}#{$c['email']}'>import://sing-box</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac$hash?t=s&r=st&s={$c['id']}#{$c['email']}'>import://streisand</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac$hash?t=si&r=h&s={$c['id']}#{$c['email']}'>import://hiddify</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac$hash?t=si&r=k&s={$c['id']}#{$c['email']}'>import://karing</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac$hash?t=si&r=c&s={$c['id']}#{$c['email']}'>import://mihomo</a>";
 
-        $si = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+        $si = "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
             'h' => $hash,
             't' => 'si',
             's' => $c['id'],
         ]));
-        $xr = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+        $xr = "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
             'h' => $hash,
             't' => 's',
             's' => $c['id'],
         ]));
-        $cl = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+        $cl = "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
             'h' => $hash,
             't' => 'cl',
             's' => $c['id'],
@@ -5741,20 +5738,20 @@ DNS-over-HTTPS with IP:
         $text[] = "sing-box config: <pre><code>$si</code></pre>";
         $text[] = "mihomo config: <pre><code>$cl</code></pre>";
 
-        $text[] = "sing-box windows: <a href='$scheme://{$domain}/pac?h=$hash&t=si&r=w&s={$c['id']}'>windows service</a>";
+        $text[] = "sing-box windows: <a href='$scheme://{$domain}/pac$hash?t=si&r=w&s={$c['id']}'>windows service</a>";
 
         $data[] = [
             [
                 'text'    => $this->i18n('v2ray'),
-                'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=s&s={$c['id']}"],
+                'web_app' => ['url' => "https://{$domain}/pac$hash?t=s&s={$c['id']}"],
             ],
             [
                 'text'    => $this->i18n('singbox'),
-                'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=si&s={$c['id']}"],
+                'web_app' => ['url' => "https://{$domain}/pac$hash?t=si&s={$c['id']}"],
             ],
             [
                 'text'    => $this->i18n('mihomo'),
-                'web_app' => ['url' => "https://{$domain}/pac?h=$hash&t=cl&s={$c['id']}"],
+                'web_app' => ['url' => "https://{$domain}/pac$hash?t=cl&s={$c['id']}"],
             ],
         ];
         $data[] = [
@@ -5845,10 +5842,10 @@ DNS-over-HTTPS with IP:
                 break;
         }
         $pac    = $this->getPacConf();
-        $domain = $_GET['cdn'] ?: ($_SERVER['SERVER_NAME'] ?: $this->getDomain($pac['transport'] == 'Websocket'));
+        $domain = $_GET['cdn'] ?: ($_SERVER['SERVER_NAME'] ?: $this->getDomain($pac['transport'] != 'Reality'));
         $xr     = $this->getXray();
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
-        $hash   = substr(md5($this->key), 0, 8);
+        $hash   = $this->getHashBot();
 
         $flag = true;
         foreach ($xr['inbounds'][0]['settings']['clients'] as $k => $v) {
@@ -5867,17 +5864,17 @@ DNS-over-HTTPS with IP:
         }
 
         if (!empty($_GET['r'])) {
-            $si = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+            $si = "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
                 'h' => $hash,
                 't' => 'si',
                 's' => $uid,
             ]));
-            $v2 = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+            $v2 = "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
                 'h' => $hash,
                 't' => 's',
                 's' => $uid,
             ]));
-            $cl = "$scheme://{$domain}/pac/" . base64_encode(serialize([
+            $cl = "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
                 'h' => $hash,
                 't' => 'cl',
                 's' => $uid,
@@ -5957,7 +5954,7 @@ DNS-over-HTTPS with IP:
                     'id'         => '~uid~',
                     'encryption' => 'none',
                 ];
-                if ($pac['transport'] == 'Websocket') {
+                if ($pac['transport'] != 'Reality') {
                     $c['outbounds'][$index]['streamSettings'] = [
                         "network"    => "ws",
                         "security"   => "tls",
@@ -5992,7 +5989,7 @@ DNS-over-HTTPS with IP:
             case 'si':
                 $c['outbounds'][$index]['server'] = '~domain~';
                 $c['outbounds'][$index]['uuid']   = '~uid~';
-                if ($pac['transport'] == 'Websocket') {
+                if ($pac['transport'] != 'Reality') {
                     unset($c['outbounds'][$index]['tls']['reality']);
                     unset($c['outbounds'][$index]['flow']);
                     $c['outbounds'][$index]["transport"] = [
@@ -6011,7 +6008,7 @@ DNS-over-HTTPS with IP:
             case 'cl':
                 $c['proxies'][$index]['server'] = '~domain~';
                 $c['proxies'][$index]['uuid']   = '~uid~';
-                if ($pac['transport'] == 'Websocket') {
+                if ($pac['transport'] != 'Reality') {
                     unset($c['proxies'][$index]['flow']);
                     unset($c['proxies'][$index]['reality-opts']);
                     $c['proxies'][$index]["network"]          = "ws";
@@ -6135,7 +6132,7 @@ DNS-over-HTTPS with IP:
     public function clashRules($c, $uid, $domain)
     {
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
-        $hash   = substr(md5($this->key), 0, 8);
+        $hash   = $this->getHashBot();
         foreach ($c['rules'] as $v) {
             if (array_key_exists('list', $v)) {
                 if ($v['type'] == 'RULE-SET') {
@@ -6155,7 +6152,7 @@ DNS-over-HTTPS with IP:
                     }
                     $c['rule-providers'][$v['name']] = [
                         'type'     => 'http',
-                        'url'      => "$scheme://{$domain}/pac/" . base64_encode(serialize([
+                        'url'      => "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
                             'h' => $hash,
                             't' => 'cl',
                             's' => $uid,
@@ -6255,7 +6252,7 @@ DNS-over-HTTPS with IP:
     public function createRuleSet($route, $uid, $domain)
     {
         $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
-        $hash   = substr(md5($this->key), 0, 8);
+        $hash   = $this->getHashBot();
 
         foreach ($route['rules'] as $k => $v) {
             if (!empty($v['createruleset'])) {
@@ -6265,7 +6262,7 @@ DNS-over-HTTPS with IP:
                     }
                     $ruleset[] = [
                         "tag"             => $r['name'],
-                        "url"             => "$scheme://{$domain}/pac/" . base64_encode(serialize([
+                        "url"             => "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
                             'h' => $hash,
                             't' => 'si',
                             's' => $uid,
@@ -6340,17 +6337,17 @@ DNS-over-HTTPS with IP:
         $this->ssh("nginx -s reload 2>&1", 'up');
     }
 
+    public function getHashBot()
+    {
+        return substr(hash('sha256', $this->key), 0, 8);
+    }
+
     public function cloakNginx()
     {
         $conf     = $this->getPacConf();
         $template = file_get_contents('/config/nginx_default.conf');
-        if (!empty($conf['domain'])) {
-            $template = preg_replace('/server_name ([^\n]+)?/', "server_name *.{$conf['domain']} {$conf['domain']};", $template);
-            preg_match_all('~#-domain.+?#-domain~s', $template, $m);
-            foreach ($m[0] as $v) {
-                $template = preg_replace('~#-domain.+?#-domain~s', $this->uncomment($v, 'domain'), $template, 1);
-            }
-        }
+        $template = preg_replace('~server_name ip~', "server_name {$this->ip}", $template);
+        $template = preg_replace('~server_name domain~', "server_name " . ($conf['domain'] ? " *.{$conf['domain']} {$conf['domain']}" : '_'), $template);
         if (!empty($conf['letsencrypt'])) {
             $template = preg_replace('/#~([^\n]+)?/', "#~{$conf['letsencrypt']}", $template);
             preg_match_all('~#-ssl.+?#-ssl~s', $template, $m);
@@ -6358,7 +6355,7 @@ DNS-over-HTTPS with IP:
                 $template = preg_replace('~#-ssl.+?#-ssl~s', $this->uncomment($v, 'ssl'), $template, 1);
             }
         }
-        $h = substr(hash('sha256', $this->key), 0, 8);
+        $h = $this->getHashBot();
         $s = empty($conf['adgbrowser']) ? '' : '#';
         $r = <<<CONF
         location /adguard/ {
@@ -6366,16 +6363,21 @@ DNS-over-HTTPS with IP:
                 if (\$cookie_c != "$h") {
                     $s rewrite .* /webapp redirect;
                 }
-                proxy_pass http://ad:80/;
+                proxy_pass http://ad;
                 proxy_redirect / /adguard/;
                 proxy_cookie_path / /adguard/;
-                proxy_set_header Authorization "Basic \$cookie_a";
             }
             location
         CONF;
         $template = preg_replace('~(location /adguard.+?})\s*location~s', $r, $template);
-        $template = preg_replace('~location(?!\s/tlgrm\s{)(?!\s/\s{)(?!\s\~\\\.well-known\s{)\s(.+?)\s{~', 'location ${1}' . $h . ' {', $template);
+        $template = preg_replace('~(/webapp|/pac|/adguard|/ws)~', '${1}' . $h, $template);
         file_put_contents('/config/nginx.conf', $template);
+        $x = $this->getXray();
+        if (!empty($x['inbounds'][0]['streamSettings']['wsSettings']['path'])) {
+            $x['inbounds'][0]['streamSettings']['wsSettings']['path'] = "/ws$h";
+            $this->restartXray($x);
+        }
+
         return $this->ssh('nginx -s reload', 'ng');
     }
 
@@ -6409,12 +6411,6 @@ DNS-over-HTTPS with IP:
         }
         $data[] = [
             [
-                'text'          =>  $this->i18n('proxy ip'),
-                'callback_data' => "/proxy",
-            ]
-        ];
-        $data[] = [
-            [
                 'text'          => $this->i18n('back'),
                 'callback_data' => "/menu wg $page",
             ]
@@ -6445,8 +6441,9 @@ DNS-over-HTTPS with IP:
         $conf   = $this->getPacConf();
         $ip     = $this->ip;
         $domain = $this->getDomain();
+        $hash   = $this->getHashBot();
         $scheme = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
-        $text   = "$scheme://$domain/adguard\nLogin: admin\nPass: <span class='tg-spoiler'>{$conf['adpswd']}</span>\n\n";
+        $text   = "$scheme://$domain/adguard$hash\nLogin: admin\nPass: <span class='tg-spoiler'>{$conf['adpswd']}</span>\n\n";
         if ($ssl) {
             $text .= "DNS over HTTPS:\n<code>$ip</code>\n<code>$scheme://$domain/dns-query" . ($conf['adguardkey'] ? "/{$conf['adguardkey']}" : '') . "</code>\n\n";
             $text .= "DNS over TLS:\n<code>tls://" . ($conf['adguardkey'] ? "{$conf['adguardkey']}." : '') . "$domain</code>";
@@ -6462,7 +6459,7 @@ DNS-over-HTTPS with IP:
                 [
                     'text'          => 'web panel',
                     'web_app' => [
-                        "url" => "https://$domain/adguard"
+                        "url" => "https://$domain/adguard$hash"
                     ],
                 ],
                 [
@@ -7096,8 +7093,9 @@ DNS-over-HTTPS with IP:
 
     public function changeTransport($ws = null)
     {
-        $p              = $this->getPacConf();
-        $x              = $this->getXray();
+        $p = $this->getPacConf();
+        $x = $this->getXray();
+        $h = $this->getHashBot();
         $p['transport'] = $ws ? 'Websocket' : 'Reality';
         if (!empty($ws)) {
             $p['reality']['domain']      = $x['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0] ?: $p['reality']['domain'];
@@ -7109,7 +7107,7 @@ DNS-over-HTTPS with IP:
             $x['inbounds'][0]['streamSettings'] = [
                 "network"    => "ws",
                 "wsSettings" => [
-                    "path" => "/ws"
+                    "path" => "/ws$h"
                 ]
             ];
         } else {

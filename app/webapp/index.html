@@ -14,7 +14,7 @@
             $.ajax({
                 'url': 'check?' + tg.initData,
             }).done(function (r) {
-                location.replace('/adguard/');
+                location.replace(r);
             }).fail(function (r) {
                 location.replace('/');
             });
