@@ -4008,6 +4008,7 @@ DNS-over-HTTPS with IP:
         $conf   = $this->getPacConf();
         $domain = $conf['domain'] ?: $this->ip;
         $update = exec('git -C / rev-list --count HEAD..@{u}');
+        $hash   = $this->getHashBot();
         if ($type == false) {
             $backup = array_filter(explode('/', $conf['backup']));
             if (!empty($backup)) {
@@ -4105,7 +4106,7 @@ DNS-over-HTTPS with IP:
                         [
                             'text' => $this->i18n('donate'),
                             'web_app' => [
-                                'url'  => "https://$domain/donate.html",
+                                'url'  => "https://$domain/webapp$hash/donate.html",
                             ]
                         ],
                     ],
