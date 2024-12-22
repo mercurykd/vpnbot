@@ -4007,9 +4007,10 @@ DNS-over-HTTPS with IP:
     {
         $conf   = $this->getPacConf();
         $domain = $conf['domain'] ?: $this->ip;
-        $update = exec('git -C / rev-list --count HEAD..@{u}');
         $hash   = $this->getHashBot();
         if ($type == false) {
+            $update = exec('git -C / rev-list --count HEAD..@{u}');
+            $branch = exec('git -C / rev-parse --abbrev-ref HEAD');
             $backup = array_filter(explode('/', $conf['backup']));
             if (!empty($backup)) {
                 if (!empty(strtotime($backup[0])) && !empty(strtotime($backup[1]))) {
@@ -4021,7 +4022,7 @@ DNS-over-HTTPS with IP:
             $cron   = $this->dontshowcron ? '' : $this->i18n($this->ssh('pgrep -f cron.php', 'service') ? 'on' : 'off') . ' cron';
             $f      = '/docker/compose';
             $c      = yaml_parse_file($f)['services'];
-            $main[] = 'v' . getenv('VER') . ($update ? ' (have updates)' : '');
+            $main[] = 'v' . getenv('VER') . " $branch" . ($update ? ' (have updates)' : '');
             $main[] = '';
             $main[] = $this->i18n($c['wg'] ? 'on' : 'off') . ' ' . getenv('WGPORT') . ' Wireguard';
             $main[] = $this->i18n($c['wg1'] ? 'on' : 'off') . ' ' . getenv('WG1PORT') . ' Wireguard 1';
