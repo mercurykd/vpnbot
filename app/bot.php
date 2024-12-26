@@ -367,6 +367,9 @@ class Bot
             case preg_match('~^/changeNaiveUser$~', $this->input['callback'], $m):
                 $this->changeNaiveUser();
                 break;
+            case preg_match('~^/changeNaiveSubdomain$~', $this->input['callback'], $m):
+                $this->changeNaiveSubdomain();
+                break;
             case preg_match('~^/changeNaivePass$~', $this->input['callback'], $m):
                 $this->changeNaivePass();
                 break;
@@ -883,12 +886,28 @@ class Bot
             $this->input['chat'],
             "@{$this->input['username']} enter login",
             $this->input['message_id'],
-            reply: 'enter password',
+            reply: 'enter login',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message'  => $this->input['message_id'],
             'start_callback' => $this->input['callback_id'],
             'callback'       => 'chnplogin',
+            'args'           => [],
+        ];
+    }
+
+    public function changeNaiveSubdomain()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter subdomain",
+            $this->input['message_id'],
+            reply: 'enter subdomain',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'chNpSubdomain',
             'args'           => [],
         ];
     }
@@ -1018,6 +1037,20 @@ class Bot
         $this->chocdomain($pac['domain']);
         $this->setUpstreamDomainOcserv($pac['domain']);
         $this->menu('oc');
+    }
+
+    public function chNpSubdomain($domain)
+    {
+        $pac = $this->getPacConf();
+        if (!empty($data)) {
+            unset($pac['np_domain']);
+        } else {
+            $pac['np_domain'] = $domain;
+        }
+        $this->setPacConf($pac);
+        $this->restartNaive();
+        $this->setUpstreamDomainNaive($pac['domain']);
+        $this->menu('naive');
     }
 
     public function chnplogin($user)
@@ -4856,6 +4889,12 @@ DNS-over-HTTPS with IP:
         $text[] = "Menu -> NaiveProxy";
         $np     = $this->getHashSubdomain('np');
         $text[] = "<code>https://{$pac['naive']['user']}:{$pac['naive']['pass']}@$np.$domain</code>";
+        $data[] = [
+            [
+                'text'          => $this->i18n('change subdomain'),
+                'callback_data' => "/changeNaiveSubdomain",
+            ],
+        ];
         $data[] = [
             [
                 'text'          => $this->i18n('change login'),
