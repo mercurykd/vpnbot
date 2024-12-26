@@ -358,6 +358,9 @@ class Bot
             case preg_match('~^/changeCamouflage$~', $this->input['callback'], $m):
                 $this->changeCamouflage();
                 break;
+            case preg_match('~^/changeOcDomain$~', $this->input['callback'], $m):
+                $this->changeOcDomain();
+                break;
             case preg_match('~^/changeOcPass$~', $this->input['callback'], $m):
                 $this->changeOcPass();
                 break;
@@ -816,12 +819,28 @@ class Bot
             $this->input['chat'],
             "@{$this->input['username']} enter camouflage key",
             $this->input['message_id'],
-            reply: 'enter password',
+            reply: 'enter camouflage key',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message'  => $this->input['message_id'],
             'start_callback' => $this->input['callback_id'],
             'callback'       => 'chockey',
+            'args'           => [],
+        ];
+    }
+
+    public function changeOcDomain()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter subdomain",
+            $this->input['message_id'],
+            reply: 'enter subdomain',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'chOcSubdomain',
             'args'           => [],
         ];
     }
@@ -984,6 +1003,20 @@ class Bot
         $c = file_get_contents('/config/ocserv.conf');
         $t = preg_replace('~^dns[^\n]+~sm', "dns = $dns", $c);
         $this->restartOcserv($t);
+        $this->menu('oc');
+    }
+
+    public function chOcSubdomain($domain)
+    {
+        $pac = $this->getPacConf();
+        if (empty($domain)) {
+            unset($pac["oc_domain"]);
+        } else {
+            $pac["oc_domain"] = $domain;
+        }
+        $this->setPacConf($pac);
+        $this->chocdomain($pac['domain']);
+        $this->setUpstreamDomainOcserv($pac['domain']);
         $this->menu('oc');
     }
 
@@ -4928,6 +4961,12 @@ DNS-over-HTTPS with IP:
         $text[] = "password: <span class='tg-spoiler'>$pass</span>";
         $data[] = [
             [
+                'text'          => $this->i18n('change subdomain'),
+                'callback_data' => "/changeOcDomain",
+            ],
+        ];
+        $data[] = [
+            [
                 'text'          => $this->i18n('change secret'),
                 'callback_data' => "/changeCamouflage",
             ],
@@ -6386,7 +6425,7 @@ DNS-over-HTTPS with IP:
 
     public function getHashSubdomain($subdomain)
     {
-        return substr(hash('sha256', "$subdomain{$this->key}"), 0, 8);
+        return $this->getPacConf()["{$subdomain}_domain"] ?: substr(hash('sha256', "$subdomain{$this->key}"), 0, 8);
     }
 
     public function addWg($page)
