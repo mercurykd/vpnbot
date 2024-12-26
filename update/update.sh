@@ -1,5 +1,14 @@
 #!/bin/bash
 pwd=`pwd`
+process_name="$pwd/update/update.sh"
+current_pid=$$
+pids=$(pgrep -f $process_name)
+for pid in $pids; do
+    if [ $pid -ne $current_pid ]; then
+        kill -9 $pid
+    fi
+done
+
 > $pwd/update/pipe
 echo "$$" > $pwd/update/update_pid
 
@@ -27,10 +36,10 @@ do
             git pull > ./update/message
         fi
         curl -H "Content-Type: application/json" -X POST https://api.telegram.org/bot$key/editMessageText -d "$(cat $pwd/update/curl | sed 's/"text":"~t~"/"text": "launching the bot"/')"
-        IP=$(curl ipinfo.io/ip) VER=$(git describe --tags) docker compose --env-file ./.env --env-file ./override.env up -d --force-recreate
-        bash $pwd/update/update.sh &
         > $pwd/update/key
         > $pwd/update/curl
+        IP=$(curl -s -t 1 2ip.io || curl -s -t 1 ipinfo.io/ip || curl -s -t 1 ifconfig.me) VER=$(git describe --tags) docker compose --env-file ./.env --env-file ./override.env up -d --force-recreate
+        bash $pwd/update/update.sh &
         exit 0
     fi
     sleep 1
