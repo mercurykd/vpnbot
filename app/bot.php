@@ -37,20 +37,8 @@ class Bot
             'xray',
         ];
         $this->reg = '~' . implode('|', [
-            'GET /ws HTTP',
-            'GET /adguard/(?:.+)? HTTP',
-            'GET /webapp(?:.+)? HTTP',
-            'GET /pac(?:.+)? HTTP',
-            'GET \.well-known(?:.+)? HTTP',
-            'GET /v2ray(?:.+)? HTTP',
-            'GET /dns-query(?:.+)? HTTP',
             'GET / HTTP',
-            'GET /tlgrm(?:.+)? HTTP',
-            'GET /jsoneditor.min.css HTTP',
-            'GET /jsoneditor.min.js HTTP',
-            'GET /jquery-3.7.1.min.js HTTP',
-            'GET /img/jsoneditor-icons.svg HTTP',
-            'GET /favicon.ico HTTP',
+            preg_quote($this->getHashBot())
         ]) . '~';
     }
 
