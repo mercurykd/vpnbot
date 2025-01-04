@@ -38,6 +38,7 @@ class Bot
         ];
         $this->reg = '~' . implode('|', [
             'GET / HTTP',
+            'GET /favicon.ico HTTP',
             preg_quote($this->getHashBot())
         ]) . '~';
     }
