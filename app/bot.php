@@ -4078,16 +4078,16 @@ DNS-over-HTTPS with IP:
             $c      = yaml_parse_file($f)['services'];
             $main[] = 'v' . getenv('VER') . " $branch" . ($update ? ' (have updates)' : '');
             $main[] = '';
-            $main[] = $this->i18n($c['wg'] ? 'on' : 'off') . ' ' . getenv('WGPORT') . ' Wireguard';
-            $main[] = $this->i18n($c['wg1'] ? 'on' : 'off') . ' ' . getenv('WG1PORT') . ' Wireguard 1';
-            $main[] = $this->i18n($c['tg'] ? 'on' : 'off') . ' ' . getenv('TGPORT') . ' MTProto';
-            $main[] = $this->i18n($c['ad'] ? 'on' : 'off') . ' 853 AdguardHome DoT';
-            $main[] = '';
             $main[] = $cron;
             $main[] = $this->i18n($backup ? 'on' : 'off') . ' autobackup' . ($backup ? " $backup" : '');
             $main[] = $this->i18n($conf['autoupdate'] ? 'on' : 'off') . ' autoupdate';
             $main[] = $this->i18n($conf['autoscan'] ? 'on' : 'off') . ' autoscan';
             $main[] = $this->i18n($conf['autodeny'] ? 'on' : 'off') . ' autoblock' . ($conf['deny'] ? ': ' . count($conf['deny']) : '');
+            $main[] = '';
+            $main[] = $this->i18n($c['wg'] ? 'on' : 'off') . ' ' . getenv('WGPORT') . ' Wireguard';
+            $main[] = $this->i18n($c['wg1'] ? 'on' : 'off') . ' ' . getenv('WG1PORT') . ' Wireguard 1';
+            $main[] = $this->i18n($c['tg'] ? 'on' : 'off') . ' ' . getenv('TGPORT') . ' MTProto';
+            $main[] = $this->i18n($c['ad'] ? 'on' : 'off') . ' 853 AdguardHome DoT';
             if (!empty($conf['domain'])) {
                 $main[] = '';
                 $oc     = $this->getHashSubdomain('oc');
