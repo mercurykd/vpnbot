@@ -4017,8 +4017,8 @@ DNS-over-HTTPS with IP:
         $domain  = $this->getDomain();
         $ss      = $this->getSSConfig();
         $v2ray   = !empty($ss['plugin']) ? 'ON' : 'OFF';
-        $port    = !empty($ss['plugin']) ? (!empty($ssl) ? 443 : 80) : getenv('SSPORT');
-        $options = !empty($ssl) && !empty($ss['plugin']) ? "tls;fast-open;path=/v2ray$hash;host=$domain" : "path=/v2ray$hash;host=$domain";
+        $port    = !empty($ss['plugin']) ? 443 : getenv('SSPORT');
+        $options = !empty($ss['plugin']) ? "tls;fast-open;path=/v2ray$hash;host=$domain" : "path=/v2ray$hash;host=$domain";
 
         $text = "Menu -> ShadowSocks";
         $data[] = [
@@ -4027,7 +4027,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/sspswd",
             ],
         ];
-        $ss_link = preg_replace('~==~', '', 'ss://' . base64_encode("{$ss['method']}:{$ss['password']}")) . "@$domain:$port" . (!empty($ss['plugin']) ? '?plugin=' . urlencode("v2ray-plugin;path=/v2ray$hash;host=$domain" . (!empty($ssl) ? ';tls' : '')) : '');
+        $ss_link = preg_replace('~==~', '', 'ss://' . base64_encode("{$ss['method']}:{$ss['password']}")) . "@$domain:$port" . (!empty($ss['plugin']) ? '?plugin=' . urlencode("v2ray-plugin;path=/v2ray$hash;host=$domain;tls") : '');
         $text .= "\n\n<code>$ss_link</code>\n";
         $text .= "\n\npassword: <span class='tg-spoiler'>{$ss['password']}</span>";
         $text .= "\n\nserver: <code>$domain:$port</code>";
@@ -4105,6 +4105,7 @@ DNS-over-HTTPS with IP:
             $main[] = $this->i18n($c['wg1'] ? 'on' : 'off') . ' ' . getenv('WG1PORT') . ' Wireguard 1';
             $main[] = $this->i18n($c['tg'] ? 'on' : 'off') . ' ' . getenv('TGPORT') . ' MTProto';
             $main[] = $this->i18n($c['ad'] ? 'on' : 'off') . ' 853 AdguardHome DoT';
+            $main[] = $this->i18n($c['ss'] ? 'on' : 'off') . ' 8388 Shadowsocks';
             if (!empty($conf['domain'])) {
                 $main[] = '';
                 $oc     = $this->getHashSubdomain('oc');
@@ -6933,6 +6934,10 @@ DNS-over-HTTPS with IP:
             ]],
             [[
                 'text'          => $this->i18n($c['ad'] ? 'on' : 'off') . ' 853 AdguardHome DoT',
+                'callback_data' => "/hidePort ad",
+            ]],
+            [[
+                'text'          => $this->i18n($c['ss'] ? 'on' : 'off') . ' 8388 Shadowsocks',
                 'callback_data' => "/hidePort ad",
             ]],
         ];
