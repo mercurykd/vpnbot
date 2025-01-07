@@ -6938,7 +6938,7 @@ DNS-over-HTTPS with IP:
             ]],
             [[
                 'text'          => $this->i18n($c['ss'] ? 'on' : 'off') . ' 8388 Shadowsocks',
-                'callback_data' => "/hidePort ad",
+                'callback_data' => "/hidePort ss",
             ]],
         ];
         $data[] = [

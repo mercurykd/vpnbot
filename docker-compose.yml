@@ -164,6 +164,7 @@ services:
             - ./update:/update
             - ./.git:/.git
             - ./scripts/start_service.sh:/start_service.sh
+            - ./docker-compose.override.yml:/docker/compose
             - /var/run/docker.sock:/var/run/docker.sock:ro
         environment:
             IP: ${IP}
