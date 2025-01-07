@@ -44,6 +44,8 @@ services:
                 condition: service_healthy
             ad:
                 condition: service_started
+            ss:
+                condition: service_started
         env_file:
             - path: ./.env
               required: true # default
@@ -192,6 +194,8 @@ services:
             - xr
             - oc
             - np
+            - proxy
+            - ss
     wg:
         image: mercurykd/vpnbot-wg:1.1
         build:
@@ -459,4 +463,62 @@ services:
         networks:
             default:
                 ipv4_address: 10.10.0.13
+        logging: *default-logging
+    proxy:
+        image: mercurykd/vpnbot-ss:1.2
+        build:
+            dockerfile: dockerfile/shadowsocks.dockerfile
+            args:
+                image: ${IMAGE}
+        volumes:
+            - ./config/.profile:/root/.ashrc:ro
+            - ./config/sslocal.json:/config.json
+            - ./ssh:/ssh
+            - ./config/sshd_config:/etc/ssh/sshd_config
+            - ./scripts/start_proxy.sh:/start_proxy.sh
+        hostname: proxy
+        container_name: proxy-${VER}
+        depends_on:
+            php:
+                condition: service_healthy
+        networks:
+            default:
+                ipv4_address: 10.10.0.3
+        environment:
+            TZ: ${TZ}
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
+        stop_grace_period: 1s
+        command: ["/bin/sh", "/start_proxy.sh"]
+        logging: *default-logging
+    ss:
+        image: mercurykd/vpnbot-ss:1.2
+        build:
+            dockerfile: dockerfile/shadowsocks.dockerfile
+            args:
+                image: ${IMAGE}
+        volumes:
+            - ./config/.profile:/root/.ashrc:ro
+            - ./config/ssserver.json:/config.json
+            - ./ssh:/ssh
+            - ./config/sshd_config:/etc/ssh/sshd_config
+            - ./scripts/start_ss.sh:/start_ss.sh
+        hostname: shadowsocks
+        container_name: shadowsocks-${VER}
+        depends_on:
+            php:
+                condition: service_healthy
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
+        stop_grace_period: 1s
+        command: ["/bin/sh", "/start_ss.sh"]
+        networks:
+            default:
+                ipv4_address: 10.10.0.6
         logging: *default-logging

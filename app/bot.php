@@ -1531,6 +1531,8 @@ class Bot
             'xray'          => $this->getXray(),
             'oc'            => file_get_contents('/config/ocserv.conf'),
             'ocu'           => file_get_contents('/config/ocserv.passwd'),
+            'ss'            => $this->getSSConfig(),
+            'sl'            => $this->getSSLocalConfig(),
 
         ];
         return json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -1611,6 +1613,22 @@ class Bot
                 $this->stopAd();
                 yaml_emit_file($this->adguard, $json['ad']);
                 $this->startAd();
+            }
+            // ss
+            if (!empty($json['ss'])) {
+                $out[] = 'update shadowsocks server';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->ssh('pkill ssserver', 'ss');
+                file_put_contents('/config/ssserver.json', json_encode($json['ss'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+                $this->ssh('ssserver -v -d -c /config.json', 'ss');
+            }
+            // sl
+            if (!empty($json['sl'])) {
+                $out[] = 'update shadowsocks proxy';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->ssh('pkill sslocal', 'proxy');
+                file_put_contents('/config/sslocal.json', json_encode($json['sl'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+                $this->ssh('sslocal -v -d -c /config.json', 'proxy');
             }
             // mtproto
             if (!empty($json['mtproto'])) {
@@ -3995,14 +4013,12 @@ DNS-over-HTTPS with IP:
 
     public function menuSS()
     {
-        $conf    = $this->getPacConf();
-        $ip      = $this->ip;
+        $hash    = $this->getHashBot();
         $domain  = $this->getDomain();
-        $scheme  = empty($ssl = $this->nginxGetTypeCert()) ? 'http' : 'https';
         $ss      = $this->getSSConfig();
         $v2ray   = !empty($ss['plugin']) ? 'ON' : 'OFF';
         $port    = !empty($ss['plugin']) ? (!empty($ssl) ? 443 : 80) : getenv('SSPORT');
-        $options = !empty($ssl) && !empty($ss['plugin']) ? "tls;fast-open;path=/v2ray;host=$domain" : "path=/v2ray;host=$domain";
+        $options = !empty($ssl) && !empty($ss['plugin']) ? "tls;fast-open;path=/v2ray$hash;host=$domain" : "path=/v2ray$hash;host=$domain";
 
         $text = "Menu -> ShadowSocks";
         $data[] = [
@@ -4011,7 +4027,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/sspswd",
             ],
         ];
-        $ss_link = preg_replace('~==~', '', 'ss://' . base64_encode("{$ss['method']}:{$ss['password']}")) . "@$domain:$port" . (!empty($ss['plugin']) ? '?plugin=' . urlencode("v2ray-plugin;path=/v2ray;host=$domain" . (!empty($ssl) ? ';tls' : '')) : '');
+        $ss_link = preg_replace('~==~', '', 'ss://' . base64_encode("{$ss['method']}:{$ss['password']}")) . "@$domain:$port" . (!empty($ss['plugin']) ? '?plugin=' . urlencode("v2ray-plugin;path=/v2ray$hash;host=$domain" . (!empty($ssl) ? ';tls' : '')) : '');
         $text .= "\n\n<code>$ss_link</code>\n";
         $text .= "\n\npassword: <span class='tg-spoiler'>{$ss['password']}</span>";
         $text .= "\n\nserver: <code>$domain:$port</code>";
@@ -4149,6 +4165,10 @@ DNS-over-HTTPS with IP:
                         ],
                     ],
                     [
+                        [
+                            'text'          => $this->i18n('sh_title'),
+                            'callback_data' => "/menu ss",
+                        ],
                         [
                             'text'          => $this->i18n('pac'),
                             'callback_data' => "/pacMenu 0",
@@ -6440,7 +6460,7 @@ DNS-over-HTTPS with IP:
             location
         CONF;
         $template = preg_replace('~(location /adguard.+?})\s*location~s', $r, $template);
-        $template = preg_replace('~(/webapp|/pac|/adguard|/ws|location /dns-query)~', '${1}' . $h, $template);
+        $template = preg_replace('~(/webapp|/pac|/adguard|/ws|/v2ray|location /dns-query)~', '${1}' . $h, $template);
         file_put_contents('/config/nginx.conf', $template);
         $x = $this->getXray();
         if (!empty($x['inbounds'][0]['streamSettings']['wsSettings']['path'])) {
@@ -6937,6 +6957,7 @@ DNS-over-HTTPS with IP:
             'wg1' => getenv('WG1PORT') . ':' . getenv('WG1PORT') . '/udp',
             'tg'  => getenv('TGPORT') . ':' . getenv('TGPORT'),
             'ad'  => '853:853',
+            'ss'  => '8388:8388',
         ];
         $f = '/docker/compose';
         $c = yaml_parse_file($f);
