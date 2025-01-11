@@ -4,92 +4,117 @@
         "error": "",
         "loglevel": "warning"
     },
-    "inbounds": [{
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "sniffing": {
-            "enabled": true,
-            "destOverride": ["http", "tls"],
-            "routeOnly": false
-        },
-        "settings": {
-            "auth": "noauth",
-            "udp": true,
-            "allowTransparent": false
-        }
-    }, {
-        "tag": "http",
-        "port": 10809,
-        "listen": "127.0.0.1",
-        "protocol": "http",
-        "sniffing": {
-            "enabled": true,
-            "destOverride": ["http", "tls"],
-            "routeOnly": false
-        },
-        "settings": {
-            "auth": "noauth",
-            "udp": true,
-            "allowTransparent": false
-        }
-    }],
-    "outbounds": [{
-        "tag": "~outbound~",
-        "protocol": "vless",
-        "settings": {
-            "vnext": [{
-                "address": "~domain~",
-                "port": 443,
-                "users": [{
-                    "id": "~uid~",
-                    "alterId": 0,
-                    "email": "t@t.tt",
-                    "security": "auto",
-                    "encryption": "none",
-                    "flow": "xtls-rprx-vision"
-                }]
-            }]
-        },
-        "streamSettings": {
-            "network": "tcp",
-            "security": "reality",
-            "realitySettings": {
-                "serverName": "~server_name~",
-                "fingerprint": "chrome",
-                "show": false,
-                "publicKey": "~public_key~",
-                "shortId": "~short_id~",
-                "spiderX": ""
+    "inbounds": [
+        {
+            "tag": "socks",
+            "port": 10808,
+            "listen": "127.0.0.1",
+            "protocol": "socks",
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls"
+                ],
+                "routeOnly": false
+            },
+            "settings": {
+                "auth": "noauth",
+                "udp": true,
+                "allowTransparent": false
             }
         },
-        "mux": {
-            "enabled": false,
-            "concurrency": -1
-        }
-    }, {
-        "tag": "direct",
-        "protocol": "freedom"
-    }, {
-        "tag": "block",
-        "protocol": "blackhole",
-        "settings": {
-            "response": {
-                "type": "http"
+        {
+            "tag": "http",
+            "port": 10809,
+            "listen": "127.0.0.1",
+            "protocol": "http",
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls"
+                ],
+                "routeOnly": false
+            },
+            "settings": {
+                "auth": "noauth",
+                "udp": true,
+                "allowTransparent": false
             }
         }
-    }],
+    ],
+    "outbounds": [
+        {
+            "tag": "direct",
+            "protocol": "freedom"
+        },
+        {
+            "tag": "~outbound~",
+            "protocol": "vless",
+            "settings": {
+                "vnext": [
+                    {
+                        "address": "~domain~",
+                        "port": 443,
+                        "users": [
+                            {
+                                "id": "~uid~",
+                                "alterId": 0,
+                                "email": "t@t.tt",
+                                "security": "auto",
+                                "encryption": "none",
+                                "flow": "xtls-rprx-vision"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "tcp",
+                "security": "reality",
+                "realitySettings": {
+                    "serverName": "~server_name~",
+                    "fingerprint": "chrome",
+                    "show": false,
+                    "publicKey": "~public_key~",
+                    "shortId": "~short_id~",
+                    "spiderX": ""
+                }
+            },
+            "mux": {
+                "enabled": false,
+                "concurrency": -1
+            }
+        },
+        {
+            "tag": "block",
+            "protocol": "blackhole",
+            "settings": {
+                "response": {
+                    "type": "http"
+                }
+            }
+        }
+    ],
     "routing": {
         "domainStrategy": "AsIs",
-        "rules": [{
-            "type": "field",
-            "outboundTag": "~outbound~",
-            "domain": "~pac~"
-        }, {
-            "type": "field",
-            "port": "0-65535",
-            "outboundTag": "direct"
-        }]
+        "rules": [
+            {
+                "type": "field",
+                "outboundTag": "block",
+                "domain": "~block~"
+            },
+            {
+                "type": "field",
+                "outboundTag": "~outbound~",
+                "domain": "~pac~"
+            },
+            {
+                "type": "field",
+                "outboundTag": "~outbound~",
+                "domain": "~warp~"
+            }
+        ]
     }
 }
