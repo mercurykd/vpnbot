@@ -667,13 +667,33 @@ class Bot
         }
     }
 
-    public function restartXray($c)
+    public function restartXray($c, $norestart = false)
     {
         $c['inbounds'][0]['settings']['clients'] = array_values($c['inbounds'][0]['settings']['clients']);
         $c['log']['access'] = '/logs/xray';
-        $this->ssh('pkill xray', 'xr');
-        file_put_contents('/config/xray.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        $this->ssh('xray run -config /xray.json > /dev/null 2>&1 &', 'xr');
+        $c['stats'] = new stdClass();
+        $l = new stdClass();
+        $l->{'0'} = [
+            "statsUserUplink"   => true,
+            "statsUserDownlink" => true
+        ];
+        $c['policy']['levels'] = $l;
+        if (empty($norestart)) {
+            $c = $this->collectSession($c);
+            file_put_contents('/config/xray.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $this->ssh('pkill xray', 'xr');
+            $this->ssh('xray run -config /xray.json > /dev/null 2>&1 &', 'xr');
+        } else {
+            file_put_contents('/config/xray.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        }
+    }
+
+    public function collectSession($c) {
+        foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
+            $c['inbounds'][0]['settings']['clients'][$k]['global']['download'] += $v['session']['download'];
+            $c['inbounds'][0]['settings']['clients'][$k]['global']['upload']   += $v['session']['upload'];
+        }
+        return $c;
     }
 
     public function linkMtproto()
@@ -1251,7 +1271,27 @@ class Bot
             $this->checkBackup($period);
             $this->checkCert();
             $this->autoAnalyzeLogs();
+            $this->xrayStatsUser();
             sleep($period);
+        }
+    }
+
+    public function xrayStatsUser()
+    {
+        try {
+            $x = $this->getXray();
+            if (!empty($users = $x['inbounds'][0]['settings']['clients'])) {
+                foreach ($users as $k => $v) {
+                    $d = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "user>>>' . $v['email'] . '>>>traffic>>>downlink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
+                    $u = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "user>>>' . $v['email'] . '>>>traffic>>>uplink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
+                    $x['inbounds'][0]['settings']['clients'][$k]['session'] = [
+                        'download' => $d,
+                        'upload'   => $u,
+                    ];
+                }
+                $this->restartXray($x, norestart: 1);
+            }
+        } catch (\Throwable $th) {
         }
     }
 
