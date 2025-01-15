@@ -671,13 +671,53 @@ class Bot
     {
         $c['inbounds'][0]['settings']['clients'] = array_values($c['inbounds'][0]['settings']['clients']);
         $c['log']['access'] = '/logs/xray';
+        foreach ($c['inbounds'] as $v) {
+            if ($v['tag'] == 'api') {
+                $inbound = true;
+                break;
+            }
+        }
+        if (empty($inbound)) {
+            $c['inbounds'][] = [
+                "listen"   => "127.0.0.1",
+                "port"     => 8080,
+                "protocol" => "dokodemo-door",
+                "settings" => [
+                    "address" => "127.0.0.1"
+                ],
+                "tag" => "api"
+            ];
+        }
+        foreach ($c['routing']['rules'] as $v) {
+            if ($v['outboundTag'] == 'api') {
+                $rule = true;
+                break;
+            }
+        }
+        if (empty($rule)) {
+            $c['routing']['rules'][] = [
+                "inboundTag"  => ["api"],
+                "outboundTag" => "api",
+                "type"        => "field"
+            ];
+        }
         $c['stats'] = new stdClass();
+        $c['api'] = [
+            'services' => ['StatsService'],
+            'tag'      => 'api'
+        ];
         $l = new stdClass();
         $l->{'0'} = [
             "statsUserUplink"   => true,
             "statsUserDownlink" => true
         ];
         $c['policy']['levels'] = $l;
+        $c['policy']['system'] = [
+            "statsInboundUplink"    => true,
+            "statsInboundDownlink"  => true,
+            "statsOutboundUplink"   => true,
+            "statsOutboundDownlink" => true
+        ];
         if (empty($norestart)) {
             $c = $this->collectSession($c);
             file_put_contents('/config/xray.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
