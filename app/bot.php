@@ -5403,14 +5403,7 @@ DNS-over-HTTPS with IP:
 
     public function downloadOrigin($type)
     {
-        switch ($type) {
-            case 'sing':
-                $f = new \CURLFile('/config/sing.json', 'application/json', 'origin.json');
-                break;
-            case 'v2ray':
-                $f = new \CURLFile('/config/v2ray.json', 'application/json', 'origin.json');
-                break;
-        }
+        $f = new \CURLFile("/config/$type.json", 'application/json', 'origin.json');
         $this->sendFile($this->input['chat'], $f);
     }
 
