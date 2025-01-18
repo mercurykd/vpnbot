@@ -5226,15 +5226,15 @@ DNS-over-HTTPS with IP:
 
     public function setTimerXr($time, $i)
     {
-        $time = strtotime($time);
-        if ($time === false) {
-            $this->send($this->input['chat'], 'wrong format');
-            return;
-        }
         $c = $this->getXray();
         if (empty($time)) {
             unset($c['inbounds'][0]['settings']['clients'][$i]['time']);
         } else {
+            $time = strtotime($time);
+            if ($time === false) {
+                $this->send($this->input['chat'], 'wrong format');
+                return;
+            }
             if (!empty($c['inbounds'][0]['settings']['clients'][$i]['off'])) {
                 $this->switchXr($i, 1);
                 $c = $this->getXray();
@@ -5538,6 +5538,25 @@ DNS-over-HTTPS with IP:
         $this->xray();
     }
 
+    public function getBytes($bytes)
+    {
+        $t = [
+            'B',
+            'KB',
+            'MB',
+            'GB',
+            'TB',
+        ];
+        foreach ($t as $k => $v) {
+            if ($k == 0) {
+                continue;
+            }
+            if ($bytes / (1024 ** $k) < 1) {
+                return round($bytes / (1024 ** ($k - 1)), 2) . " {$t[$k - 1]}";
+            }
+        }
+    }
+
     public function xray($page = 0)
     {
         if (!$this->ssh('pgrep xray', 'xr')) {
@@ -5620,10 +5639,12 @@ DNS-over-HTTPS with IP:
         $page    = $page == -2 ? $all - 1 : $page;
         $clients = $page != -1 ? array_slice($clients, $page * $this->limit, $this->limit, true) : $clients;
         foreach ($clients as $k => $v) {
-            $time   = $v['time'] ? $this->getTime($v['time']) : '';
-            $data[] = [
+            $download = $this->getBytes($v['global']['download'] + $v['session']['download']);
+            $upload   = $this->getBytes($v['global']['upload'] + $v['session']['upload']);
+            $time     = $v['time'] ? $this->getTime($v['time']) : '';
+            $data[]   = [
                 [
-                    'text'          => "{$v['email']}" . ($time ? ": $time" : ''),
+                    'text'          => "{$v['email']}" . ($time ? ": $time" : '') . " (↓$download  ↑$upload)",
                     'callback_data' => "/userXr $k",
                 ],
             ];
@@ -7001,6 +7022,7 @@ DNS-over-HTTPS with IP:
         $text[] = 'Settings -> Ports';
         $f      = '/docker/compose';
         $c      = yaml_parse_file($f)['services'];
+        $pac = $this->getPacConf();
         $data   = [
             [[
                 'text'          => $this->i18n($c['wg'] ? 'on' : 'off') . ' ' . getenv('WGPORT') . ' Wireguard',
@@ -7023,6 +7045,14 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/hidePort ss",
             ]],
         ];
+        if (!empty($pac['restart'])) {
+            $data[] = [
+                [
+                    'text'          => $this->i18n('restart'),
+                    'callback_data' => "/restart",
+                ],
+            ];
+        }
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -7058,7 +7088,10 @@ DNS-over-HTTPS with IP:
         } else {
             yaml_emit_file($f, $c);
         }
-        $this->restart();
+        $pac = $this->getPacConf();
+        $pac['restart'] = 1;
+        $this->setPacConf($pac);
+        $this->ports();
     }
 
     public function branches()
@@ -7195,6 +7228,9 @@ DNS-over-HTTPS with IP:
         }
         file_put_contents('/update/message', '');
         file_put_contents('/update/reload_message', '');
+        $pac = $this->getPacConf();
+        unset($pac['restart']);
+        $this->setPacConf($pac);
     }
 
     public function backup()
