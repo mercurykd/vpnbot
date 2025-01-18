@@ -238,6 +238,7 @@ class Bot
                 break;
             case preg_match('~^/id$~', $this->input['message'], $m):
                 $this->send($this->input['chat'], $this->input['from'], $this->input['message_id']);
+                $this->send($this->input['chat'], $this->input['chat'], $this->input['message_id']);
                 break;
             case preg_match('~^/adguardChBr$~', $this->input['callback'], $m):
                 $this->adguardChBr();
@@ -296,7 +297,7 @@ class Bot
             case preg_match('~^/delLog (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->delLog(...explode('_', $m['arg']));
                 break;
-            case preg_match('~^/debug$~', $this->input['callback'], $m):
+            case preg_match('~^/debug$~', $this->input['message'], $m):
                 $this->debug();
                 break;
             case preg_match('~^/backup$~', $this->input['callback'], $m):
