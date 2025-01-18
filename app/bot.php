@@ -4507,7 +4507,6 @@ DNS-over-HTTPS with IP:
         }
 
         $t = [
-            $this->suspicious('~\d+\.\d+\.\d+\.\d+.+200\s\d+\s0$~', '/logs/upstream_access', $xr, 'possibly a Reality Degenerate'),
             $this->suspicious($this->reg, '/logs/nginx_default_access', $xr, 'possibly a scanner', true),
             $this->suspicious($this->reg, '/logs/nginx_domain_access', $xr, 'possibly a scanner', true),
         ];
@@ -4516,6 +4515,15 @@ DNS-over-HTTPS with IP:
         foreach ($t as $r) {
             foreach ($r as $k => $v) {
                 $ip[$k] = $v;
+            }
+        }
+
+        $r = $this->suspicious('~\d+\.\d+\.\d+\.\d+.+200\s\d+\s0$~', '/logs/upstream_access', $xr, 'possibly a Reality Degenerate');
+        if (!empty($r)) {
+            foreach ($r as $k => $v) {
+                if (count($v) > 30) {
+                    $ip[$k] = $v;
+                }
             }
         }
 
