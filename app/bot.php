@@ -3516,8 +3516,6 @@ DNS-over-HTTPS with IP:
                             'text'          => $this->i18n('delete'),
                             'callback_data' => "/delete {$client}_$page",
                         ],
-                    ],
-                    [
                         [
                             'text'          => $this->i18n('back'),
                             'callback_data' => "/menu wg $page",
