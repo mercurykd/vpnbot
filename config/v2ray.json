@@ -113,6 +113,11 @@
             {
                 "type": "field",
                 "outboundTag": "~outbound~",
+                "ip": "~subnet~"
+            },
+            {
+                "type": "field",
+                "outboundTag": "~outbound~",
                 "domain": "~warp~"
             }
         ]

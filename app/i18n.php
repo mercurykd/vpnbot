@@ -30,7 +30,7 @@ $i = [
         'ru' => 'PAC',
     ],
     'chat'                 => [
-        'en' => 'discussion group',
+        'en' => 'chat',
         'ru' => 'чат поддержки',
     ],
     'back'                 => [

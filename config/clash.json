@@ -134,6 +134,14 @@
             "name": "pac"
         },
         {
+            "type": "RULE-SET",
+            "list": "~subnet~",
+            "action": "PROXY",
+            "interval": 30,
+            "behavior": "ipcidr",
+            "name": "subnet"
+        },
+        {
             "type": "MATCH",
             "action": "DIRECT"
         }

@@ -541,6 +541,9 @@ class Bot
             case preg_match('~^/xtlsprocess(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->xtlsprocess($m[1] ?: 0);
                 break;
+            case preg_match('~^/xtlssubnet(?: (\d+))?$~', $this->input['callback'], $m):
+                $this->xtlssubnet($m[1] ?: 0);
+                break;
             case preg_match('~^/xtlsrulesset(?: (\d+))?$~', $this->input['callback'], $m):
                 $this->xtlsrulesset($m[1] ?: 0);
                 break;
@@ -2693,15 +2696,15 @@ DNS-over-HTTPS with IP:
                 $this->xtlswarp();
                 break;
             case 'processlist':
-                $this->xrayUpdateRules();
                 $this->xtlsprocess();
                 break;
             case 'packagelist':
-                $this->xrayUpdateRules();
                 $this->xtlsapp();
                 break;
+            case 'subnetlist':
+                $this->xtlssubnet();
+                break;
             case 'rulessetlist':
-                $this->xrayUpdateRules();
                 $this->xtlsrulesset();
                 break;
             case 'white':
@@ -3749,6 +3752,12 @@ DNS-over-HTTPS with IP:
             case 'packagelist':
                 $dir = 'PACKAGE';
                 break;
+            case 'processlist':
+                $dir = 'PROCESS';
+                break;
+            case 'subnetlist':
+                $dir = 'SUBNET';
+                break;
             case 'rulessetlist':
                 $dir = 'rulesset';
                 break;
@@ -3792,6 +3801,22 @@ DNS-over-HTTPS with IP:
                     [
                         'text'          => $this->i18n('back'),
                         'callback_data' => "/xtlsapp",
+                    ],
+                ];
+                break;
+            case 'processlist':
+                $data[] = [
+                    [
+                        'text'          => $this->i18n('back'),
+                        'callback_data' => "/xtlsprocess",
+                    ],
+                ];
+                break;
+            case 'subnetlist':
+                $data[] = [
+                    [
+                        'text'          => $this->i18n('back'),
+                        'callback_data' => "/xtlssubnet",
                     ],
                 ];
                 break;
@@ -3942,7 +3967,25 @@ DNS-over-HTTPS with IP:
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> process list';
 
         [$data] = $this->listPac('processlist', $page, 'xtlsprocess');
-        $p      = $this->getPacConf();
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/routes",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text ?: ['...']),
+            $data ?: false,
+        );
+    }
+
+    public function xtlssubnet($page = 0)
+    {
+        $text[] = "Menu -> " . $this->i18n('xray') . ' -> ' . $this->i18n('routes') . ' -> subnet';
+
+        [$data] = $this->listPac('subnetlist', $page, 'xtlssubnet');
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
@@ -3998,7 +4041,7 @@ DNS-over-HTTPS with IP:
                 }
                 $data[] = [
                     [
-                        'text'          => $this->i18n($v ? 'on' : 'off') . ' ' . ($basename ? basename($k) . ' ' : '') . (in_array($type, ['rulessetlist', 'packagelist', 'processlist']) ? $k : idn_to_utf8($k)),
+                        'text'          => $this->i18n($v ? 'on' : 'off') . ' ' . ($basename ? basename($k) . ' ' : '') . (in_array($type, ['rulessetlist', 'packagelist', 'processlist', 'subnetlist']) ? $k : idn_to_utf8($k)),
                         'callback_data' => "/change$type " . ($i + $page * $this->limit),
                     ],
                     [
@@ -4200,12 +4243,6 @@ DNS-over-HTTPS with IP:
                 'data' => [
                     [
                         [
-                            'text'          => $this->i18n('config'),
-                            'callback_data' => "/menu config",
-                        ],
-                    ],
-                    [
-                        [
                             'text'          => $this->i18n($this->getPacConf()['amnezia'] ? 'amnezia' : 'wg_title'),
                             'callback_data' => "/changeWG 0",
                         ],
@@ -4256,8 +4293,14 @@ DNS-over-HTTPS with IP:
                     ],
                     [
                         [
+                            'text'          => $this->i18n('config'),
+                            'callback_data' => "/menu config",
+                        ],
+                    ],
+                    [
+                        [
                             'text' => $this->i18n('chat'),
-                            'url'  => "https://t.me/+Wfxg6-nrokBlMmYy",
+                            'url'  => base64_decode('aHR0cHM6Ly90Lm1lLytXZnhnNi1ucm9rQmxNbVl5'),
                         ],
                         [
                             'text' => $this->i18n('donate'),
@@ -5692,9 +5735,6 @@ DNS-over-HTTPS with IP:
     {
         $text[] = "Menu -> " . $this->i18n('xray') . ' -> routes';
 
-        $p = $this->getPacConf();
-        $outbound = $p['outbound'] ?: 'proxy';
-
         $data = [
             [[
                 'text'          => $this->i18n('block'),
@@ -5707,6 +5747,10 @@ DNS-over-HTTPS with IP:
             [[
                 'text'          => 'domains',
                 'callback_data' => "/xtlsproxy",
+            ]],
+            [[
+                'text'          => "subnet",
+                'callback_data' => "/xtlssubnet",
             ]],
             [[
                 'text'          => 'process',
@@ -6226,6 +6270,7 @@ DNS-over-HTTPS with IP:
             '"~warp~"'       => json_encode(array_keys(array_filter($pac['warplist'] ?: []))),
             '"~process~"'    => json_encode(array_keys(array_filter($pac['processlist'] ?: []))),
             '"~package~"'    => json_encode(array_keys(array_filter($pac['packagelist'] ?: []))),
+            '"~subnet~"'     => json_encode(array_keys(array_filter($pac['subnetlist'] ?: []))),
             '~dns~'          => "https://$domain/dns-query$hash/$uid",
             '~uid~'          => $uid,
             '~domain~'       => $domain,
@@ -6334,6 +6379,9 @@ DNS-over-HTTPS with IP:
                         switch ($v['behavior']) {
                             case 'domain':
                                 echo yaml_emit(['payload' => array_map(fn($e) => "+.$e", $v['list'])]);
+                                break;
+                            case 'ipcidr':
+                                echo yaml_emit(['payload' => array_map(fn($e) => $e, $v['list'])]);
                                 break;
 
                             default:
@@ -6930,6 +6978,8 @@ DNS-over-HTTPS with IP:
                 'text'          => $this->i18n('Ports'),
                 'callback_data' => "/ports",
             ],
+        ];
+        $data[] = [
             [
                 'text'          => $this->i18n('IP ban & Logs'),
                 'callback_data' => "/ipMenu",

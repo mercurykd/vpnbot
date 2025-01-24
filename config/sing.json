@@ -133,6 +133,21 @@
                 "addruleset": true,
                 "createruleset": [
                     {
+                        "name": "subnet",
+                        "interval": "30s",
+                        "rules": [
+                            {
+                                "ip_cidr": "~subnet~"
+                            }
+                        ]
+                    }
+                ],
+                "outbound": "~outbound~"
+            },
+            {
+                "addruleset": true,
+                "createruleset": [
+                    {
                         "name": "package",
                         "interval": "30s",
                         "rules": [
