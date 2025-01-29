@@ -378,6 +378,9 @@ class Bot
             case preg_match('~^/renameXrUser (\d+)$~', $this->input['callback'], $m):
                 $this->renameXrUser($m[1]);
                 break;
+            case preg_match('~^/resetXrUser (\d+)$~', $this->input['callback'], $m):
+                $this->resetXrUser($m[1]);
+                break;
             case preg_match('~^/v2ray$~', $this->input['callback'], $m):
                 $this->v2ray();
                 break;
@@ -5312,6 +5315,17 @@ DNS-over-HTTPS with IP:
         $this->userXr($i);
     }
 
+    public function resetXrUser($i)
+    {
+        $c = $this->getXray();
+        $c['inbounds'][0]['settings']['clients'][$i]['global'] = [
+            'download' => 0,
+            'upload'   => 0,
+        ];
+        $this->restartXray($c);
+        $this->userXr($i);
+    }
+
     public function listXr($i)
     {
         $c = $this->getPacConf();
@@ -6028,6 +6042,14 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('qr singbox'),
                 'callback_data' => "/qrXray {$i}_2",
+            ],
+        ];
+        $download = $this->getBytes($c['global']['download'] + $c['session']['download']);
+        $upload   = $this->getBytes($c['global']['upload'] + $c['session']['upload']);
+        $data[] = [
+            [
+                'text'          => $this->i18n('reset stats') . ": ↓$download  ↑$upload",
+                'callback_data' => "/resetXrUser $i",
             ],
         ];
         $data[] = [
