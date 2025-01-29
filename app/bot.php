@@ -5492,6 +5492,7 @@ DNS-over-HTTPS with IP:
             <code>~pac~</code>
             <code>~package~</code>
             <code>~process~</code>
+            <code>~subnet~</code>
             <code>~block~</code>
             <code>~warp~</code>
             <code>~dns~</code>
@@ -5500,6 +5501,7 @@ DNS-over-HTTPS with IP:
             <code>~directdomain~</code>
             <code>~cdndomain~</code>
             <code>~short_id~</code>
+            <code>~email~</code>
             <code>~public_key~</code>
             <code>~server_name~</code>
             <code>~ip~</code>
@@ -6299,6 +6301,7 @@ DNS-over-HTTPS with IP:
             '~directdomain~' => $pac['domain'],
             '~cdndomain~'    => $pac['linkdomain'],
             '~short_id~'     => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
+            '~email~'        => $email,
             '~public_key~'   => $pac['xray'],
             '~server_name~'  => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
             '~ip~'           => $this->ip,
