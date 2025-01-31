@@ -738,7 +738,9 @@ class Bot
     public function collectSession($c) {
         foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
             $c['inbounds'][0]['settings']['clients'][$k]['global']['download'] += $v['session']['download'];
+            $c['inbounds'][0]['settings']['clients'][$k]['session']['download'] = 0;
             $c['inbounds'][0]['settings']['clients'][$k]['global']['upload']   += $v['session']['upload'];
+            $c['inbounds'][0]['settings']['clients'][$k]['session']['upload'] = 0;
         }
         return $c;
     }
