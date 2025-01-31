@@ -6322,11 +6322,11 @@ DNS-over-HTTPS with IP:
                 $c['route'] = $this->addRuleSet($c['route']);
                 $c['route'] = $this->createRuleSet($c['route'], $uid, $domain);
                 if (!empty($c['route']['rules'])) {
-                    foreach ($c['route']['rules'] as $k => $v) {
+                    /* foreach ($c['route']['rules'] as $k => $v) {
                         if (count($v) < 2) {
                             unset($c['route']['rules'][$k]);
                         }
-                    }
+                    } */
                     $c['route']['rules'] = array_values($c['route']['rules']);
                 }
                 break;
