@@ -9,10 +9,9 @@
             "tag": "tun-in",
             "domain_strategy": "prefer_ipv4",
             "interface_name": "sing-tun",
-            "address": [
-                "172.19.0.1/30"
-            ],
+            "address": ["172.19.0.1\/30"],
             "mtu": 1400,
+            "gso": true,
             "auto_route": true,
             "strict_route": true,
             "sniff": true,
@@ -49,7 +48,7 @@
             },
             {
                 "tag": "dns-remote",
-                "address": "tcp://8.8.8.8",
+                "address": "tcp:\/\/8.8.8.8",
                 "address_strategy": "prefer_ipv4",
                 "strategy": "prefer_ipv4",
                 "detour": "direct"
@@ -93,6 +92,14 @@
         {
             "type": "direct",
             "tag": "direct"
+        },
+        {
+            "type": "block",
+            "tag": "block"
+        },
+        {
+            "type": "dns",
+            "tag": "dns-out"
         }
     ],
     "route": {
@@ -100,15 +107,12 @@
         "override_android_vpn": true,
         "rules": [
             {
+                "protocol": "dns",
+                "outbound": "dns-out"
+            },
+            {
                 "addruleset": true,
                 "outbound": "direct"
-            },
-            {
-                "action": "sniff"
-            },
-            {
-                "protocol": "dns",
-                "action": "hijack-dns"
             },
             {
                 "addruleset": true,
@@ -183,7 +187,7 @@
                         ]
                     }
                 ],
-                "action": "reject"
+                "outbound": "block"
             },
             {
                 "addruleset": true,
