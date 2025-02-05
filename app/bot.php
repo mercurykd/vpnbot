@@ -5917,7 +5917,7 @@ DNS-over-HTTPS with IP:
                     if (empty($v['off']) && $v['email'] == $m['email']) {
                         require __DIR__ . '/config.php';
                         foreach ($c['admin'] as $k => $v) {
-                            $this->send($v, "vless: user {$m['email']} is turned off due to exceeding the configuration limit by one IP");
+                            $this->send($v, "vless: {$m['email']} is turned off (limit by one IP)");
                         }
                         unset($this->pool[$m['email']]);
                         $this->switchXr($k, 1);
