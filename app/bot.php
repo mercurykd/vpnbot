@@ -162,8 +162,8 @@ class Bot
             case preg_match('~^/switchBanIp$~', $this->input['callback'], $m):
                 $this->switchBanIp();
                 break;
-            case preg_match('~^/switchIpLimit$~', $this->input['callback'], $m):
-                $this->switchIpLimit();
+            case preg_match('~^/setIpLimit$~', $this->input['callback'], $m):
+                $this->setIpLimit();
                 break;
             case preg_match('~^/searchLogs (.+)$~', $this->input['message'], $m):
                 $this->searchLogs($m[1]);
@@ -2374,6 +2374,21 @@ class Bot
         ];
     }
 
+    public function setIpLimit()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter seconds",
+            $this->input['message_id'],
+            reply: 'enter seconds',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'switchIpLimit',
+            'args'          => [],
+        ];
+    }
+
     public function addLinkDomain()
     {
         $r = $this->send(
@@ -4388,10 +4403,14 @@ DNS-over-HTTPS with IP:
         $this->ipMenu();
     }
 
-    public function switchIpLimit()
+    public function switchIpLimit(int $limit)
     {
         $c = $this->getPacConf();
-        $c['ip_limit'] = $c['ip_limit'] ? 0 : 1;
+        if ($limit <= 0) {
+            unset($c['ip_limit']);
+        } else {
+            $c['ip_limit'] = $limit;
+        }
         $this->setPacConf($c);
         $this->xray();
     }
@@ -5669,8 +5688,8 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/changeTransport 1",
             ],
             [
-                'text'          => $this->i18n('ip limit') . ' ' . ($p['ip_limit'] ? $this->i18n('on') : $this->i18n('off')),
-                'callback_data' => "/switchIpLimit",
+                'text'          => $this->i18n('ip limit') . ' ' . ($p['ip_limit'] ? ": {$p['ip_limit']} sec" : $this->i18n('off')),
+                'callback_data' => "/setIpLimit",
             ],
         ];
         if ($p['transport'] == 'Reality') {
@@ -5869,7 +5888,8 @@ DNS-over-HTTPS with IP:
                 $r   = fopen($log, 'r');
                 fseek($r, 0, SEEK_END);
                 while (true) {
-                    if (empty($this->getPacConf()['ip_limit'])) {
+                    $pac = $this->getPacConf();
+                    if (empty($pac['ip_limit'])) {
                         break;
                     }
                     $currentPosition = ftell($r);
@@ -5880,7 +5900,7 @@ DNS-over-HTTPS with IP:
                         while (!feof($r)) {
                             $line = fgets($r);
                             if ($line !== false) {
-                                $this->frequencyAnalyze($line);
+                                $this->frequencyAnalyze($line, $pac);
                             }
                         }
                     }
@@ -5892,14 +5912,14 @@ DNS-over-HTTPS with IP:
         }
     }
 
-    public function frequencyAnalyze($line)
+    public function frequencyAnalyze($line, $pac)
     {
         preg_match('~(?<date>.+)\sfrom\s(?<ip>\d+\.\d+\.\d+\.\d+)(?=.+email:\s(?<email>.+))~', $line, $m);
         if (!empty($this->pool)) {
             foreach ($this->pool as $i => $j) {
                 if (!empty($j['ips'])) {
                     foreach ($j['ips'] as $k => $v) {
-                        if ($v + 30 < time()) {
+                        if ($v + $pac['ip_limit'] < time()) {
                             unset($this->pool[$i]['ips'][$k]);
                         }
                     }
