@@ -13,6 +13,7 @@ class Bot
     public $mtu;
     public $logs;
     public $reg;
+    public $pool;
 
     public function __construct($key, $i18n)
     {
@@ -160,6 +161,9 @@ class Bot
                 break;
             case preg_match('~^/switchBanIp$~', $this->input['callback'], $m):
                 $this->switchBanIp();
+                break;
+            case preg_match('~^/switchIpLimit$~', $this->input['callback'], $m):
+                $this->switchIpLimit();
                 break;
             case preg_match('~^/searchLogs (.+)$~', $this->input['message'], $m):
                 $this->searchLogs($m[1]);
@@ -4384,6 +4388,14 @@ DNS-over-HTTPS with IP:
         $this->ipMenu();
     }
 
+    public function switchIpLimit()
+    {
+        $c = $this->getPacConf();
+        $c['ip_limit'] = $c['ip_limit'] ? 0 : 1;
+        $this->setPacConf($c);
+        $this->xray();
+    }
+
     public function switchSilence()
     {
         $c = $this->getPacConf();
@@ -5649,6 +5661,10 @@ DNS-over-HTTPS with IP:
                 'text'          => $this->i18n('Websocket') . ' ' . ($p['transport'] != 'Reality' ? $this->i18n('on') : $this->i18n('off')),
                 'callback_data' => "/changeTransport 1",
             ],
+            [
+                'text'          => $this->i18n('ip limit') . ' ' . ($p['ip_limit'] ? $this->i18n('on') : $this->i18n('off')),
+                'callback_data' => "/switchIpLimit",
+            ],
         ];
         if ($p['transport'] == 'Reality') {
             $data[] = [
@@ -5835,6 +5851,79 @@ DNS-over-HTTPS with IP:
             return $m[1];
         }
         return 'off';
+    }
+
+    public function analyzeXray()
+    {
+        while (true) {
+            if (!empty($this->getPacConf()['ip_limit'])) {
+                $this->pool = [];
+                $log = '/logs/xray';
+                $r   = fopen($log, 'r');
+                fseek($r, 0, SEEK_END);
+                while (true) {
+                    if (empty($this->getPacConf()['ip_limit'])) {
+                        break;
+                    }
+                    $currentPosition = ftell($r);
+                    clearstatcache();
+                    $fileSize = filesize($log);
+                    if ($fileSize > $currentPosition) {
+                        fseek($r, $currentPosition); // сброс флага feof
+                        while (!feof($r)) {
+                            $line = fgets($r);
+                            if ($line !== false) {
+                                echo $line;
+                                $this->frequencyAnalyze($line);
+                            }
+                        }
+                    }
+                    sleep(1);
+                }
+                fclose($r);
+            }
+            sleep(10);
+        }
+    }
+
+    public function frequencyAnalyze($line)
+    {
+        preg_match('~(?<date>.+)\sfrom\s(?<ip>\d+\.\d+\.\d+\.\d+)(?=.+email:\s(?<email>.+))~', $line, $m);
+        if (!empty($this->pool)) {
+            foreach ($this->pool as $i => $j) {
+                if (!empty($j['ips'])) {
+                    foreach ($j['ips'] as $k => $v) {
+                        if ($v + 30 < time()) {
+                            unset($this->pool[$i]['ips'][$k]);
+                        }
+                    }
+                }
+            }
+        }
+        if (!empty($m['ip']) && !empty($m['email'])) {
+            $ip = ip2long($m['ip']);
+            if (!empty($this->pool[$m['email']]['ip']) && $this->pool[$m['email']]['ip'] != $ip) {
+                $this->pool[$m['email']]['ips'][$ip] = time();
+            }
+            if (!empty($this->pool[$m['email']]['ips']) && count($this->pool[$m['email']]['ips']) > 1) {
+                $xr = $this->getXray();
+                foreach ($xr['inbounds'][0]['settings']['clients'] as $k => $v) {
+                    if ($v['email'] == $m['email']) {
+                        require __DIR__ . '/config.php';
+                        foreach ($c['admin'] as $k => $v) {
+                            $this->send($v, "vless: user {$m['email']} is turned off due to exceeding the configuration limit by one IP");
+                        }
+                        unset($this->pool[$m['email']]);
+                        $this->switchXr($k, 1);
+                        $flag = 1;
+                        break;
+                    }
+                }
+            }
+            if (empty($flag)) {
+                $this->pool[$m['email']]['ip'] = $ip;
+            }
+        }
     }
 
     public function offWarp()
