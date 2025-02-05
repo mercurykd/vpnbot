@@ -5880,7 +5880,6 @@ DNS-over-HTTPS with IP:
                         while (!feof($r)) {
                             $line = fgets($r);
                             if ($line !== false) {
-                                echo $line;
                                 $this->frequencyAnalyze($line);
                             }
                         }
@@ -5915,7 +5914,7 @@ DNS-over-HTTPS with IP:
             if (!empty($this->pool[$m['email']]['ips']) && count($this->pool[$m['email']]['ips']) > 1) {
                 $xr = $this->getXray();
                 foreach ($xr['inbounds'][0]['settings']['clients'] as $k => $v) {
-                    if ($v['email'] == $m['email']) {
+                    if (empty($v['off']) && $v['email'] == $m['email']) {
                         require __DIR__ . '/config.php';
                         foreach ($c['admin'] as $k => $v) {
                             $this->send($v, "vless: user {$m['email']} is turned off due to exceeding the configuration limit by one IP");
