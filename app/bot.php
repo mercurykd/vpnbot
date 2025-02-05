@@ -1012,7 +1012,7 @@ class Bot
             $this->input['chat'],
             "@{$this->input['username']} enter name",
             $this->input['message_id'],
-            reply: 'enter password',
+            reply: 'enter name',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message'  => $this->input['message_id'],
@@ -5264,22 +5264,29 @@ DNS-over-HTTPS with IP:
         $this->menu('oc');
     }
 
-    public function addxrus($user)
+    public function addxrus($users)
     {
-        $c    = $this->getXray();
-        $p    = $this->getPacConf();
-        $uuid = trim($this->ssh('xray uuid', 'xr'));
-        $c['inbounds'][0]['settings']['clients'][] = $p['transport'] != 'Reality' ? [
-                'id'    => $uuid,
-                'email' => $user,
-            ] : [
-                'id'    => $uuid,
-                'flow'  => 'xtls-rprx-vision',
-                'email' => $user,
-        ];
+        $c     = $this->getXray();
+        $p     = $this->getPacConf();
+        $users = array_map(fn ($e) => trim($e), explode(',', $users));
+        foreach ($users as $user) {
+            $uuid = trim($this->ssh('xray uuid', 'xr'));
+            $c['inbounds'][0]['settings']['clients'][] = $p['transport'] != 'Reality' ? [
+                    'id'    => $uuid,
+                    'email' => $user,
+                ] : [
+                    'id'    => $uuid,
+                    'flow'  => 'xtls-rprx-vision',
+                    'email' => $user,
+            ];
+        }
         $this->restartXray($c);
         $this->adguardXrayClients();
-        $this->userXr(count($c['inbounds'][0]['settings']['clients']) - 1);
+        if (count($users) == 1) {
+            $this->userXr(count($c['inbounds'][0]['settings']['clients']) - 1);
+        } else {
+            $this->xray();
+        }
     }
 
     public function setTimerXr($time, $i)
