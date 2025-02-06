@@ -581,6 +581,9 @@ class Bot
             case preg_match('~^/changeFakeDomain$~', $this->input['callback'], $m):
                 $this->changeFakeDomain();
                 break;
+            case preg_match('~^/autoCleanLogs$~', $this->input['callback'], $m):
+                $this->autoCleanLogs();
+                break;
             case preg_match('~^/selfFakeDomain$~', $this->input['callback'], $m):
                 $this->selfFakeDomain();
                 break;
@@ -1322,6 +1325,7 @@ class Bot
             $this->shutdownClientXr();
             $this->checkVersion();
             $this->checkBackup($period);
+            $this->checkLogs($period);
             $this->checkCert();
             $this->autoAnalyzeLogs();
             $this->xrayStatsUser();
@@ -1410,6 +1414,26 @@ class Bot
                 && (($now - $start) % $period < $delta)
             ) {
                 $this->pinBackup();
+            }
+        }
+    }
+
+    public function checkLogs($delta)
+    {
+        $c = $this->getPacConf();
+        if (!empty($c['autocleanlogs'])) {
+            $now = strtotime(date('Y-m-d H:i:s'));
+            [$start, $period] = explode('/', $c['autocleanlogs']);
+            $start  = strtotime(trim($start));
+            $period = strtotime(trim($period), 0);
+            if (
+                !empty($start)
+                && !empty($period)
+                && empty($this->backup)
+                && $now - $start >= 0
+                && (($now - $start) % $period < $delta)
+            ) {
+                $this->cleanLog();
             }
         }
     }
@@ -4431,12 +4455,6 @@ DNS-over-HTTPS with IP:
         $w      = count($pac['white'] ?: []);
         $data[] = [
             [
-                'text'          => $this->i18n('logs'),
-                'callback_data' => "/logs",
-            ],
-        ];
-        $data[] = [
-            [
                 'text'          => $this->i18n('autoscan') . ': ' . ($pac['autoscan'] ? $this->getTime(strtotime(($pac['autoscan_timeout'] ?: 3600) . ' seconds')) : $this->i18n('off')),
                 'callback_data' => '/autoScanTimeout',
             ],
@@ -7134,10 +7152,12 @@ DNS-over-HTTPS with IP:
                 'text'          => $this->i18n('Ports'),
                 'callback_data' => "/ports",
             ],
-        ];
-        $data[] = [
             [
-                'text'          => $this->i18n('IP ban & Logs'),
+                'text'          => $this->i18n('logs'),
+                'callback_data' => "/logs",
+            ],
+            [
+                'text'          => $this->i18n('IP ban'),
                 'callback_data' => "/ipMenu",
             ],
         ];
@@ -7333,6 +7353,7 @@ DNS-over-HTTPS with IP:
 
     public function logs()
     {
+        $p = $this->getPacConf();
         foreach (scandir('/logs/') as $k => $v) {
             if (!preg_match('~^\.~', $v)) {
                 $size   = filesize("/logs/$v");
@@ -7354,10 +7375,24 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/cleanLog",
             ],
         ];
+        $autocleanlogs = array_filter(explode('/', $p['autocleanlogs']));
+        if (!empty($autocleanlogs)) {
+            if (!empty(strtotime($autocleanlogs[0])) && !empty(strtotime($autocleanlogs[1]))) {
+                $autocleanlogs = "{$autocleanlogs[0]} start / {$autocleanlogs[1]} period";
+            } else {
+                $autocleanlogs = $this->i18n('off') . " {$p['autocleanlogs']} - wrong format";
+            }
+        }
+        $data[] = [
+            [
+                'text'          => $this->i18n('autoclean'). ': ' . ($autocleanlogs ?: $this->i18n('off')),
+                'callback_data' => "/autoCleanLogs",
+            ],
+        ];
         $data[] = [
             [
                 'text'          => $this->i18n('back'),
-                'callback_data' => "/ipMenu",
+                'callback_data' => "/menu config",
             ],
         ];
         $this->update(
@@ -7449,6 +7484,22 @@ DNS-over-HTTPS with IP:
             'start_message'  => $this->input['message_id'],
             'start_callback' => $this->input['callback_id'],
             'callback'       => 'setBackup',
+            'args'           => [],
+        ];
+    }
+
+    public function autoCleanLogs()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter like: start / period",
+            $this->input['message_id'],
+            reply: 'enter like: now / 12 hours',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message'  => $this->input['message_id'],
+            'start_callback' => $this->input['callback_id'],
+            'callback'       => 'setAutoCleanLogs',
             'args'           => [],
         ];
     }
@@ -7584,6 +7635,24 @@ DNS-over-HTTPS with IP:
         }
         $this->setPacConf($c);
         $this->menu('config');
+    }
+
+    public function setAutoCleanLogs($text)
+    {
+        $text = trim($text);
+        $c    = $this->getPacConf();
+        if (empty($text)) {
+            $c['autocleanlogs'] = '';
+        } else {
+            [$start, $period] = explode('/', $text);
+            if (!empty(strtotime($start)) && !empty(strtotime($period))) {
+                $c['autocleanlogs'] = implode(' / ', [date('Y-m-d H:i', strtotime($start)), trim($period)]);
+            } else {
+                $this->send($this->input['from'], $this->input['message'] . ' - wrong format');
+            }
+        }
+        $this->setPacConf($c);
+        $this->logs();
     }
 
     public function debug()
