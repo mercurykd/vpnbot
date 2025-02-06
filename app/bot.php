@@ -6721,7 +6721,13 @@ DNS-over-HTTPS with IP:
 
     public function getHashBot()
     {
-        return substr(hash('sha256', $this->key), 0, 8);
+        $p = $this->getPacConf();
+        if (!empty($p['hashbot'])) {
+            return $p['hashbot'];
+        }
+        $p['hashbot'] = substr(hash('sha256', $this->key), 0, 8);
+        $this->setPacConf($p);
+        return $p['hashbot'];
     }
 
     public function cloakNginx()
