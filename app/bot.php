@@ -385,6 +385,9 @@ class Bot
             case preg_match('~^/resetXrUser (\d+)$~', $this->input['callback'], $m):
                 $this->resetXrUser($m[1]);
                 break;
+            case preg_match('~^/resetXrStats$~', $this->input['callback'], $m):
+                $this->resetXrStats();
+                break;
             case preg_match('~^/v2ray$~', $this->input['callback'], $m):
                 $this->v2ray();
                 break;
@@ -743,6 +746,16 @@ class Bot
     }
 
     public function collectSession($c) {
+        $p = $this->getPacConf();
+        $p['vlessstat']['global'] = [
+            'download' => $p['vlessstat']['global']['download'] + $p['vlessstat']['session']['download'],
+            'upload'   => $p['vlessstat']['global']['upload'] + $p['vlessstat']['session']['upload'],
+        ];
+        $p['vlessstat']['session'] = [
+            'download' => 0,
+            'upload'   => 0,
+        ];
+        $this->setPacConf($p);
         foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
             $c['inbounds'][0]['settings']['clients'][$k]['global']['download'] += $v['session']['download'];
             $c['inbounds'][0]['settings']['clients'][$k]['session']['download'] = 0;
@@ -1336,7 +1349,13 @@ class Bot
     public function xrayStatsUser()
     {
         try {
-            $x = $this->getXray();
+            $x  = $this->getXray();
+            $p  = $this->getPacConf();
+            $td = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "user>>>inbounds>>>vless_tls>>>traffic>>>downlink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
+            $tu = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "user>>>inbounds>>>vless_tls>>>traffic>>>uplink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
+            $p['vlessstat']['session']['download'] = $td;
+            $p['vlessstat']['session']['upload']   = $tu;
+            $this->setPacConf($p);
             if (!empty($users = $x['inbounds'][0]['settings']['clients'])) {
                 foreach ($users as $k => $v) {
                     $d = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "user>>>' . $v['email'] . '>>>traffic>>>downlink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
@@ -5385,6 +5404,15 @@ DNS-over-HTTPS with IP:
         $this->userXr($i);
     }
 
+    public function resetXrStats()
+    {
+        $this->restartXray($this->getXray());
+        $p = $this->getPacConf();
+        unset($p['vlessstat']);
+        $this->setPacConf($p);
+        $this->xray();
+    }
+
     public function listXr($i)
     {
         $c = $this->getPacConf();
@@ -5685,13 +5713,14 @@ DNS-over-HTTPS with IP:
             $text[] = "fake domain: <code>$fake</code>";
         }
         $text[] = 'transport: ' . ($p['transport'] ?: 'Websocket');
-        foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
-            $td += $v['global']['download'] + $v['session']['download'];
-            $tu += $v['global']['upload'] + $v['session']['upload'];
-        }
-        $td = $this->getBytes($td);
-        $tu = $this->getBytes($tu);
-        $text[] = "↓$td  ↑$tu";
+        $td = $this->getBytes($p['vlessstat']['global']['download'] + $p['vlessstat']['session']['download']);
+        $tu = $this->getBytes($p['vlessstat']['global']['upload'] + $p['vlessstat']['session']['upload']);
+        $data[] = [
+            [
+                'text'          => $this->i18n('reset stats') . ": ↓$td  ↑$tu",
+                'callback_data' => '/mainOutbound',
+            ],
+        ];
         $data[] = [
             [
                 'text'          => $this->i18n('main outbound name: ') . ($p['outbound'] ?: 'proxy'),
@@ -6133,7 +6162,14 @@ DNS-over-HTTPS with IP:
         $text[] = "mihomo config: <pre><code>$cl</code></pre>";
 
         $text[] = "sing-box windows: <a href='$scheme://{$domain}/pac$hash?t=si&r=w&s={$c['id']}'>windows service</a>";
-
+        $download = $this->getBytes($c['global']['download'] + $c['session']['download']);
+        $upload   = $this->getBytes($c['global']['upload'] + $c['session']['upload']);
+        $data[] = [
+            [
+                'text'          => $this->i18n('reset stats') . ": ↓$download  ↑$upload",
+                'callback_data' => "/resetXrUser $i",
+            ],
+        ];
         $data[] = [
             [
                 'text'    => $this->i18n('v2ray'),
@@ -6187,14 +6223,6 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('qr singbox'),
                 'callback_data' => "/qrXray {$i}_2",
-            ],
-        ];
-        $download = $this->getBytes($c['global']['download'] + $c['session']['download']);
-        $upload   = $this->getBytes($c['global']['upload'] + $c['session']['upload']);
-        $data[] = [
-            [
-                'text'          => $this->i18n('reset stats') . ": ↓$download  ↑$upload",
-                'callback_data' => "/resetXrUser $i",
             ],
         ];
         $data[] = [
