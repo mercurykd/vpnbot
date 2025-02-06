@@ -1351,8 +1351,8 @@ class Bot
         try {
             $x  = $this->getXray();
             $p  = $this->getPacConf();
-            $td = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "user>>>inbounds>>>vless_tls>>>traffic>>>downlink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
-            $tu = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "user>>>inbounds>>>vless_tls>>>traffic>>>uplink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
+            $td = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "inbounds>>>vless_tls>>>traffic>>>downlink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
+            $tu = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "inbounds>>>vless_tls>>>traffic>>>uplink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
             $p['vlessstat']['session']['download'] = $td;
             $p['vlessstat']['session']['upload']   = $tu;
             $this->setPacConf($p);
@@ -5718,7 +5718,7 @@ DNS-over-HTTPS with IP:
         $data[] = [
             [
                 'text'          => $this->i18n('reset stats') . ": ↓$td  ↑$tu",
-                'callback_data' => '/mainOutbound',
+                'callback_data' => '/resetXrStats',
             ],
         ];
         $data[] = [
