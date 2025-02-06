@@ -1012,7 +1012,7 @@ class Bot
             $this->input['chat'],
             "@{$this->input['username']} enter name",
             $this->input['message_id'],
-            reply: 'enter name',
+            reply: 'enter name:uuid [,name:uuid]',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message'  => $this->input['message_id'],
@@ -5288,15 +5288,16 @@ DNS-over-HTTPS with IP:
         $c     = $this->getXray();
         $p     = $this->getPacConf();
         $users = array_map(fn ($e) => trim($e), explode(',', $users));
+        $users = array_map(fn ($e) => explode(':', $e), $users);
         foreach ($users as $user) {
-            $uuid = trim($this->ssh('xray uuid', 'xr'));
+            $uuid = $user[1] ?: trim($this->ssh('xray uuid', 'xr'));
             $c['inbounds'][0]['settings']['clients'][] = $p['transport'] != 'Reality' ? [
                     'id'    => $uuid,
-                    'email' => $user,
+                    'email' => $user[0],
                 ] : [
                     'id'    => $uuid,
                     'flow'  => 'xtls-rprx-vision',
-                    'email' => $user,
+                    'email' => $user[0],
             ];
         }
         $this->restartXray($c);
