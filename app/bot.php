@@ -5666,6 +5666,13 @@ DNS-over-HTTPS with IP:
             $text[] = "fake domain: <code>$fake</code>";
         }
         $text[] = 'transport: ' . ($p['transport'] ?: 'Websocket');
+        foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
+            $td += $v['global']['download'] + $v['session']['download'];
+            $tu += $v['global']['upload'] + $v['session']['upload'];
+        }
+        $td = $this->getBytes($td);
+        $tu = $this->getBytes($tu);
+        $text[] = "↓$td  ↑$tu";
         $data[] = [
             [
                 'text'          => $this->i18n('main outbound name: ') . ($p['outbound'] ?: 'proxy'),
