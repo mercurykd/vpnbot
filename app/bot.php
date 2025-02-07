@@ -5406,9 +5406,14 @@ DNS-over-HTTPS with IP:
 
     public function resetXrStats()
     {
-        $this->restartXray($this->getXray());
+        $x = $this->getXray();
         $p = $this->getPacConf();
         unset($p['vlessstat']);
+        foreach ($x['inbounds'][0]['settings']['clients'] as $k => $v) {
+            unset($x['inbounds'][0]['settings']['clients'][$k]['global']);
+            unset($x['inbounds'][0]['settings']['clients'][$k]['session']);
+        }
+        $this->restartXray($x);
         $this->setPacConf($p);
         $this->xray();
     }
