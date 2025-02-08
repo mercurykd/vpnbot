@@ -9,12 +9,12 @@
             "tag": "tun-in",
             "domain_strategy": "prefer_ipv4",
             "interface_name": "sing-tun",
-            "address": ["172.19.0.1\/30"],
+            "address": [
+                "172.19.0.1\/30"
+            ],
             "mtu": 1400,
-            "gso": true,
             "auto_route": true,
             "strict_route": true,
-            "sniff": true,
             "endpoint_independent_nat": false,
             "stack": "mixed",
             "platform": {
@@ -27,14 +27,7 @@
         },
         {
             "type": "mixed",
-            "tag": "mixed-in",
-            "domain_strategy": "prefer_ipv4",
-            "listen": "127.0.0.1",
-            "listen_port": 2080,
-            "tcp_fast_open": true,
-            "sniff": true,
-            "sniff_override_destination": false,
-            "users": []
+            "tag": "in"
         }
     ],
     "dns": {
@@ -92,14 +85,6 @@
         {
             "type": "direct",
             "tag": "direct"
-        },
-        {
-            "type": "block",
-            "tag": "block"
-        },
-        {
-            "type": "dns",
-            "tag": "dns-out"
         }
     ],
     "route": {
@@ -107,8 +92,21 @@
         "override_android_vpn": true,
         "rules": [
             {
+                "action": "sniff"
+            },
+            {
                 "protocol": "dns",
-                "outbound": "dns-out"
+                "action": "hijack-dns"
+            },
+            {
+                "inbound": "in",
+                "action": "resolve",
+                "strategy": "prefer_ipv4"
+            },
+            {
+                "inbound": "in",
+                "action": "sniff",
+                "timeout": "1s"
             },
             {
                 "addruleset": true,
@@ -187,7 +185,7 @@
                         ]
                     }
                 ],
-                "outbound": "block"
+                "action": "reject"
             },
             {
                 "addruleset": true,

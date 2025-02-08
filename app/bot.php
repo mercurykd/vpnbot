@@ -6499,7 +6499,7 @@ DNS-over-HTTPS with IP:
                 $c['route'] = $this->createRuleSet($c['route'], $uid, $domain);
                 if (!empty($c['route']['rules'])) {
                     foreach ($c['route']['rules'] as $k => $v) {
-                        if (count($v) < 2) {
+                        if (count($v) == 1 && array_key_exists('outbound', $v)) {
                             unset($c['route']['rules'][$k]);
                         }
                     }
