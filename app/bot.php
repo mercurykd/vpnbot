@@ -2427,9 +2427,9 @@ class Bot
     {
         $r = $this->send(
             $this->input['chat'],
-            "@{$this->input['username']} enter seconds",
+            "@{$this->input['username']} enter seconds and count ip",
             $this->input['message_id'],
-            reply: 'enter seconds',
+            reply: 'enter seconds:count_ip',
         );
         $_SESSION['reply'][$r['result']['message_id']] = [
             'start_message' => $this->input['message_id'],
@@ -4452,13 +4452,16 @@ DNS-over-HTTPS with IP:
         $this->ipMenu();
     }
 
-    public function switchIpLimit(int $limit)
+    public function switchIpLimit($limit)
     {
+        $limit = explode(':', $limit);
         $c = $this->getPacConf();
-        if ($limit <= 0) {
+        if ((int) $limit[0] <= 0) {
             unset($c['ip_limit']);
+            unset($c['ip_count']);
         } else {
-            $c['ip_limit'] = $limit;
+            $c['ip_limit'] = (int) $limit[0];
+            $c['ip_count'] = (int) $limit[1] ?: 1;
         }
         $this->setPacConf($c);
         $this->xray();
@@ -5748,6 +5751,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => '/addLinkDomain',
             ],
         ];
+        $ip_count = $p['ip_count'] ?: 1;
         $data[] = [
             [
                 'text'          => $this->i18n('Reality') . ' ' . ($p['transport'] == 'Reality' ? $this->i18n('on') : $this->i18n('off')),
@@ -5758,7 +5762,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/changeTransport 1",
             ],
             [
-                'text'          => $this->i18n('ip limit') . ' ' . ($p['ip_limit'] ? ": {$p['ip_limit']} sec" : $this->i18n('off')),
+                'text'          => $this->i18n('ip limit') . ' ' . ($p['ip_limit'] ? ": {$p['ip_limit']} sec & $ip_count" : $this->i18n('off')),
                 'callback_data' => "/setIpLimit",
             ],
         ];
@@ -6001,7 +6005,7 @@ DNS-over-HTTPS with IP:
             if (!empty($this->pool[$m['email']]['ip']) && $this->pool[$m['email']]['ip'] != $ip) {
                 $this->pool[$m['email']]['ips'][$ip] = time();
             }
-            if (!empty($this->pool[$m['email']]['ips']) && count($this->pool[$m['email']]['ips']) > 1) {
+            if (!empty($this->pool[$m['email']]['ips']) && count($this->pool[$m['email']]['ips']) > ($pac['ip_count'] ?: 1)) {
                 $xr = $this->getXray();
                 foreach ($xr['inbounds'][0]['settings']['clients'] as $k => $v) {
                     if (empty($v['off']) && $v['email'] == $m['email']) {
