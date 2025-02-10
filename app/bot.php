@@ -736,7 +736,7 @@ class Bot
             "statsOutboundDownlink" => true
         ];
         if (empty($norestart)) {
-            $c = $this->collectSession($c);
+            $this->collectSession();
             file_put_contents('/config/xray.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
             $this->ssh('pkill xray', 'xr');
             $this->ssh('xray run -config /xray.json > /dev/null 2>&1 &', 'xr');
@@ -745,24 +745,23 @@ class Bot
         }
     }
 
-    public function collectSession($c) {
-        $p = $this->getPacConf();
-        $p['vlessstat']['global'] = [
-            'download' => $p['vlessstat']['global']['download'] + $p['vlessstat']['session']['download'],
-            'upload'   => $p['vlessstat']['global']['upload'] + $p['vlessstat']['session']['upload'],
+    public function collectSession() {
+        $p = $this->getXrayStats();
+        $p['global'] = [
+            'download' => $p['global']['download'] + $p['session']['download'],
+            'upload'   => $p['global']['upload'] + $p['session']['upload'],
         ];
-        $p['vlessstat']['session'] = [
+        $p['session'] = [
             'download' => 0,
             'upload'   => 0,
         ];
-        $this->setPacConf($p);
-        foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
-            $c['inbounds'][0]['settings']['clients'][$k]['global']['download'] += $v['session']['download'];
-            $c['inbounds'][0]['settings']['clients'][$k]['session']['download'] = 0;
-            $c['inbounds'][0]['settings']['clients'][$k]['global']['upload']   += $v['session']['upload'];
-            $c['inbounds'][0]['settings']['clients'][$k]['session']['upload'] = 0;
+        foreach ($p['clients'] as $k => $v) {
+            $p['clients'][$k]['global']['download']  += $v['session']['download'];
+            $p['clients'][$k]['session']['download']  = 0;
+            $p['clients'][$k]['global']['upload']    += $v['session']['upload'];
+            $p['clients'][$k]['session']['upload']    = 0;
         }
-        return $c;
+        $this->setXrayStats($p);
     }
 
     public function linkMtproto()
@@ -1350,23 +1349,24 @@ class Bot
     {
         try {
             $x  = $this->getXray();
-            $p  = $this->getPacConf();
             $td = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "inbound>>>vless_tls>>>traffic>>>downlink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
             $tu = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "inbound>>>vless_tls>>>traffic>>>uplink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
-            $p['vlessstat']['session']['download'] = $td;
-            $p['vlessstat']['session']['upload']   = $tu;
-            $this->setPacConf($p);
+            $p  = $this->getXrayStats();
+            $p['session'] = [
+                'download' => $td,
+                'upload'   => $tu,
+            ];
             if (!empty($users = $x['inbounds'][0]['settings']['clients'])) {
                 foreach ($users as $k => $v) {
                     $d = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "user>>>' . $v['email'] . '>>>traffic>>>downlink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
                     $u = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "user>>>' . $v['email'] . '>>>traffic>>>uplink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
-                    $x['inbounds'][0]['settings']['clients'][$k]['session'] = [
+                    $p['users'][$k]['session'] = [
                         'download' => $d,
                         'upload'   => $u,
                     ];
                 }
-                $this->restartXray($x, norestart: 1);
             }
+            $this->setXrayStats($p);
         } catch (\Throwable $th) {
         }
     }
@@ -1669,7 +1669,7 @@ class Bot
             'ocu'           => file_get_contents('/config/ocserv.passwd'),
             'ss'            => $this->getSSConfig(),
             'sl'            => $this->getSSLocalConfig(),
-
+            'xraystats'     => $this->getXrayStats(),
         ];
         return json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
@@ -1781,6 +1781,12 @@ class Bot
                 $this->restartXray($json['xray']);
                 $this->adguardXrayClients();
                 $this->setUpstreamDomain($json['pac']['transport'] != 'Reality' ? 't' : ($json['pac']['reality']['domain'] ?: $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]));
+            }
+            // xraystats
+            if (!empty($json['xraystats'])) {
+                $out[] = 'update xray stats';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $this->setXrayStats($json['xraystats']);
             }
             // ocserv
             if (!empty($json['oc'])) {
@@ -5393,28 +5399,31 @@ DNS-over-HTTPS with IP:
         $this->userXr($i);
     }
 
+    public function getXrayStats()
+    {
+        return json_decode(file_get_contents('/config/xray.stats'), true) ?: [];
+    }
+
+    public function setXrayStats($x)
+    {
+        file_put_contents('/config/xray.stats', json_encode($x));
+    }
+
     public function resetXrUser($i)
     {
-        $c = $this->getXray();
-        $c['inbounds'][0]['settings']['clients'][$i]['global'] = [
+        $c = $this->getXrayStats();
+        $c['clients'][$i]['global'] = [
             'download' => 0,
             'upload'   => 0,
         ];
-        $this->restartXray($c);
+        $this->restartXray($this->getXray());
         $this->userXr($i);
     }
 
     public function resetXrStats()
     {
-        $x = $this->getXray();
-        $p = $this->getPacConf();
-        unset($p['vlessstat']);
-        foreach ($x['inbounds'][0]['settings']['clients'] as $k => $v) {
-            unset($x['inbounds'][0]['settings']['clients'][$k]['global']);
-            unset($x['inbounds'][0]['settings']['clients'][$k]['session']);
-        }
-        $this->restartXray($x);
-        $this->setPacConf($p);
+        $this->restartXray($this->getXray());
+        $this->setXrayStats([]);
         $this->xray();
     }
 
@@ -5718,8 +5727,9 @@ DNS-over-HTTPS with IP:
             $text[] = "fake domain: <code>$fake</code>";
         }
         $text[] = 'transport: ' . ($p['transport'] ?: 'Websocket');
-        $td = $this->getBytes($p['vlessstat']['global']['download'] + $p['vlessstat']['session']['download']);
-        $tu = $this->getBytes($p['vlessstat']['global']['upload'] + $p['vlessstat']['session']['upload']);
+        $st = $this->getXrayStats();
+        $td = $this->getBytes($st['global']['download'] + $st['session']['download']);
+        $tu = $this->getBytes($st['global']['upload'] + $st['session']['upload']);
         $data[] = [
             [
                 'text'          => $this->i18n('reset stats') . ": ↓$td  ↑$tu",
@@ -6166,10 +6176,11 @@ DNS-over-HTTPS with IP:
         $text[] = "sing-box config: <pre><code>$si</code></pre>";
         $text[] = "mihomo config: <pre><code>$cl</code></pre>";
 
-        $text[] = "sing-box windows: <a href='$scheme://{$domain}/pac$hash?t=si&r=w&s={$c['id']}'>windows service</a>";
-        $download = $this->getBytes($c['global']['download'] + $c['session']['download']);
-        $upload   = $this->getBytes($c['global']['upload'] + $c['session']['upload']);
-        $data[] = [
+        $text[]   = "sing-box windows: <a href='$scheme://{$domain}/pac$hash?t=si&r=w&s={$c['id']}'>windows service</a>";
+        $st       = $this->getXrayStats();
+        $download = $this->getBytes($st['users'][$i]['global']['download'] + $st['users'][$i]['session']['download']);
+        $upload   = $this->getBytes($st['users'][$i]['global']['upload'] + $st['users'][$i]['session']['upload']);
+        $data[]   = [
             [
                 'text'          => $this->i18n('reset stats') . ": ↓$download  ↑$upload",
                 'callback_data' => "/resetXrUser $i",
