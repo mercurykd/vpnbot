@@ -5810,8 +5810,8 @@ DNS-over-HTTPS with IP:
         $page    = $page == -2 ? $all - 1 : $page;
         $clients = $page != -1 ? array_slice($clients, $page * $this->limit, $this->limit, true) : $clients;
         foreach ($clients as $k => $v) {
-            $download = $this->getBytes($v['global']['download'] + $v['session']['download']);
-            $upload   = $this->getBytes($v['global']['upload'] + $v['session']['upload']);
+            $download = $this->getBytes($st['users'][$k]['global']['download'] + $st['users'][$k]['session']['download']);
+            $upload   = $this->getBytes($st['users'][$k]['global']['upload'] + $st['users'][$k]['session']['upload']);
             $time     = $v['time'] ? $this->getTime($v['time']) : '';
             $data[]   = [
                 [
