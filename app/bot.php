@@ -755,11 +755,11 @@ class Bot
             'download' => 0,
             'upload'   => 0,
         ];
-        foreach ($p['clients'] as $k => $v) {
-            $p['clients'][$k]['global']['download']  += $v['session']['download'];
-            $p['clients'][$k]['session']['download']  = 0;
-            $p['clients'][$k]['global']['upload']    += $v['session']['upload'];
-            $p['clients'][$k]['session']['upload']    = 0;
+        foreach ($p['users'] as $k => $v) {
+            $p['users'][$k]['global']['download']  += $v['session']['download'];
+            $p['users'][$k]['session']['download']  = 0;
+            $p['users'][$k]['global']['upload']    += $v['session']['upload'];
+            $p['users'][$k]['session']['upload']    = 0;
         }
         $this->setXrayStats($p);
     }
