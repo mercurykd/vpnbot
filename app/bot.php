@@ -5415,10 +5415,7 @@ DNS-over-HTTPS with IP:
     public function resetXrUser($i)
     {
         $c = $this->getXrayStats();
-        $c['clients'][$i]['global'] = [
-            'download' => 0,
-            'upload'   => 0,
-        ];
+        unset($c['users'][$i]);
         $this->restartXray($this->getXray());
         $this->userXr($i);
     }
