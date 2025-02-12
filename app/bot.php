@@ -5304,10 +5304,13 @@ DNS-over-HTTPS with IP:
 
     public function delxr($i)
     {
-        $r = $this->getXray();
+        $r  = $this->getXray();
+        $st = $this->getXrayStats();
         foreach ($r['inbounds'][0]['settings']['clients'] as $k => $v) {
             if ($i == $k) {
                 unset($r['inbounds'][0]['settings']['clients'][$k]);
+                unset($st['users'][$k]);
+                $this->setXrayStats($st);
                 $this->restartXray($r);
                 $this->adguardXrayClients();
                 break;
@@ -5748,7 +5751,6 @@ DNS-over-HTTPS with IP:
                 'callback_data' => '/addLinkDomain',
             ],
         ];
-        $ip_count = $p['ip_count'] ?: 1;
         $data[] = [
             [
                 'text'          => $this->i18n('Reality') . ' ' . ($p['transport'] == 'Reality' ? $this->i18n('on') : $this->i18n('off')),
@@ -5758,6 +5760,9 @@ DNS-over-HTTPS with IP:
                 'text'          => $this->i18n('Websocket') . ' ' . ($p['transport'] != 'Reality' ? $this->i18n('on') : $this->i18n('off')),
                 'callback_data' => "/changeTransport 1",
             ],
+        ];
+        $ip_count = $p['ip_count'] ?: 1;
+        $data[] = [
             [
                 'text'          => $this->i18n('ip limit') . ' ' . ($p['ip_limit'] ? ": {$p['ip_limit']} sec & $ip_count" : $this->i18n('off')),
                 'callback_data' => "/setIpLimit",
