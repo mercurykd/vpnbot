@@ -10,7 +10,7 @@
             "domain_strategy": "prefer_ipv4",
             "interface_name": "sing-tun",
             "address": [
-                "172.19.0.1\/30"
+                "172.19.0.1/30"
             ],
             "mtu": 1400,
             "auto_route": true,
@@ -43,7 +43,7 @@
             },
             {
                 "tag": "dns-remote",
-                "address": "tcp:\/\/8.8.8.8",
+                "address": "tcp://8.8.8.8",
                 "address_strategy": "prefer_ipv4",
                 "strategy": "prefer_ipv4",
                 "detour": "direct"
@@ -109,6 +109,14 @@
                 "inbound": "in",
                 "action": "sniff",
                 "timeout": "1s"
+            },
+            {
+                "clash_mode": "Direct",
+                "outbound": "direct"
+            },
+            {
+                "clash_mode": "Global",
+                "outbound": "~outbound~"
             },
             {
                 "addruleset": true,
