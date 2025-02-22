@@ -6654,7 +6654,7 @@ DNS-over-HTTPS with IP:
         if (!empty($route['rules'])) {
             foreach ($route['rules'] as $k => $v) {
                 if (!empty($v['addruleset'])) {
-                    $t[$v['outbound']] = $k;
+                    $t[$v['outbound'] ?: 'block'] = $k;
                 }
             }
             $p = $this->getPacConf();
