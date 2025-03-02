@@ -6020,8 +6020,8 @@ DNS-over-HTTPS with IP:
                 foreach ($xr['inbounds'][0]['settings']['clients'] as $k => $v) {
                     if (empty($v['off']) && $v['email'] == $m['email']) {
                         require __DIR__ . '/config.php';
-                        foreach ($c['admin'] as $k => $v) {
-                            $this->send($v, "vless: {$m['email']} is turned off (limit by one IP)");
+                        foreach ($c['admin'] as $admin) {
+                            $this->send($admin, "vless: {$m['email']} is turned off (limit by one IP)");
                         }
                         unset($this->pool[$m['email']]);
                         $this->switchXr($k, 1);
