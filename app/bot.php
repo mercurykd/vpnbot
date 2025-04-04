@@ -5608,6 +5608,7 @@ DNS-over-HTTPS with IP:
             <code>~block~</code>
             <code>~warp~</code>
             <code>~dns~</code>
+            <code>~dnspath~</code>
             <code>~uid~</code>
             <code>~domain~</code>
             <code>~directdomain~</code>
@@ -6497,6 +6498,7 @@ DNS-over-HTTPS with IP:
             '"~package~"'    => json_encode(array_keys(array_filter($pac['packagelist'] ?: []))),
             '"~subnet~"'     => json_encode(array_keys(array_filter($pac['subnetlist'] ?: []))),
             '~dns~'          => "https://$domain/dns-query$hash/$uid",
+            '~dnspath~'      => "/dns-query$hash/$uid",
             '~uid~'          => $uid,
             '~domain~'       => $domain,
             '~directdomain~' => $pac['domain'],
