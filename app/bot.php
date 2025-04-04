@@ -6855,7 +6855,13 @@ DNS-over-HTTPS with IP:
 
     public function getHashSubdomain($subdomain)
     {
-        return $this->getPacConf()["{$subdomain}_domain"] ?: substr(hash('sha256', "$subdomain{$this->key}"), 0, 8);
+        $p = $this->getPacConf();
+        if (!empty($p["{$subdomain}_domain"])) {
+            return $p["{$subdomain}_domain"];
+        }
+        $p["{$subdomain}_domain"] = substr(hash('sha256', "$subdomain{$this->key}"), 0, 8);
+        $this->setPacConf($p);
+        return $p["{$subdomain}_domain"];
     }
 
     public function addWg($page)
