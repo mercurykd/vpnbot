@@ -38,7 +38,7 @@ switch (true) {
 
     // adguard cookie
     case preg_match('~^' . preg_quote("/webapp$hash/check") . '~', $_SERVER['REQUEST_URI']) && $webapp:
-        setcookie('c', substr(hash('sha256', $c['key']), 0, 8), 0, '/');
+        setcookie('c', $hash, 0, '/');
         echo "/adguard$hash/";
         break;
 
