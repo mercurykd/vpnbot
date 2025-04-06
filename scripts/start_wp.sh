@@ -1,9 +1,10 @@
 cat /ssh/key.pub > /root/.ssh/authorized_keys
-ssh-keygen -A
-exec /usr/sbin/sshd -D -e "$@" &
+echo 'HostKeyAlgorithms +ssh-rsa' >> /etc/ssh/sshd_config
+echo 'PubkeyAcceptedKeyTypes +ssh-rsa' >> /etc/ssh/sshd_config
+service ssh start
 off=$(cat /config/pac.json | jq -r .warpoff)
 key=$(cat /config/pac.json | jq -r .warp)
-if [ "$off" == 'null' ]
+if [ "$off" = 'null' ]
 then
     warp-svc > /dev/null &
     sleep 3
