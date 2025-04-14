@@ -40,7 +40,7 @@ class Bot
         $this->reg = '~' . implode('|', [
             'GET / HTTP',
             'GET /favicon.ico HTTP',
-            preg_quote($this->getHashBot())
+            preg_quote($this->getHashBot(1))
         ]) . '~';
     }
 
@@ -1188,8 +1188,7 @@ class Bot
         $this->ssh('ssserver -v -d -c /config.json', 'ss');
         $this->ssh('sslocal -v -d -c /config.json', 'proxy');
 
-        $this->sd($c, 1);
-        if (!empty($nomenu)) {
+        if (empty($nomenu)) {
             $this->menu('ss');
         }
     }
@@ -6805,14 +6804,16 @@ DNS-over-HTTPS with IP:
         $this->ssh("nginx -s reload 2>&1", 'up');
     }
 
-    public function getHashBot()
+    public function getHashBot($notset = false)
     {
         $p = $this->getPacConf();
         if (!empty($p['hashbot'])) {
             return $p['hashbot'];
         }
         $p['hashbot'] = substr(hash('sha256', $this->key), 0, 8);
-        $this->setPacConf($p);
+        if (empty($notset)) {
+            $this->setPacConf($p);
+        }
         return $p['hashbot'];
     }
 
