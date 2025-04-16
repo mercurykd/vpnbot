@@ -41,6 +41,8 @@ xr: # консоль сервиса
 	docker compose exec xr /bin/sh
 oc: # консоль сервиса
 	docker compose exec oc /bin/sh
+service: # консоль сервиса
+	docker compose exec service /bin/sh
 clean:
 	docker image prune
 	docker builder prune

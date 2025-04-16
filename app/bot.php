@@ -5998,7 +5998,6 @@ DNS-over-HTTPS with IP:
 
     public function frequencyAnalyze($line, $pac)
     {
-        preg_match('~(?<date>.+)\sfrom\s(?<ip>\d+\.\d+\.\d+\.\d+)(?=.+email:\s(?<email>.+))~', $line, $m);
         if (!empty($this->pool)) {
             foreach ($this->pool as $i => $j) {
                 if (!empty($j['ips'])) {
@@ -6009,6 +6008,9 @@ DNS-over-HTTPS with IP:
                     }
                 }
             }
+        }
+        if (empty(preg_match('~(?<date>.+)\sfrom\s(?<ip>\d+\.\d+\.\d+\.\d+)(?=.+email:\s(?<email>.+))~', $line, $m))) {
+            return;
         }
         if (!empty($m['ip']) && !empty($m['email'])) {
             $ip = ip2long($m['ip']);
@@ -6021,18 +6023,19 @@ DNS-over-HTTPS with IP:
                     if (empty($v['off']) && $v['email'] == $m['email']) {
                         require __DIR__ . '/config.php';
                         foreach ($c['admin'] as $admin) {
-                            $this->send($admin, "vless: {$m['email']} is turned off (limit by one IP)");
+                            $this->send($admin, "vless: {$m['email']} limit ip " . count($this->pool[$m['email']]['ips']) . ' > ' . ($pac['ip_count'] ?: 1), button: [[
+                                [
+                                    'text'          => $this->i18n($c['off'] ? 'off' : 'on'),
+                                    'callback_data' => "/switchXr $k",
+                                ],
+                            ]]);
                         }
                         unset($this->pool[$m['email']]);
-                        $this->switchXr($k, 1);
-                        $flag = 1;
                         break;
                     }
                 }
             }
-            if (empty($flag)) {
-                $this->pool[$m['email']]['ip'] = $ip;
-            }
+            $this->pool[$m['email']]['ip'] = $ip;
         }
     }
 
