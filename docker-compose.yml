@@ -42,9 +42,17 @@ services:
         depends_on:
             php:
                 condition: service_healthy
+            ng:
+                condition: service_started
             ad:
                 condition: service_started
             ss:
+                condition: service_started
+            xr:
+                condition: service_started
+            oc:
+                condition: service_started
+            np:
                 condition: service_started
         env_file:
             - path: ./.env
@@ -79,9 +87,6 @@ services:
             - 80:80
         hostname: nginx
         container_name: nginx-${VER}
-        depends_on:
-            up:
-                condition: service_started
         env_file:
             - path: ./.env
               required: true # default
@@ -95,6 +100,9 @@ services:
             xray:
                 ipv4_address: 10.10.1.2
         logging: *default-logging
+        depends_on:
+            php:
+                condition: service_healthy
     php:
         image: mercurykd/vpnbot-php:1.7
         build:
