@@ -6360,7 +6360,7 @@ DNS-over-HTTPS with IP:
                     header("Location: hiddify://install-config/?url=$si");
                     exit;
                 case 'c':
-                    header("Location: clash://install-config/?url=$cl&name=$email");
+                    header("Location: clash://install-config/?url=$cl&overwrite=no&name=$email");
                     exit;
                 case 'w':
                     $link = htmlspecialchars($si, ENT_XML1, 'UTF-8');
