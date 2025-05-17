@@ -4303,6 +4303,43 @@ DNS-over-HTTPS with IP:
         $this->menu('wg', 0);
     }
 
+    public function alignColumns(array $columns): string
+    {
+        // Находим максимальную длину для каждого столбца
+        $columnLengths = [];
+        foreach ($columns as $column) {
+            $maxLength = 0;
+            foreach ($column as $cell) {
+                $len = mb_strlen($cell, 'UTF-8');
+                $maxLength = max($maxLength, $len);
+            }
+            $columnLengths[] = $maxLength;
+        }
+
+        // Получаем количество строк из первого столбца
+        $rowCount = count($columns[0]);
+        $columnCount = count($columns);
+
+        // Формируем строки с выравниванием
+        $result = [];
+        for ($row = 0; $row < $rowCount; $row++) {
+            $line = '';
+            for ($col = 0; $col < $columnCount; $col++) {
+                $cell = $columns[$col][$row];
+                $padding = str_repeat(' ', $columnLengths[$col] - mb_strlen($cell, 'UTF-8'));
+                $line .= $cell . $padding;
+
+                // Добавляем разделитель между столбцами, кроме последнего
+                if ($col < $columnCount - 1) {
+                    $line .= '  '; // Два пробела между столбцами
+                }
+            }
+            $result[] = $line;
+        }
+
+        return implode("\n", $result);
+    }
+
     public function menu($type = false, $arg = false, $return = false)
     {
         $conf   = $this->getPacConf();
@@ -4323,26 +4360,70 @@ DNS-over-HTTPS with IP:
             $f      = '/docker/compose';
             $c      = yaml_parse_file($f)['services'];
             $main[] = 'v' . getenv('VER') . " $branch" . ($update ? ' (have updates)' : '');
-            $main[] = '';
-            $main[] = $cron;
-            $main[] = $this->i18n($backup ? 'on' : 'off') . ' autobackup' . ($backup ? " $backup" : '');
-            $main[] = $this->i18n($conf['autoupdate'] ? 'on' : 'off') . ' autoupdate';
-            $main[] = $this->i18n($conf['autoscan'] ? 'on' : 'off') . ' autoscan';
-            $main[] = $this->i18n($conf['autodeny'] ? 'on' : 'off') . ' autoblock' . ($conf['deny'] ? ': ' . count($conf['deny']) : '');
-            $main[] = '';
-            $main[] = $this->i18n($c['wg'] ? 'on' : 'off') . ' ' . getenv('WGPORT') . ' Wireguard';
-            $main[] = $this->i18n($c['wg1'] ? 'on' : 'off') . ' ' . getenv('WG1PORT') . ' Wireguard 1';
-            $main[] = $this->i18n($c['tg'] ? 'on' : 'off') . ' ' . getenv('TGPORT') . ' MTProto';
-            $main[] = $this->i18n($c['ad'] ? 'on' : 'off') . ' 853 AdguardHome DoT';
-            $main[] = $this->i18n($c['ss'] ? 'on' : 'off') . ' 8388 Shadowsocks';
+
             if (!empty($conf['domain'])) {
                 $main[] = '';
                 $oc     = $this->getHashSubdomain('oc');
                 $np     = $this->getHashSubdomain('np');
-                $main[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\n$np.{$conf['domain']} (for naiveproxy)\n$oc.{$conf['domain']} (for openconnect)" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']} (for adguard DoT)" : '') : $this->i18n('domain explain');
-                $ssl    = $this->expireCert();
-                $main[] = $conf['domain'] ? "\nSSL: " . ($ssl ? date('Y-m-d H:i:s', $this->expireCert()) . "\n" . $this->domainsCert() : 'none') : '';
+                if (!empty($conf['domain'])) {
+                    $ssl_expiry = $this->expireCert();
+                    $certs      = $this->domainsCert() ?: [];
+
+                    $main[] = "<blockquote>";
+                    $main[] = "Domains:";
+                    $main[] = $conf['domain'] . (in_array($conf['domain'], $certs) ? ' (ssl: ' . date('Y-m-d H:i:s', $ssl_expiry) . ')' : '');
+                    $main[] = 'naive ' . "$np.{$conf['domain']}" . (in_array("$np.{$conf['domain']}", $certs) ? ' (ssl: ' . date('Y-m-d H:i:s', $ssl_expiry) . ')' : '');
+                    $main[] = 'openconnect ' . "$oc.{$conf['domain']}" . (in_array("$oc.{$conf['domain']}", $certs) ? ' (ssl: ' . date('Y-m-d H:i:s', $ssl_expiry) . ')' : '');
+                    if (!empty($conf['adguardkey'])) {
+                        $main[] = "{$conf['adguardkey']}.{$conf['domain']}" . (in_array("{$conf['adguardkey']}.{$conf['domain']}", $certs) ? ' (ssl: ' . date('Y-m-d H:i:s', $ssl_expiry) . ')' : '') . ' adguard DOT';;
+                    }
+                    $main[] = "</blockquote>";
+                } else {
+                    $main[] = $this->i18n('domain explain');
+                }
             }
+            $main[] = '';
+
+            $main[] = '<code>';
+            $main[] = $this->alignColumns([
+                [
+                    $this->i18n($this->ssh($this->getPacConf()['amnezia'] ? 'awg' : 'wg', 'wg') ? 'on' : 'off') . ' ' . $this->i18n($this->getPacConf()['amnezia'] ? 'amnezia' : 'wg_title'),
+                    $this->i18n($this->ssh($this->getPacConf()['wg1_amnezia'] ? 'awg' : 'wg', 'wg1') ? 'on' : 'off') . ' ' . $this->i18n($this->getPacConf()['wg1_amnezia'] ? 'amnezia' : 'wg_title'),
+                    $this->i18n($this->ssh('pgrep xray', 'xr') ? 'on' : 'off') . ' ' . $this->i18n('xray'),
+                    $this->i18n($this->ssh('pgrep caddy', 'np') ? 'on' : 'off') . ' ' . $this->i18n('naive'),
+                    $this->i18n($this->ssh('pgrep ocserv', 'oc') ? 'on' : 'off') . ' ' . $this->i18n('ocserv'),
+                    $this->i18n($this->ssh('pgrep mtproto-proxy', 'tg') ? 'on' : 'off') . ' ' . $this->i18n('mtproto'),
+                    $this->i18n(exec("JSON=1 timeout 2 dnslookup google.com ad") ? 'on' : 'off') . ' ' . $this->i18n('ad_title'),
+                    $this->i18n($this->ssh('pgrep ssserver', 'ss') ? 'on' : 'off') . ' ' . $this->i18n('sh_title'),
+                    $this->i18n($this->warpStatus()) . ' ' . $this->i18n('warp'),
+                ],
+                [
+                    $this->i18n($c['wg'] ? 'on' : 'off') . ' ' . getenv('WGPORT'),
+                    $this->i18n($c['wg1'] ? 'on' : 'off') . ' ' . getenv('WG1PORT'),
+                    $this->i18n('on') . ' 443',
+                    $this->i18n('on') . ' 443',
+                    $this->i18n('on') . ' 443',
+                    $this->i18n($c['tg'] ? 'on' : 'off') . ' ' . getenv('TGPORT'),
+                    $this->i18n($c['ad'] ? 'on' : 'off') . ' 853',
+                    $this->i18n($c['ss'] ? 'on' : 'off') . ' ' . getenv('SSPORT'),
+                    '',
+                ],
+            ]);
+            $main[] = '';
+            $main[] = $this->alignColumns([
+                [
+                    $cron,
+                    $this->i18n($backup ? 'on' : 'off') . ' autobackup' . ($backup ? " $backup" : ''),
+                    $this->i18n($conf['autoupdate'] ? 'on' : 'off') . ' autoupdate',
+                ],
+                [
+                    $this->i18n($conf['autoscan'] ? 'on' : 'off') . ' autoscan',
+                    $this->i18n($conf['autodeny'] ? 'on' : 'off') . ' autoblock' . ($conf['deny'] ? ': ' . count($conf['deny']) : ''),
+                    $this->i18n($conf['reset_monthly'] ? 'on' : 'off') . ' autoreset',
+                ],
+            ]);
+            $main[] = '</code>';
+
         }
         $menu   = [
             'main' => [
@@ -4350,47 +4431,47 @@ DNS-over-HTTPS with IP:
                 'data' => [
                     [
                         [
-                            'text'          => $this->i18n($this->getPacConf()['amnezia'] ? 'amnezia' : 'wg_title') . ' ' .  $this->i18n($this->ssh($this->getPacConf()['amnezia'] ? 'awg' : 'wg', 'wg') ? 'on' : 'off'),
+                            'text'          => $this->i18n($this->getPacConf()['amnezia'] ? 'amnezia' : 'wg_title'),
                             'callback_data' => "/changeWG 0",
                         ],
                         [
-                            'text'          => $this->i18n($this->getPacConf()['wg1_amnezia'] ? 'amnezia' : 'wg_title') . ' ' .  $this->i18n($this->ssh($this->getPacConf()['wg1_amnezia'] ? 'awg' : 'wg', 'wg1') ? 'on' : 'off'),
+                            'text'          => $this->i18n($this->getPacConf()['wg1_amnezia'] ? 'amnezia' : 'wg_title'),
                             'callback_data' => "/changeWG 1",
                         ],
                     ],
                     [
                         [
-                            'text'          => $this->i18n('xray') . ' ' .  $this->i18n($this->ssh('pgrep xray', 'xr') ? 'on' : 'off'),
+                            'text'          => $this->i18n('xray'),
                             'callback_data' => "/xray",
                         ],
                         [
-                            'text'          => $this->i18n('naive') . ' ' .  $this->i18n($this->ssh('pgrep caddy', 'np') ? 'on' : 'off'),
+                            'text'          => $this->i18n('naive'),
                             'callback_data' => "/menu naive",
                         ],
                     ],
                     [
                         [
-                            'text'          => $this->i18n('ocserv') . ' ' .  $this->i18n($this->ssh('pgrep ocserv', 'oc') ? 'on' : 'off'),
+                            'text'          => $this->i18n('ocserv'),
                             'callback_data' => "/menu oc",
                         ],
                         [
-                            'text'          => $this->i18n('mtproto') . ' ' .  $this->i18n($this->ssh('pgrep mtproto-proxy', 'tg') ? 'on' : 'off'),
+                            'text'          => $this->i18n('mtproto'),
                             'callback_data' => "/mtproto",
                         ],
                     ],
                     [
                         [
-                            'text'          => $this->i18n('ad_title') . ' ' . $this->i18n(exec("JSON=1 timeout 2 dnslookup google.com ad") ? 'on' : 'off'),
+                            'text'          => $this->i18n('ad_title'),
                             'callback_data' => "/menu adguard",
                         ],
                         [
-                            'text'          => $this->i18n('warp') . ' ' . $this->i18n($this->warpStatus()),
+                            'text'          => $this->i18n('warp'),
                             'callback_data' => "/warp",
                         ],
                     ],
                     [
                         [
-                            'text'          => $this->i18n('sh_title') . ' ' .  $this->i18n($this->ssh('pgrep ssserver', 'ss') ? 'on' : 'off'),
+                            'text'          => $this->i18n('sh_title'),
                             'callback_data' => "/menu ss",
                         ],
                         [
@@ -7137,7 +7218,7 @@ DNS-over-HTTPS with IP:
         if (empty($domains)) {
             return false;
         }
-        return implode("\n", array_map(fn($e) => trim($e), explode(',', str_replace('DNS:', '', $domains))));
+        return array_map(fn($e) => trim($e), explode(',', str_replace('DNS:', '', $domains)));
     }
 
     public function updatebot()
@@ -7207,17 +7288,24 @@ DNS-over-HTTPS with IP:
     public function configMenu()
     {
         $conf = $this->getPacConf();
-        if (!empty($conf['subdomain'])) {
-            $custom = "\ncustom:\n";
-            foreach ($conf['subdomain'] as $v) {
-                $custom .= "$v\n";
-            }
-        }
         $oc   = $this->getHashSubdomain('oc');
         $np   = $this->getHashSubdomain('np');
-        $text[] = $conf['domain'] ? "Domains:\n{$conf['domain']}\n$np.{$conf['domain']} (for naiveproxy)\n$oc.{$conf['domain']} (for openconnect)" . ($conf['adguardkey'] ? "\n{$conf['adguardkey']}.{$conf['domain']} (for adguard DoT)" : '') : $this->i18n('domain explain');
-        $ssl    = $this->expireCert();
-        $text[] = $conf['domain'] ? "\nSSL: " . ($ssl ? date('Y-m-d H:i:s', $this->expireCert()) . "\n" . $this->domainsCert() : 'none') : '';
+        if (!empty($conf['domain'])) {
+            $ssl_expiry = $this->expireCert();
+            $certs      = $this->domainsCert() ?: [];
+
+            $text[] = "<blockquote>";
+            $text[] = "Domains:";
+            $text[] = $conf['domain'] . (in_array($conf['domain'], $certs) ? ' (ssl: ' . date('Y-m-d H:i:s', $ssl_expiry) . ')' : '');
+            $text[] = 'naive ' . "$np.{$conf['domain']}" . (in_array("$np.{$conf['domain']}", $certs) ? ' (ssl: ' . date('Y-m-d H:i:s', $ssl_expiry) . ')' : '');
+            $text[] = 'openconnect ' . "$oc.{$conf['domain']}" . (in_array("$oc.{$conf['domain']}", $certs) ? ' (ssl: ' . date('Y-m-d H:i:s', $ssl_expiry) . ')' : '');
+            if (!empty($conf['adguardkey'])) {
+                $text[] = "{$conf['adguardkey']}.{$conf['domain']}" . (in_array("{$conf['adguardkey']}.{$conf['domain']}", $certs) ? ' (ssl: ' . date('Y-m-d H:i:s', $ssl_expiry) . ')' : '') . ' adguard DOT';;
+            }
+            $text[] = "</blockquote>";
+        } else {
+            $text[] = $this->i18n('domain explain');
+        }
 
         $data = [
             [
