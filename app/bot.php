@@ -5384,20 +5384,22 @@ DNS-over-HTTPS with IP:
                 $this->send($this->input['chat'], 'wrong format');
                 return;
             }
-            if (!empty($c['inbounds'][0]['settings']['clients'][$i]['off'])) {
-                $this->switchXr($i, 1);
-                $c = $this->getXray();
-            }
             $c['inbounds'][0]['settings']['clients'][$i]['time'] = $time;
         }
-        file_put_contents('/config/xray.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        $this->userXr($i);
+        $this->restartXray($c, 1);
+        if (!empty($c['inbounds'][0]['settings']['clients'][$i]['off'])) {
+            $this->switchXr($i, 0, 1);
+        } else {
+            $this->userXr($i);
+        }
     }
 
-    public function switchXr($i, $nm = 0)
+    public function switchXr($i, $nm = 0, $time = false)
     {
         $c = $this->getXray();
-        unset($c['inbounds'][0]['settings']['clients'][$i]['time']);
+        if (empty($time)) {
+            unset($c['inbounds'][0]['settings']['clients'][$i]['time']);
+        }
         if (empty($c['inbounds'][0]['settings']['clients'][$i]['off'])) {
             $c['inbounds'][0]['settings']['clients'][$i]['off'] = $c['inbounds'][0]['settings']['clients'][$i]['id'];
             $c['inbounds'][0]['settings']['clients'][$i]['id']  = trim($this->ssh('xray uuid', 'xr'));
