@@ -4323,47 +4323,47 @@ DNS-over-HTTPS with IP:
                 'data' => [
                     [
                         [
-                            'text'          => $this->i18n($this->getPacConf()['amnezia'] ? 'amnezia' : 'wg_title'),
+                            'text'          => $this->i18n($this->getPacConf()['amnezia'] ? 'amnezia' : 'wg_title') . ' ' .  $this->i18n($this->ssh($this->getPacConf()['amnezia'] ? 'awg' : 'wg', 'wg') ? 'on' : 'off'),
                             'callback_data' => "/changeWG 0",
                         ],
                         [
-                            'text'          => $this->i18n($this->getPacConf()['wg1_amnezia'] ? 'amnezia' : 'wg_title'),
+                            'text'          => $this->i18n($this->getPacConf()['wg1_amnezia'] ? 'amnezia' : 'wg_title') . ' ' .  $this->i18n($this->ssh($this->getPacConf()['wg1_amnezia'] ? 'awg' : 'wg', 'wg1') ? 'on' : 'off'),
                             'callback_data' => "/changeWG 1",
                         ],
                     ],
                     [
                         [
-                            'text'          => $this->i18n('xray'),
+                            'text'          => $this->i18n('xray') . ' ' .  $this->i18n($this->ssh('pgrep xray', 'xr') ? 'on' : 'off'),
                             'callback_data' => "/xray",
                         ],
                         [
-                            'text'          => $this->i18n('naive'),
+                            'text'          => $this->i18n('naive') . ' ' .  $this->i18n($this->ssh('pgrep caddy', 'np') ? 'on' : 'off'),
                             'callback_data' => "/menu naive",
                         ],
                     ],
                     [
                         [
-                            'text'          => $this->i18n('ocserv'),
+                            'text'          => $this->i18n('ocserv') . ' ' .  $this->i18n($this->ssh('pgrep ocserv', 'oc') ? 'on' : 'off'),
                             'callback_data' => "/menu oc",
                         ],
                         [
-                            'text'          => $this->i18n('mtproto'),
+                            'text'          => $this->i18n('mtproto') . ' ' .  $this->i18n($this->ssh('pgrep mtproto-proxy', 'tg') ? 'on' : 'off'),
                             'callback_data' => "/mtproto",
                         ],
                     ],
                     [
                         [
-                            'text'          => $this->i18n('ad_title'),
+                            'text'          => $this->i18n('ad_title') . ' ' . $this->i18n(exec("JSON=1 timeout 2 dnslookup google.com ad") ? 'on' : 'off'),
                             'callback_data' => "/menu adguard",
                         ],
                         [
-                            'text'          => $this->i18n('warp') . ': ' . $this->warpStatus(),
+                            'text'          => $this->i18n('warp') . ' ' . $this->i18n($this->warpStatus()),
                             'callback_data' => "/warp",
                         ],
                     ],
                     [
                         [
-                            'text'          => $this->i18n('sh_title'),
+                            'text'          => $this->i18n('sh_title') . ' ' .  $this->i18n($this->ssh('pgrep ssserver', 'ss') ? 'on' : 'off'),
                             'callback_data' => "/menu ss",
                         ],
                         [
@@ -8097,8 +8097,9 @@ DNS-over-HTTPS with IP:
         }
         echo "$ip\n";
         var_dump($r = $this->request('setWebhook', [
-            'url'         => "https://$ip/tlgrm?k={$this->key}",
-            'certificate' => curl_file_create('/certs/self_public'),
+            'url'             => "https://$ip/tlgrm?k={$this->key}",
+            'certificate'     => curl_file_create('/certs/self_public'),
+            'allowed_updates' => json_encode(['*']),
         ]));
         if (!empty($r['result']) && $r['result'] == true) {
             file_put_contents('/start', 1);
