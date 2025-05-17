@@ -5345,8 +5345,16 @@ DNS-over-HTTPS with IP:
         $p     = $this->getPacConf();
         $users = array_map(fn ($e) => trim($e), explode(',', $users));
         $users = array_map(fn ($e) => explode(':', $e), $users);
+        foreach ($c['inbounds'][0]['settings']['clients'] as $k => $v) {
+            $uuids[]  = $v['id'];
+            $emails[] = $v['email'];
+        }
         foreach ($users as $user) {
             $uuid = $user[1] ?: trim($this->ssh('xray uuid', 'xr'));
+            if (in_array($uuid, $uuids ?: []) || in_array($user[0], $emails ?: [])) {
+                $this->send($this->input['chat'], "user {$user[0]} already exists");
+                return $this->xray();
+            }
             $c['inbounds'][0]['settings']['clients'][] = $p['transport'] != 'Reality' ? [
                     'id'    => $uuid,
                     'email' => $user[0],
