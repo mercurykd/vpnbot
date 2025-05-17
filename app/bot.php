@@ -162,6 +162,9 @@ class Bot
             case preg_match('~^/switchBanIp$~', $this->input['callback'], $m):
                 $this->switchBanIp();
                 break;
+            case preg_match('~^/switchMonthlyStats$~', $this->input['callback'], $m):
+                $this->switchMonthlyStats();
+                break;
             case preg_match('~^/setIpLimit$~', $this->input['callback'], $m):
                 $this->setIpLimit();
                 break;
@@ -1337,6 +1340,7 @@ class Bot
             $this->checkVersion();
             $this->checkBackup($period);
             $this->checkLogs($period);
+            $this->checkResetXrayStats($period);
             $this->checkCert();
             $this->autoAnalyzeLogs();
             $this->xrayStatsUser();
@@ -1440,6 +1444,29 @@ class Bot
                 && (($now - $start) % $period < $delta)
             ) {
                 $this->pinBackup();
+            }
+        }
+    }
+
+    public function checkResetXrayStats($delta)
+    {
+        $pac = $this->getPacConf();
+        if (!empty($pac['reset_monthly'])) {
+            $now    = strtotime(date('Y-m-d H:i:s'));
+            $start  = strtotime('first day of previous month midnight');
+            $period = strtotime('1 month', 0);
+            if (
+                !empty($start)
+                && !empty($period)
+                && empty($this->backup)
+                && $now - $start >= 0
+                && (($now - $start) % $period < $delta)
+            ) {
+                $this->resetXrStats(1);
+                require __DIR__ . '/config.php';
+                foreach ($c['admin'] as $admin) {
+                    $this->send($admin, "vless: reset stats");
+                }
             }
         }
     }
@@ -4459,6 +4486,14 @@ DNS-over-HTTPS with IP:
         $this->ipMenu();
     }
 
+    public function switchMonthlyStats()
+    {
+        $c = $this->getPacConf();
+        $c['reset_monthly'] = $c['reset_monthly'] ? 0 : 1;
+        $this->setPacConf($c);
+        $this->xray();
+    }
+
     public function switchIpLimit($limit)
     {
         $limit = explode(':', $limit);
@@ -5440,11 +5475,13 @@ DNS-over-HTTPS with IP:
         $this->userXr($i);
     }
 
-    public function resetXrStats()
+    public function resetXrStats($nomenu = false)
     {
         $this->restartXray($this->getXray());
         $this->setXrayStats([]);
-        $this->xray();
+        if (empty($nomenu)) {
+            $this->xray();
+        }
     }
 
     public function listXr($i)
@@ -5755,6 +5792,10 @@ DNS-over-HTTPS with IP:
             [
                 'text'          => $this->i18n('reset stats') . ": ↓$td  ↑$tu",
                 'callback_data' => '/resetXrStats',
+            ],
+            [
+                'text'          => $this->i18n('reset monthly') . ": " . $this->i18n($this->getPacConf()['reset_monthly'] ? 'on' : 'off'),
+                'callback_data' => '/switchMonthlyStats',
             ],
         ];
         $data[] = [
