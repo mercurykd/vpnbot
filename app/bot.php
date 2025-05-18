@@ -4412,7 +4412,7 @@ DNS-over-HTTPS with IP:
             $main[] = '';
             $main[] = $this->alignColumns([
                 [
-                    $this->i18n($backup ? 'on' : 'off') . ' autobackup' . ($backup ? " $backup" : ''),
+                    $this->i18n($backup ? 'on' : 'off') . ' autobackup',
                     $this->i18n($conf['autoupdate'] ? 'on' : 'off') . ' autoupdate',
                     $this->i18n($conf['autoscan'] ? 'on' : 'off') . ' autoscan',
                 ],
