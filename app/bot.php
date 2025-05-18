@@ -4412,14 +4412,14 @@ DNS-over-HTTPS with IP:
             $main[] = '';
             $main[] = $this->alignColumns([
                 [
-                    $cron,
                     $this->i18n($backup ? 'on' : 'off') . ' autobackup' . ($backup ? " $backup" : ''),
                     $this->i18n($conf['autoupdate'] ? 'on' : 'off') . ' autoupdate',
+                    $this->i18n($conf['autoscan'] ? 'on' : 'off') . ' autoscan',
                 ],
                 [
-                    $this->i18n($conf['autoscan'] ? 'on' : 'off') . ' autoscan',
                     $this->i18n($conf['autodeny'] ? 'on' : 'off') . ' autoblock' . ($conf['deny'] ? ': ' . count($conf['deny']) : ''),
                     $this->i18n($conf['reset_monthly'] ? 'on' : 'off') . ' autoreset',
+                    $cron,
                 ],
             ]);
             $main[] = '</code>';
