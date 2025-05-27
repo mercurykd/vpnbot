@@ -3423,9 +3423,13 @@ DNS-over-HTTPS with IP:
                         'callback_data' => "/subnet {$wgpage}_" . ($page - 1 >= 0 ? $page - 1 : $all - 1) . ($openconnect ? '_1' : ''),
                     ],
                     [
+                        'text'          => $page + 1,
+                        'callback_data' => "/subnet {$wgpage}_$page" . ($openconnect ? '_1' : ''),
+                    ],
+                    [
                         'text'          => '>>',
                         'callback_data' => "/subnet {$wgpage}_" . ($page < $all - 1 ? $page + 1 : 0) . ($openconnect ? '_1' : ''),
-                    ]
+                    ],
                 ];
             }
         }
@@ -3661,10 +3665,10 @@ DNS-over-HTTPS with IP:
                         'text'          => '<<',
                         'callback_data' => "/menu wg " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
                     ],
-                    // [
-                    //     'text'          => 'all',
-                    //     'callback_data' => "/menu wg -1",
-                    // ],
+                    [
+                        'text'          => $page + 1,
+                        'callback_data' => "/menu wg $page",
+                    ],
                     [
                         'text'          => '>>',
                         'callback_data' => "/menu wg " . ($page < $all - 1 ? $page + 1 : 0),
@@ -4165,9 +4169,13 @@ DNS-over-HTTPS with IP:
                         'callback_data' => "/$menu " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
                     ],
                     [
+                        'text'          => $page + 1,
+                        'callback_data' => "/$menu $page",
+                    ],
+                    [
                         'text'          => '>>',
                         'callback_data' => "/$menu " . ($page < $all - 1 ? $page + 1 : 0),
-                    ]
+                    ],
                 ];
             }
             $data[] = [
@@ -4796,9 +4804,13 @@ DNS-over-HTTPS with IP:
                         'callback_data' => "/analysisIp " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
                     ],
                     [
+                        'text'          => $page + 1,
+                        'callback_data' => "/analysisIp $page",
+                    ],
+                    [
                         'text'          => '>>',
                         'callback_data' => "/analysisIp " . ($page < $all - 1 ? $page + 1 : 0),
-                    ]
+                    ],
                 ];
             }
         }
@@ -5005,9 +5017,13 @@ DNS-over-HTTPS with IP:
                         'callback_data' => "/denyList " . ($page - 1 >= 0 ? $page - 1 : $all - 1) . ($white ? " 1" : ' 0'),
                     ],
                     [
+                        'text'          => $page + 1,
+                        'callback_data' => "/denyList $page" . ($white ? " 1" : ' 0'),
+                    ],
+                    [
                         'text'          => '>>',
                         'callback_data' => "/denyList " . ($page < $all - 1 ? $page + 1 : 0) . ($white ? " 1" : ' 0'),
-                    ]
+                    ],
                 ];
             }
             $data[] = [
@@ -5973,9 +5989,13 @@ DNS-over-HTTPS with IP:
                     'callback_data' => "/xray " . ($page - 1 >= 0 ? $page - 1 : $all - 1),
                 ],
                 [
+                    'text'          => $page + 1,
+                    'callback_data' => "/xray $page",
+                ],
+                [
                     'text'          => '>>',
                     'callback_data' => "/xray " . ($page < $all - 1 ? $page + 1 : 0),
-                ]
+                ],
             ];
         }
         $data[] = [
