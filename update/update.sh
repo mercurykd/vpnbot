@@ -38,7 +38,7 @@ do
         curl -H "Content-Type: application/json" -X POST https://api.telegram.org/bot$key/editMessageText -d "$(cat $pwd/update/curl | sed 's/"text":"~t~"/"text": "launching the bot"/')"
         > $pwd/update/key
         > $pwd/update/curl
-        IP=$(curl -s -t 1 2ip.io || curl -s -t 1 ipinfo.io/ip || curl -s -t 1 ifconfig.me) VER=$(git describe --tags) docker compose --env-file ./.env --env-file ./override.env up -d --force-recreate
+        IP=$(hostname -I | awk '{print $1}') VER=$(git describe --tags) docker compose --env-file ./.env --env-file ./override.env up -d --force-recreate
         bash $pwd/update/update.sh &
         exit 0
     fi
