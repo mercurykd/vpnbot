@@ -244,8 +244,7 @@ class Bot
                 $this->addLinkDomain();
                 break;
             case preg_match('~^/id$~', $this->input['message'], $m):
-                $this->send($this->input['chat'], $this->input['from'], $this->input['message_id']);
-                $this->send($this->input['chat'], $this->input['chat'], $this->input['message_id']);
+                $this->send($this->input['chat'], "your id: {$this->input['from']}\nchat id: {$this->input['chat']}", $this->input['message_id']);
                 break;
             case preg_match('~^/adguardChBr$~', $this->input['callback'], $m):
                 $this->adguardChBr();
