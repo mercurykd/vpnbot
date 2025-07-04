@@ -6484,10 +6484,19 @@ DNS-over-HTTPS with IP:
         ]));
         $vless   = $this->linkXray($k);
         $windows = "$scheme://{$domain}/pac$hash?t=si&r=w&s=$uid";
+        $_GET['s'] = $uid;
+        foreach ([
+          'xray'    => 's',
+          'singbox' => 'si',
+          'clash'   => 'cl'
+        ] as $k     => $v) {
+            $_GET['t'] = $v;
+            $configs[$k] = $this->subscription(1);
+        }
         require __DIR__ . '/subscription.php';
     }
 
-    public function subscription()
+    public function subscription($return = false)
     {
         switch ($_GET['t']) {
             case 's':
@@ -6740,6 +6749,12 @@ DNS-over-HTTPS with IP:
                     }
                 }
                 break;
+        }
+        if (!empty($return)) {
+            if ($_GET['t'] == 'cl') {
+                return yaml_emit($c);
+            }
+            return json_encode($c);
         }
 
         if ($_GET['t'] == 'cl') {
