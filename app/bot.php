@@ -5884,9 +5884,10 @@ DNS-over-HTTPS with IP:
         $st = $this->getXrayStats();
         $td = $this->getBytes($st['global']['download'] + $st['session']['download']);
         $tu = $this->getBytes($st['global']['upload'] + $st['session']['upload']);
+        $text[] = "↓$td  ↑$tu";
         $data[] = [
             [
-                'text'          => $this->i18n('reset stats') . ": ↓$td  ↑$tu",
+                'text'          => $this->i18n('reset stats'),
                 'callback_data' => '/resetXrStats',
             ],
             [
