@@ -6316,6 +6316,9 @@ DNS-over-HTTPS with IP:
         $hash   = $this->getHashBot();
 
         $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['email']}\n";
+        if (file_exists(__DIR__ . '/subscription.php')) {
+            $text[] = "<a href='$scheme://{$domain}/pac$hash/sub?id={$c['id']}'>subscription</a>";
+        }
         $text[] = "<pre><code>{$this->linkXray($i)}</code></pre>\n";
 
         $text[] = "<a href='$scheme://{$domain}/pac$hash?t=s&r=v&s={$c['id']}#{$c['email']}'>import://v2rayng</a>";
@@ -6441,6 +6444,47 @@ DNS-over-HTTPS with IP:
             return $c['linkdomain'];
         }
         return $c['domain'] ?: $this->ip;
+    }
+
+    public function sub()
+    {
+        $xr     = $this->getXray();
+        $pac    = $this->getPacConf();
+        $st     = $this->getXrayStats();
+        $domain = $_GET['cdn'] ?: ($_SERVER['SERVER_NAME'] ?: $this->getDomain($pac['transport'] != 'Reality'));
+        $scheme = empty($this->nginxGetTypeCert()) ? 'http' : 'https';
+        $hash   = $this->getHashBot();
+        $flag   = true;
+        foreach ($xr['inbounds'][0]['settings']['clients'] as $k => $v) {
+            if ($v['id'] == $_GET['id']) {
+                if (empty($v['off'])) {
+                    $flag = false;
+                }
+                $uid   = $v['id'];
+                $email = $v['email'];
+                break;
+            }
+        }
+        $download = $this->getBytes($st['users'][$k]['global']['download'] + $st['users'][$k]['session']['download']);
+        $upload   = $this->getBytes($st['users'][$k]['global']['upload'] + $st['users'][$k]['session']['upload']);
+        $singbox  = "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
+            'h' => $hash,
+            't' => 'si',
+            's' => $uid,
+        ]));
+        $xray = "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
+            'h' => $hash,
+            't' => 's',
+            's' => $uid,
+        ]));
+        $clash = "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
+            'h' => $hash,
+            't' => 'cl',
+            's' => $uid,
+        ]));
+        $vless   = $this->linkXray($k);
+        $windows = "$scheme://{$domain}/pac$hash?t=si&r=w&s=$uid";
+        require __DIR__ . '/subscription.php';
     }
 
     public function subscription()

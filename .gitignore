@@ -26,3 +26,5 @@ docker-compose.override.yml
 backup.json
 app/webapp/override/
 .rest
+
+subscription.php
