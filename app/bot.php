@@ -6110,7 +6110,7 @@ DNS-over-HTTPS with IP:
         if (!empty($this->ssh('pgrep warp-svc', 'wp'))) {
             $st = $this->ssh('curl -m 1 -x socks5://127.0.0.1:40000 https://cloudflare.com/cdn-cgi/trace', 'wp');
             preg_match('~warp=(\w+)~', $st, $m);
-            return $m[1];
+            return trim($m[1]) ?: 'off';
         }
         return 'off';
     }
