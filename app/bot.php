@@ -5309,35 +5309,21 @@ DNS-over-HTTPS with IP:
 
     public function getMirror()
     {
-        unlink('/config/mirror.tar.gz');
-        unlink('/config/mirror.tar');
         $s = file_get_contents('/mirror/start_socat.sh');
-        $t = preg_replace([
-            '~{ip}~',
-            '~{tg}~',
-            '~{ss}~',
-            '~{wg}~',
+        $t = str_replace([
+            '~ip~',
+            '~tg~',
+            '~ss~',
+            '~wg1~',
+            '~wg2~',
         ], [
             getenv('IP'),
             getenv('TGPORT'),
             getenv('SSPORT'),
             getenv('WGPORT'),
+            getenv('WG1PORT'),
         ], $s);
-        file_put_contents('/mirror/start_socat.sh', $t);
-        $a = new PharData('/config/mirror.tar');
-        $a->buildFromDirectory('/mirror');
-        $a->compress(Phar::GZ);
-        if (!empty($this->input)) {
-            $this->sendFile($this->input['from'], curl_file_create('/config/mirror.tar.gz'));
-        } else {
-            header('Content-Disposition: attachment; filename=mirror.tar.gz');
-            header('Content-Type: application/tar+gzip');
-            echo file_get_contents('/config/mirror.tar.gz');
-            exit;
-        }
-        unlink('/config/mirror.tar.gz');
-        unlink('/config/mirror.tar');
-        file_put_contents('/mirror/start_socat.sh', $s);
+        $this->sendFile($this->input['from'], new CURLStringFile($t, 'socat.sh', 'application/x-sh'));
     }
 
     public function ocMenu()
