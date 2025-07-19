@@ -28,3 +28,6 @@ app/webapp/override/
 .rest
 
 subscription.php
+location.conf
+override.conf
+i18n.override.php

@@ -378,3 +378,7 @@ $i = [
         'ru' => 'перезагрузка',
     ],
 ];
+
+if (file_exists(__DIR__ . '/i18n.override.php')) {
+    include __DIR__ . '/i18n.override.php';
+}
