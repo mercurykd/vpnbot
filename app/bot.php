@@ -2593,6 +2593,10 @@ class Bot
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
 
+    public function base64UriEncode($data) {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
+
     public function adguardXrayClients()
     {
         $xr = $this->getXray();
@@ -6313,6 +6317,7 @@ DNS-over-HTTPS with IP:
         $text[] = "<a href='$scheme://{$domain}/pac$hash?t=si&r=h&s={$c['id']}#{$c['email']}'>import://hiddify</a>";
         $text[] = "<a href='$scheme://{$domain}/pac$hash?t=si&r=k&s={$c['id']}#{$c['email']}'>import://karing</a>";
         $text[] = "<a href='$scheme://{$domain}/pac$hash?t=si&r=c&s={$c['id']}#{$c['email']}'>import://mihomo</a>";
+        $text[] = "<a href='$scheme://{$domain}/pac$hash?t=sxr&s={$c['id']}#{$c['email']}'>import://simplexray</a>";
 
         $si = "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
             'h' => $hash,
@@ -6468,6 +6473,7 @@ DNS-over-HTTPS with IP:
             't' => 'cl',
             's' => $uid,
         ]));
+        $simplexray = "$scheme://{$domain}/pac$hash?t=sxr&s=$uid";
         $vless   = $this->linkXray($k);
         $windows = "$scheme://{$domain}/pac$hash?t=si&r=w&s=$uid";
         $_GET['s'] = $uid;
@@ -6493,6 +6499,9 @@ DNS-over-HTTPS with IP:
                 break;
             case 'cl':
                 $type = 'clash';
+                break;
+            case 'sxr':
+                $type = 'v2ray';
                 break;
         }
         $pac    = $this->getPacConf();
@@ -6735,6 +6744,12 @@ DNS-over-HTTPS with IP:
                     }
                 }
                 break;
+        }
+        if ($_GET['t'] == 'sxr') {
+            $email = urlencode($email);
+            $content = $this->base64UriEncode(gzcompress(json_encode($c)));
+            header("Location: simplexray://config/{$email}/{$content}");
+            exit;
         }
         if (!empty($return)) {
             if ($_GET['t'] == 'cl') {
