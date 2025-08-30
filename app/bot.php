@@ -6446,11 +6446,13 @@ DNS-over-HTTPS with IP:
                 if (empty($v['off'])) {
                     $flag = false;
                 }
-                $uid   = $v['id'];
-                $email = $v['email'];
+                $uid    = $v['id'];
+                $email  = $v['email'];
+                $expire = $v['time'];
                 break;
             }
         }
+        $suburl   = "<a href='$scheme://{$domain}/pac$hash/sub?id={$uid}'>subscription</a>";
         $download = $this->getBytes($st['users'][$k]['global']['download'] + $st['users'][$k]['session']['download']);
         $upload   = $this->getBytes($st['users'][$k]['global']['upload'] + $st['users'][$k]['session']['upload']);
         $singbox  = "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
