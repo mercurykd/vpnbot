@@ -532,3 +532,32 @@ services:
             default:
                 ipv4_address: 10.10.0.6
         logging: *default-logging
+    io:
+        image: mercurykd/vpnbot-io:1.0
+        build:
+            dockerfile: dockerfile/iodine.dockerfile
+        volumes:
+            - ./config/.profile:/root/.ashrc:ro
+            - ./ssh:/ssh
+            - ./config/sshd_config:/etc/ssh/sshd_config
+            - ./scripts/start_io.sh:/start_io.sh
+        hostname: iodine
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun:/dev/net/tun
+        container_name: iodine-${VER}
+        depends_on:
+            php:
+                condition: service_healthy
+        env_file:
+            - path: ./.env
+              required: true # default
+            - path: ./override.env
+              required: false
+        stop_grace_period: 1s
+        command: ["/bin/sh", "/start_io.sh"]
+        networks:
+            default:
+                ipv4_address: 10.10.0.16
+        logging: *default-logging

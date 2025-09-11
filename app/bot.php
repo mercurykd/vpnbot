@@ -291,6 +291,21 @@ class Bot
             case preg_match('~^/logs$~', $this->input['callback'], $m):
                 $this->logs();
                 break;
+            case preg_match('~^/iodine$~', $this->input['callback'], $m):
+                $this->iodine();
+                break;
+            case preg_match('~^/iodineDomain$~', $this->input['callback'], $m):
+                $this->iodineDomain();
+                break;
+            case preg_match('~^/iodinePassword$~', $this->input['callback'], $m):
+                $this->iodinePassword();
+                break;
+            case preg_match('~^/setIodineDomain (\w+)$~', $this->input['callback'], $m):
+                $this->setIodineDomain($m[1]);
+                break;
+            case preg_match('~^/setIodinePassword (\w+)$~', $this->input['callback'], $m):
+                $this->setIodinePassword($m[1]);
+                break;
             case preg_match('~^/getLog (?P<arg>\d+(?:_(?:-)?\d+)?)$~', $this->input['callback'], $m):
                 $this->getLog(...explode('_', $m['arg']));
                 break;
@@ -4347,6 +4362,104 @@ DNS-over-HTTPS with IP:
         return implode("\n", $result);
     }
 
+    public function iodineDomain()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter domain",
+            $this->input['message_id'],
+            reply: 'enter domain',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'setIodineDomain',
+            'args'          => [],
+        ];
+    }
+
+    public function iodinePassword()
+    {
+        $r = $this->send(
+            $this->input['chat'],
+            "@{$this->input['username']} enter password",
+            $this->input['message_id'],
+            reply: 'enter password',
+        );
+        $_SESSION['reply'][$r['result']['message_id']] = [
+            'start_message' => $this->input['message_id'],
+            'callback'      => 'setIodinePassword',
+            'args'          => [],
+        ];
+    }
+
+    public function setIodinePassword($text)
+    {
+        $c = $this->getPacConf();
+        if ($text) {
+            $c['iodinePassword'] = $text;
+        } else {
+            unset($c['iodinePassword']);
+        }
+        $this->setPacConf($c);
+        $this->iodineRestart();
+        $this->iodine();
+    }
+
+    public function setIodineDomain($text)
+    {
+        $c = $this->getPacConf();
+        if ($text) {
+            $c['iodineDomain'] = $text;
+        } else {
+            unset($c['iodineDomain']);
+        }
+        $this->setPacConf($c);
+        $this->iodineRestart();
+        $this->iodine();
+    }
+
+    public function iodineRestart()
+    {
+        $c = $this->getPacConf();
+        $this->ssh('pkill iodine', 'io');
+        if (!empty($c['iodineDomain']) && !empty($c['iodinePassword'])) {
+            $this->ssh("iodined -c -P {$c['iodinePassword']} 10.0.0.1 {$c['iodineDomain']}", 'io');
+        }
+    }
+
+    public function iodine()
+    {
+        $c      = $this->getPacConf();
+        $text[] = 'Iodine';
+        $text[] = "domain: {$c['iodineDomain']}";
+        $text[] = "password: {$c['iodinePassword']}";
+
+        $data[] = [
+            [
+                'text'          => $this->i18n('set domain'),
+                'callback_data' => "/iodineDomain",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('set password'),
+                'callback_data' => "/iodinePassword",
+            ],
+        ];
+        $data[] = [
+            [
+                'text'          => $this->i18n('back'),
+                'callback_data' => "/menu",
+            ],
+        ];
+        $this->update(
+            $this->input['chat'],
+            $this->input['message_id'],
+            implode("\n", $text),
+            $data ?: false,
+        );
+    }
+
     public function menu($type = false, $arg = false, $return = false)
     {
         $conf   = $this->getPacConf();
@@ -4402,6 +4515,7 @@ DNS-over-HTTPS with IP:
                     $this->i18n($this->ssh('pgrep mtproto-proxy', 'tg') ? 'on' : 'off') . ' ' . $this->i18n('mtproto'),
                     $this->i18n(exec("JSON=1 timeout 2 dnslookup google.com ad") ? 'on' : 'off') . ' ' . $this->i18n('ad_title'),
                     $this->i18n($this->ssh('pgrep ssserver', 'ss') ? 'on' : 'off') . ' ' . $this->i18n('sh_title'),
+                    $this->i18n($this->ssh('pgrep iodine', 'io') ? 'on' : 'off') . ' ' . $this->i18n('Iodine'),
                     $this->i18n($this->warpStatus()) . ' ' . $this->i18n('warp'),
                 ],
                 [
@@ -4413,6 +4527,7 @@ DNS-over-HTTPS with IP:
                     $this->i18n($c['tg'] ? 'on' : 'off') . ' ' . getenv('TGPORT'),
                     $this->i18n($c['ad'] ? 'on' : 'off') . ' 853',
                     $this->i18n($c['ss'] ? 'on' : 'off') . ' ' . getenv('SSPORT'),
+                    $this->i18n($c['io'] ? 'on' : 'off') . ' 53',
                     '',
                 ],
             ]);
@@ -4484,6 +4599,12 @@ DNS-over-HTTPS with IP:
                         [
                             'text'          => $this->i18n('pac'),
                             'callback_data' => "/pacMenu 0",
+                        ],
+                    ],
+                    [
+                        [
+                            'text'          => $this->i18n('Iodine'),
+                            'callback_data' => "/iodine",
                         ],
                     ],
                     [
@@ -6644,7 +6765,6 @@ DNS-over-HTTPS with IP:
                 }
                 break;
             case 'si':
-                $c['outbounds'][$index]['server'] = '~domain~';
                 $c['outbounds'][$index]['uuid']   = '~uid~';
                 if ($pac['transport'] != 'Reality') {
                     unset($c['outbounds'][$index]['tls']['reality']);
@@ -6726,6 +6846,9 @@ DNS-over-HTTPS with IP:
                         }
                     }
                     $c['route']['rules'] = array_values($c['route']['rules']);
+                }
+                if (empty($c['route'])) {
+                    unset($c['route']);
                 }
                 break;
             case 'cl':
@@ -6950,7 +7073,9 @@ DNS-over-HTTPS with IP:
                 }
             }
         }
-        $route['rules']    = array_values($route['rules']);
+        if (!empty($route['rules'])) {
+            $route['rules']    = array_values($route['rules']);
+        }
         $route['rule_set'] = array_merge($route['rule_set'] ?: [], $ruleset ?: []);
         if (empty($route['rule_set'])) {
             unset($route['rule_set']);
@@ -7544,6 +7669,10 @@ DNS-over-HTTPS with IP:
                 'text'          => $this->i18n($c['ss'] ? 'on' : 'off') . ' 8388 Shadowsocks',
                 'callback_data' => "/hidePort ss",
             ]],
+            [[
+                'text'          => $this->i18n($c['io'] ? 'on' : 'off') . ' 53 Iodine',
+                'callback_data' => "/hidePort io",
+            ]],
         ];
         if (!empty($pac['restart'])) {
             $data[] = [
@@ -7575,6 +7704,7 @@ DNS-over-HTTPS with IP:
             'tg'  => getenv('TGPORT') . ':' . getenv('TGPORT'),
             'ad'  => '853:853',
             'ss'  => '8388:8388',
+            'io'  => '53:53/udp',
         ];
         $f = '/docker/compose';
         $c = yaml_parse_file($f);
