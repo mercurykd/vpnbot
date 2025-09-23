@@ -1732,6 +1732,7 @@ class Bot
             'wg1' => $wg1,
             'ad'  => yaml_parse_file($this->adguard),
             'pac' => $this->getPacConf(),
+            'hwid' => file_exists($this->hwid) ? (json_decode(file_get_contents($this->hwid), true) ?: []) : [],
             'ssl' => file_exists('/certs/cert_private') && preg_match('~BEGIN PRIVATE KEY~', file_get_contents('/certs/cert_private')) ? [
                 'private' => file_get_contents('/certs/cert_private'),
                 'public'  => file_get_contents('/certs/cert_public'),
@@ -1847,6 +1848,17 @@ class Bot
                 file_put_contents('/config/mtprotosecret', $json['mtproto']);
                 file_put_contents('/config/mtprotodomain', $json['mtprotodomain'] ?: '');
                 $this->restartTG();
+            }
+            // hwid
+            if (array_key_exists('hwid', $json)) {
+                $out[] = 'update hwid devices';
+                $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
+                $dir = dirname($this->hwid);
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0777, true);
+                }
+                $data = is_array($json['hwid']) ? $json['hwid'] : [];
+                file_put_contents($this->hwid, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
             }
             // xray
             if (!empty($json['xray'])) {
