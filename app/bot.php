@@ -447,6 +447,9 @@ class Bot
             case preg_match('~^/download (\d+)$~', $this->input['callback'], $m):
                 $this->downloadPeer($m[1]);
                 break;
+            case preg_match('~^/dw (\w+) (\w+)$~', $this->input['callback'], $m):
+                $this->dw($m[1], $m[2]);
+                break;
             case preg_match('~^/deloc (\d+)$~', $this->input['callback'], $m):
                 $this->deloc($m[1]);
                 break;
@@ -1862,6 +1865,15 @@ class Bot
                 $this->menu();
             }
         }
+    }
+
+    public function dw($u, $t)
+    {
+        $c = $this->getXray()['inbounds'][0]['settings']['clients'][$u];
+        $_GET['s'] = $c['id'];
+        $_GET['t'] = $t;
+        $conf = $this->subscription(1);
+        $this->sendFile($this->input['from'], new CURLStringFile($conf, $c['email'] . ($t == 'cl' ? '_mihomo.yaml' :($t == 'si' ? '_singbox.json' : '_v2ray.json'))));
     }
 
     public function downloadPeer($client)
@@ -6477,6 +6489,20 @@ DNS-over-HTTPS with IP:
             [
                 'text'    => $this->i18n('mihomo'),
                 'web_app' => ['url' => "https://{$domain}/pac$hash?t=cl&s={$c['id']}"],
+            ],
+        ];
+        $data[] = [
+            [
+                'text'    => $this->i18n('v2ray ⬇️'),
+                'callback_data' => "/dw {$i} s",
+            ],
+            [
+                'text'    => $this->i18n('singbox ⬇️'),
+                'callback_data' => "/dw {$i} si",
+            ],
+            [
+                'text'    => $this->i18n('mihomo ⬇️'),
+                'callback_data' => "/dw {$i} cl",
             ],
         ];
         $data[] = [
