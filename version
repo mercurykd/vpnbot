@@ -3,6 +3,7 @@
 - обновлен adguardHome
 - добавлен iodine(dnstt)
 - добавлены кнопки скачивания vless-конфига
+- hwid для подписки orion от legiz
 19.07.2025 v2.25
 - перед запуском обязательно запустить:
 <pre>touch ./override.env ./docker-compose.override.yml ./config/location.conf ./config/override.conf</pre>
