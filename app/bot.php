@@ -1903,10 +1903,12 @@ class Bot
 
     public function dw($u, $t)
     {
-        $c = $this->getXray()['inbounds'][0]['settings']['clients'][$u];
-        $_GET['s'] = $c['id'];
-        $_GET['t'] = $t;
-        $conf = $this->subscription(1);
+        $pac                    = $this->getPacConf();
+        $c                      = $this->getXray()['inbounds'][0]['settings']['clients'][$u];
+        $_GET['s']              = $c['id'];
+        $_GET['t']              = $t;
+        $_SERVER['SERVER_NAME'] = $this->getDomain($pac['transport'] != 'Reality');
+        $conf                   = $this->subscription(1);
         $this->sendFile($this->input['from'], new CURLStringFile($conf, $c['email'] . ($t == 'cl' ? '_mihomo.yaml' :($t == 'si' ? '_singbox.json' : '_v2ray.json'))));
     }
 
