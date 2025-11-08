@@ -4662,7 +4662,7 @@ DNS-over-HTTPS with IP:
                     [
                         [
                             'text' => $this->i18n('chat'),
-                            'url'  => base64_decode('aHR0cHM6Ly90Lm1lLytXZnhnNi1ucm9rQmxNbVl5'),
+                            'url'  => base64_decode('aHR0cHM6Ly90Lm1lLytlcVV2X0RBNUdMRmxOVFZp'),
                         ],
                         [
                             'text' => $this->i18n('donate'),
