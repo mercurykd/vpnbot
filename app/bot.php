@@ -624,9 +624,6 @@ class Bot
             case preg_match('~^/templateAdd (\w+)$~', $this->input['callback'], $m):
                 $this->templateAdd($m[1]);
                 break;
-            case preg_match('~^/generateSecretXray$~', $this->input['callback'], $m):
-                $this->generateSecretXray();
-                break;
             case preg_match('~^/changeFakeDomain$~', $this->input['callback'], $m):
                 $this->changeFakeDomain();
                 break;
@@ -4664,7 +4661,7 @@ DNS-over-HTTPS with IP:
                     [
                         [
                             'text' => $this->i18n('chat'),
-                            'url'  => base64_decode('aHR0cHM6Ly90Lm1lLytlcVV2X0RBNUdMRmxOVFZp'),
+                            'url'  => base64_decode('aHR0cHM6Ly90Lm1lLys0RzMtUTRkX3ZGRXhPRGN5'),
                         ],
                         [
                             'text' => $this->i18n('donate'),
@@ -6284,9 +6281,6 @@ DNS-over-HTTPS with IP:
 
     public function xray($page = 0)
     {
-        if (!$this->ssh('pgrep xray', 'xr')) {
-            $this->generateSecretXray();
-        }
         $c      = $this->getXray();
         $p      = $this->getPacConf();
         $text[] = "Menu -> " . $this->i18n('xray');
@@ -7625,25 +7619,6 @@ DNS-over-HTTPS with IP:
         return json_decode(file_get_contents('/config/xray.json'), true);
     }
 
-    public function generateSecretXray()
-    {
-        $c       = $this->getXray();
-        $shortId = trim($this->ssh('openssl rand -hex 8', 'xr'));
-        $keys    = $this->ssh('xray x25519', 'xr');
-        preg_match('~^Private key:\s([^\s]+)~m', $keys, $m);
-        $private = trim($m[1]);
-        preg_match('~^Public key:\s([^\s]+)~m', $keys, $m);
-        $public = trim($m[1]);
-        $c['inbounds'][0]['streamSettings']['realitySettings']['privateKey'] = $private;
-        $c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0] = $shortId;
-        $pac         = $this->getPacConf();
-        $pac['xray'] = $public;
-        $pac['reality']['shortId'] = $shortId;
-        $pac['reality']['privateKey'] = $private;
-        $this->setPacConf($pac);
-        $this->restartXray($c);
-    }
-
     public function setUpstreamDomain($domain)
     {
         $nginx = file_get_contents('/config/upstream.conf');
@@ -8511,6 +8486,17 @@ DNS-over-HTTPS with IP:
         $p['reality']['domain']      = $p['reality']['domain'] ?: 'web.telegram.org';
         $p['reality']['destination'] = $p['reality']['destination'] ?: $p['reality']['domain'] . ':443';
         $p['transport']              = $ws ? 'Websocket' : 'Reality';
+        if (empty($p['xray'])) {
+            $shortId = trim($this->ssh('openssl rand -hex 8', 'xr'));
+            $keys    = $this->ssh('xray x25519', 'xr');
+            preg_match('~^PrivateKey:\s([^\s]+)~m', $keys, $m);
+            $private = trim($m[1]);
+            preg_match('~^Password:\s([^\s]+)~m', $keys, $m);
+            $public = trim($m[1]);
+            $p['xray'] = $public;
+            $p['reality']['shortId'] = $shortId;
+            $p['reality']['privateKey'] = $private;
+        }
         if (!empty($ws)) {
             $p['reality']['domain']      = $x['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0] ?: $p['reality']['domain'];
             $p['reality']['destination'] = $x['inbounds'][0]['streamSettings']['realitySettings']['dest'] ?: $p['reality']['destination'];
