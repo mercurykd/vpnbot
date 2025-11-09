@@ -1221,6 +1221,7 @@ class Bot
         foreach ($clients as $k => $v) {
             $this->ssh("echo '$pass' | ocpasswd -c /etc/ocserv/ocserv.passwd $v", 'oc');
         }
+        $this->restartOcserv(file_get_contents('/config/ocserv.conf'));
         $this->menu('oc');
     }
 
