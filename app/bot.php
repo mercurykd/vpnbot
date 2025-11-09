@@ -1124,7 +1124,10 @@ class Bot
     {
         file_put_contents('/config/ocserv.conf', $conf);
         $this->ssh('pkill ocserv', 'oc');
-        $this->ssh('ocserv -c /etc/ocserv/ocserv.conf', 'oc');
+        $pac = $this->getPacConf();
+        if (!empty($pac['ocserv'])) {
+            $this->ssh('ocserv -c /etc/ocserv/ocserv.conf', 'oc');
+        }
     }
 
     public function restartNaive()
@@ -1134,7 +1137,9 @@ class Bot
         $c = file_get_contents('/config/Caddyfile');
         $t = preg_replace('~^(\t+)?basic_auth[^\n]+~sm', '$1basic_auth ' . ($pac['naive']['user'] ?? '_') . ' ' . ($pac['naive']['pass'] ?? '__'), $c);
         file_put_contents('/config/Caddyfile', $t);
-        $this->ssh('caddy run -c /config/Caddyfile > /dev/null 2>&1 &', 'np', false);
+        if (!empty($pac['naive']['pass'])) {
+            $this->ssh('caddy run -c /config/Caddyfile > /dev/null 2>&1 &', 'np', false);
+        }
     }
 
     public function chocdns($dns)
