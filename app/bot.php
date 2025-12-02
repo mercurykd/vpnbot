@@ -149,8 +149,8 @@ class Bot
             case preg_match('~^/changeWG (\d+)$~', $this->input['callback'], $m):
                 $this->changeWG($m[1]);
                 break;
-            case preg_match('~^/changeTransport(?: (\d+))?$~', $this->input['callback'], $m):
-                $this->changeTransport($m[1] ?: false);
+            case preg_match('~^/changeTransport(?: (\w+))?$~', $this->input['callback'], $m):
+                $this->changeTransport($m[1] ?? false);
                 break;
             case preg_match('~^/mirror$~', $this->input['message'], $m):
                 $this->menu('mirror');
@@ -5829,10 +5829,26 @@ DNS-over-HTTPS with IP:
                 return "sing-box://import-remote-profile/?url={$si}#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
 
             default:
-                if ($pac['transport'] != 'Reality') {
-                    return "vless://{$c['inbounds'][0]['settings']['clients'][$i]['id']}@$domain:443?flow=&path=%2Fws$hash&security=tls&sni=$domain&fp=chrome&type=ws#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
-                }
-                return "vless://{$c['inbounds'][0]['settings']['clients'][$i]['id']}@$domain:443?security=reality&sni={$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}&fp=chrome&pbk={$pac['xray']}&sid={$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}&type=tcp&flow=xtls-rprx-vision#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
+                if ($pac['transport'] == 'Reality') {
+    return "vless://{$c['inbounds'][0]['settings']['clients'][$i]['id']}@$domain:443?security=reality&sni={$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}&fp=chrome&pbk={$pac['xray']}&sid={$c['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0]}&type=tcp&flow=xtls-rprx-vision#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
+}
+if ($pac['transport'] == 'xhttp') {
+    return "vless://{$c['inbounds'][0]['settings']['clients'][$i]['id']}@$domain:443"
+        . "?security=tls"
+        . "&type=xhttp"
+        . "&headerType="
+        . "&path=%2Fws$hash"
+        . "&host=$domain"
+        . "&flow="
+        . "&mode=packet-up"
+        . "&extra=%7B%22xmux%22%3A%7B%22cMaxReuseTimes%22%3A0%2C%22maxConcurrency%22%3A%2216-32%22%2C%22maxConnections%22%3A0%2C%22hKeepAlivePeriod%22%3A0%2C%22hMaxRequestTimes%22%3A%22600-900%22%2C%22hMaxReusableSecs%22%3A%221800-3000%22%7D%2C%22headers%22%3A%7B%7D%2C%22noGRPCHeader%22%3Afalse%2C%22xPaddingBytes%22%3A%22100-1000%22%2C%22scMaxEachPostBytes%22%3A1000000%2C%22scMinPostsIntervalMs%22%3A30%2C%22scStreamUpServerSecs%22%3A%2220-80%22%7D"
+        . "&sni=$domain"
+        . "&fp=chrome"
+        . "&alpn=h2"
+        . "#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
+}
+return "vless://{$c['inbounds'][0]['settings']['clients'][$i]['id']}@$domain:443?flow=&path=%2Fws$hash&security=tls&sni=$domain&fp=chrome&type=ws#{$c['inbounds'][0]['settings']['clients'][$i]['email']}";
+
         }
     }
 
@@ -6555,15 +6571,20 @@ DNS-over-HTTPS with IP:
             ],
         ];
         $data[] = [
-            [
-                'text'          => $this->i18n('Reality') . ' ' . ($p['transport'] == 'Reality' ? $this->i18n('on') : $this->i18n('off')),
-                'callback_data' => "/changeTransport",
-            ],
-            [
-                'text'          => $this->i18n('Websocket') . ' ' . ($p['transport'] != 'Reality' ? $this->i18n('on') : $this->i18n('off')),
-                'callback_data' => "/changeTransport 1",
-            ],
-        ];
+    [
+        'text'          => $this->i18n('Reality') . ' ' . ($p['transport'] == 'Reality' ? $this->i18n('on') : $this->i18n('off')),
+        'callback_data' => "/changeTransport",
+    ],
+    [
+        'text'          => $this->i18n('Websocket') . ' ' . ($p['transport'] == 'Websocket' ? $this->i18n('on') : $this->i18n('off')),
+        'callback_data' => "/changeTransport 1",
+    ],
+    [
+        'text'          => 'XHTTP ' . ($p['transport'] == 'xhttp' ? $this->i18n('on') : $this->i18n('off')),
+        'callback_data' => "/changeTransport xhttp",
+    ],
+];
+
         $ip_count      = $p['ip_count'] ?: 1;
         $hwidEnabled   = !empty($p['hwid_limit_enabled']);
         $defaultHwids  = max(1, (int) ($p['hwid_device_count'] ?: 1));
@@ -7499,82 +7520,198 @@ DNS-over-HTTPS with IP:
         switch ($_GET['t']) {
             case 's':
                 $c['outbounds'][$index]['settings']['vnext'][0]['address']  = '~domain~';
-                $c['outbounds'][$index]['settings']['vnext'][0]['users'][0] = [
-                    'id'         => '~uid~',
-                    'encryption' => 'none',
-                ];
-                $fingerprint = $c['outbounds'][$index]['streamSettings']['realitySettings']['fingerprint'] ?? $c['outbounds'][$index]['streamSettings']['tlsSettings']['fingerprint'] ?? 'chrome';
-                if ($pac['transport'] != 'Reality') {
-                    $c['outbounds'][$index]['streamSettings'] = [
-                        "network"    => "ws",
-                        "security"   => "tls",
-                        "wsSettings" => [
-                            "path" => "/ws$hash?ed=2560"
-                        ],
-                        "tlsSettings" => [
-                            "allowInsecure" => false,
-                            "serverName"    => '~domain~',
-                            "fingerprint"   => $fingerprint
-                        ]
-                    ];
-                    unset($c['outbounds'][$index]['mux']);
-                } else {
-                    $c['outbounds'][$index]['settings']['vnext'][0]['users'][0]["flow"] = "xtls-rprx-vision";
-                    $c['outbounds'][$index]['streamSettings']                           = [
-                        "network"         => "tcp",
-                        "security"        => "reality",
-                        "realitySettings" => [
-                            "serverName"  => '~server_name~',
-                            "fingerprint" => $fingerprint,
-                            "publicKey"   => '~public_key~',
-                            "shortId"     => '~short_id~',
-                        ]
-                    ];
-                    $c['outbounds'][$index]['mux'] = [
-                        "enabled"     => false,
-                        "concurrency" => -1
-                    ];
-                }
+$c['outbounds'][$index]['settings']['vnext'][0]['users'][0] = [
+    'id'         => '~uid~',
+    'encryption' => 'none',
+];
+$fingerprint = $c['outbounds'][$index]['streamSettings']['realitySettings']['fingerprint'] ?? $c['outbounds'][$index]['streamSettings']['tlsSettings']['fingerprint'] ?? 'chrome';
+if ($pac['transport'] == 'Reality') {
+    $c['outbounds'][$index]['settings']['vnext'][0]['users'][0]["flow"] = "xtls-rprx-vision";
+    $c['outbounds'][$index]['streamSettings']                           = [
+        "network"         => "tcp",
+        "security"        => "reality",
+        "realitySettings" => [
+            "serverName"  => '~server_name~',
+            "fingerprint" => $fingerprint,
+            "publicKey"   => '~public_key~',
+            "shortId"     => '~short_id~',
+        ]
+    ];
+    $c['outbounds'][$index]['mux'] = [
+        "enabled"     => false,
+        "concurrency" => -1
+    ];
+} elseif ($pac['transport'] == 'xhttp') {
+    $c['outbounds'][$index]['streamSettings'] = [
+        "network"  => "xhttp",
+        "security" => "tls",
+
+        "xhttpSettings" => [
+            "host" => "~domain~",
+            "mode" => "packet-up",
+            "path" => "/ws$hash",
+
+            "extra" => [
+                "scMaxEachPostBytes"    => 1000000,
+                "scMinPostsIntervalMs"  => 30,
+                "scStreamUpServerSecs"  => "20-80",
+                "xmux" => [
+                    "cMaxReuseTimes"    => 0,
+                    "hKeepAlivePeriod"  => 0,
+                    "hMaxRequestTimes"  => "600-900",
+                    "hMaxReusableSecs"  => "1800-3000",
+                    "maxConcurrency"    => "16-32",
+                    "maxConnections"    => 0,
+                ],
+                "xPaddingBytes" => "100-1000",
+                "noGRPCHeader"  => false
+            ]
+        ],
+
+        "tlsSettings" => [
+            "allowInsecure" => false,
+            "alpn"          => ["h2", "http/1.1"],
+            "fingerprint"   => "chrome",
+            "serverName"    => "~domain~",
+            "show"          => false
+        ]
+    ];
+    unset($c['outbounds'][$index]['mux']);
+} else {
+    $c['outbounds'][$index]['streamSettings'] = [
+        "network"    => "ws",
+        "security"   => "tls",
+        "wsSettings" => [
+            "path" => "/ws$hash?ed=2560"
+        ],
+        "tlsSettings" => [
+            "allowInsecure" => false,
+            "serverName"    => '~domain~',
+            "fingerprint"   => $fingerprint
+        ]
+    ];
+    unset($c['outbounds'][$index]['mux']);
+}
+
                 break;
             case 'si':
                 $c['outbounds'][$index]['uuid']   = '~uid~';
-                if ($pac['transport'] != 'Reality') {
-                    unset($c['outbounds'][$index]['tls']['reality']);
-                    unset($c['outbounds'][$index]['flow']);
-                    $c['outbounds'][$index]["transport"] = [
-                        "type" => "ws",
-                        "path" => "/ws$hash"
-                    ];
-                    $c['outbounds'][$index]['tls']['server_name'] = '~domain~';
-                } else {
+                if ($pac['transport'] == 'Reality') {
                     unset($c['outbounds'][$index]["transport"]);
                     $c['outbounds'][$index]['flow']                         = 'xtls-rprx-vision';
                     $c['outbounds'][$index]['tls']['reality']['public_key'] = '~public_key~';
                     $c['outbounds'][$index]['tls']['server_name']           = '~server_name~';
                     $c['outbounds'][$index]['tls']['reality']['short_id']   = '~short_id~';
-                }
+                } elseif ($pac['transport'] == 'xhttp') {
+                    unset($c['outbounds'][$index]['flow']);
+                    unset($c['outbounds'][$index]['tls']['reality']);
+
+                    $c['outbounds'][$index]["transport"] = [
+                        "type" => "xhttp",
+                        "host" => "~domain~",
+                        "mode" => "packet-up",
+                        "path" => "/ws$hash",  // ← путь WS + hash
+                        "xmux" => [
+                            "max_concurrency"   => "16-32",
+                            "max_connections"   => "0-1",
+                            "c_max_reuse_times" => "0-1",
+                            "h_max_request_times" => "600-900",
+                            "h_max_reusable_secs" => "1800-3000",
+                            "h_keep_alive_period" => 60
+                        ]
+                    ];
+
+                    $c['outbounds'][$index]['tls'] = [
+                        "enabled"     => true,
+                        "insecure"    => false,
+                        "server_name" => "~domain~",
+                        "alpn"        => ["h2"]
+                    ];
+                } else {
+    unset($c['outbounds'][$index]['tls']['reality']);
+    unset($c['outbounds'][$index]['flow']);
+    $c['outbounds'][$index]["transport"] = [
+        "type" => "ws",
+        "path" => "/ws$hash"
+    ];
+    $c['outbounds'][$index]['tls']['server_name'] = '~domain~';
+}
+
                 break;
             case 'cl':
                 $c['proxies'][$index]['server'] = '~domain~';
-                $c['proxies'][$index]['uuid']   = '~uid~';
-                if ($pac['transport'] != 'Reality') {
+$c['proxies'][$index]['uuid']   = '~uid~';
+if ($pac['transport'] == 'Reality') {
+    unset($c['proxies'][$index]["ws-opts"]);
+    unset($c['proxies'][$index]["skip-cert-verify"]);
+    $c['proxies'][$index]["network"]      = "tcp";
+    $c['proxies'][$index]['flow']         = 'xtls-rprx-vision';
+    $c['proxies'][$index]['servername']  = '~server_name~';
+    $c['proxies'][$index]['reality-opts'] = [
+        'public-key' => '~public_key~',
+        'short-id'   => '~short_id~',
+    ];
+                } elseif ($pac['transport'] == 'xhttp') {
+                    unset($c['proxies'][$index]['ws-opts']);
+                    unset($c['proxies'][$index]['flow']);
+                    unset($c['proxies'][$index]['reality-opts']);
+
+                    $c['proxies'][$index]['network']            = 'xhttp';
+                    $c['proxies'][$index]['client-fingerprint'] = 'chrome';
+                    $c['proxies'][$index]['tls']                = true;
+                    $c['proxies'][$index]['alpn']               = ['h2'];
+                    $c['proxies'][$index]['servername']         = '~domain~';
+                    $c['proxies'][$index]['skip-cert-verify']   = false;
+
+                    $c['proxies'][$index]['xhttp-opts'] = [
+                        'host'          => '~domain~',
+                        'path'          => "/ws$hash",   // путь как у ws + hash
+                        'mode'          => 'packet-up',
+                        'http-version'  => '2',
+
+                        'x-padding-bytes' => [
+                            'from' => 100,
+                            'to'   => 1000,
+                        ],
+                        'sc-max-each-post-bytes' => [
+                            'from' => 1000000,
+                            'to'   => 1000000,
+                        ],
+                        'sc-min-posts-interval-ms' => [
+                            'from' => 30,
+                            'to'   => 30,
+                        ],
+                        'sc-stream-up-server-secs' => [
+                            'from' => 25,
+                            'to'   => 60,
+                        ],
+                        'xmux' => [
+                            'max-concurrency' => [
+                                'from' => 8,
+                                'to'   => 16,
+                            ],
+                            'max-connections'     => 0,
+                            'h-keep-alive-period' => 15,
+                            'h-max-request-times' => [
+                                'from' => 100,
+                                'to'   => 200,
+                            ],
+                            'h-max-reusable-secs' => [
+                                'from' => 1800,
+                                'to'   => 3000,
+                            ],
+                        ],
+                    ];
+
+                } else {
                     unset($c['proxies'][$index]['flow']);
                     unset($c['proxies'][$index]['reality-opts']);
                     $c['proxies'][$index]["network"]          = "ws";
                     $c['proxies'][$index]["ws-opts"]['path']  = "/ws$hash";
                     $c['proxies'][$index]["skip-cert-verify"] = false;
                     $c['proxies'][$index]['servername']      = '~domain~';
-                } else {
-                    unset($c['proxies'][$index]["ws-opts"]);
-                    unset($c['proxies'][$index]["skip-cert-verify"]);
-                    $c['proxies'][$index]["network"]      = "tcp";
-                    $c['proxies'][$index]['flow']         = 'xtls-rprx-vision';
-                    $c['proxies'][$index]['servername']  = '~server_name~';
-                    $c['proxies'][$index]['reality-opts'] = [
-                        'public-key' => '~public_key~',
-                        'short-id'   => '~short_id~',
-                    ];
                 }
+
                 break;
         }
         $c = json_decode($this->replaceTags(json_encode($c), [
@@ -8005,6 +8142,10 @@ DNS-over-HTTPS with IP:
         $x = $this->getXray();
         if (!empty($x['inbounds'][0]['streamSettings']['wsSettings']['path'])) {
             $x['inbounds'][0]['streamSettings']['wsSettings']['path'] = "/ws$h";
+            $this->restartXray($x);
+        }
+        if (!empty($x['inbounds'][0]['streamSettings']['xhttpSettings']['path'])) {
+            $x['inbounds'][0]['streamSettings']['xhttpSettings']['path'] = "/ws$h";
             $this->restartXray($x);
         }
 
@@ -8797,38 +8938,63 @@ DNS-over-HTTPS with IP:
     }
 
     public function changeTransport($ws = null)
-    {
-        $p = $this->getPacConf();
-        $x = $this->getXray();
-        $h = $this->getHashBot();
-        $p['reality']['domain']      = $p['reality']['domain'] ?: 'web.telegram.org';
-        $p['reality']['destination'] = $p['reality']['destination'] ?: $p['reality']['domain'] . ':443';
-        $p['transport']              = $ws ? 'Websocket' : 'Reality';
-        if (empty($p['xray'])) {
-            $shortId = trim($this->ssh('openssl rand -hex 8', 'xr'));
-            $keys    = $this->ssh('xray x25519', 'xr');
-            preg_match('~^PrivateKey:\s([^\s]+)~m', $keys, $m);
-            $private = trim($m[1]);
-            preg_match('~^Password:\s([^\s]+)~m', $keys, $m);
-            $public = trim($m[1]);
-            $p['xray'] = $public;
-            $p['reality']['shortId'] = $shortId;
-            $p['reality']['privateKey'] = $private;
-        }
-        if (!empty($ws)) {
+{
+    $p = $this->getPacConf();
+    $x = $this->getXray();
+    $h = $this->getHashBot();
+    $p['reality']['domain']      = $p['reality']['domain'] ?: 'web.telegram.org';
+    $p['reality']['destination'] = $p['reality']['destination'] ?: $p['reality']['domain'] . ':443';
+
+    $transport = $ws === 'xhttp' ? 'xhttp' : (!empty($ws) ? 'Websocket' : 'Reality');
+    $p['transport'] = $transport;
+
+    if (empty($p['xray'])) {
+        $shortId = trim($this->ssh('openssl rand -hex 8', 'xr'));
+        $keys    = $this->ssh('xray x25519', 'xr');
+        preg_match('~^PrivateKey:\s([^\s]+)~m', $keys, $m);
+        $private = trim($m[1]);
+        preg_match('~^Password:\s([^\s]+)~m', $keys, $m);
+        $public = trim($m[1]);
+        $p['xray'] = $public;
+        $p['reality']['shortId']    = $shortId;
+        $p['reality']['privateKey'] = $private;
+    }
+
+    switch ($transport) {
+        case 'Websocket':
+        case 'xhttp':
             $p['reality']['domain']      = $x['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0] ?: $p['reality']['domain'];
             $p['reality']['destination'] = $x['inbounds'][0]['streamSettings']['realitySettings']['dest'] ?: $p['reality']['destination'];
             $p['reality']['shortId']     = $x['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0] ?: $p['reality']['shortId'];
             foreach ($x['inbounds'][0]['settings']['clients'] as $k => $v) {
                 unset($x['inbounds'][0]['settings']['clients'][$k]['flow']);
             }
-            $x['inbounds'][0]['streamSettings'] = [
-                "network"    => "ws",
-                "wsSettings" => [
-                    "path" => "/ws$h"
-                ]
-            ];
-        } else {
+            if ($transport == 'Websocket') {
+                $x['inbounds'][0]['streamSettings'] = [
+                    "network"    => "ws",
+                    "wsSettings" => [
+                        "path" => "/ws$h"
+                    ]
+                ];
+            } else {
+                $x['inbounds'][0]['streamSettings'] = [
+                    "network"       => "xhttp",
+                    "xhttpSettings" => [
+                        "mode"  => "auto",
+                        "path"  => "/ws$h",
+                        "extra" => [
+                            "noSSEHeader"          => true,
+                            "xPaddingBytes"        => "100-1000",
+                            "scMaxBufferedPosts"   => 30,
+                            "scMaxEachPostBytes"   => 1000000,
+                            "scStreamUpServerSecs" => "20-80"
+                        ]
+                    ]
+                ];
+            }
+            break;
+
+        default:
             foreach ($x['inbounds'][0]['settings']['clients'] as $k => $v) {
                 $x['inbounds'][0]['settings']['clients'][$k]['flow'] = 'xtls-rprx-vision';
             }
@@ -8855,14 +9021,19 @@ DNS-over-HTTPS with IP:
                 ],
                 "security" => "reality"
             ];
-        }
-        $this->setUpstreamDomain($ws ? 't' : ($p['reality']['domain'] ?: $x['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]));
-        $this->setPacConf($p);
-        $this->restartXray($x);
-        $this->xray();
+            break;
     }
 
-    public function setBackup($text)
+    $this->setUpstreamDomain($transport == 'Reality'
+        ? ($p['reality']['domain'] ?: $x['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0])
+        : 't'
+    );
+    $this->setPacConf($p);
+    $this->restartXray($x);
+    $this->xray();
+}
+
+public function setBackup($text)
     {
         $text = trim($text);
         $c    = $this->getPacConf();
