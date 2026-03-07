@@ -214,7 +214,7 @@ services:
             - dnstt
             - hy
     wg:
-        image: mercurykd/vpnbot-wg:1.1
+        image: mercurykd/vpnbot-wg:1.2
         build:
             dockerfile: dockerfile/wireguard.dockerfile
             args:
@@ -252,7 +252,7 @@ services:
                 ipv4_address: 10.10.0.4
         logging: *default-logging
     wg1:
-        image: mercurykd/vpnbot-wg:1.1
+        image: mercurykd/vpnbot-wg:1.2
         build:
             dockerfile: dockerfile/wireguard.dockerfile
             args:

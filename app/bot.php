@@ -461,9 +461,6 @@ class Bot
             case preg_match('~^/enterPage$~', $this->input['callback'], $m):
                 $this->enterPage();
                 break;
-            case preg_match('~^/geodb$~', $this->input['callback'], $m):
-                $this->geodb();
-                break;
             case preg_match('~^/adguardreset$~', $this->input['callback'], $m):
                 $this->adguardreset();
                 break;
@@ -520,6 +517,9 @@ class Bot
                 break;
             case preg_match('~^/switchAmnezia (-?\d+)$~', $this->input['callback'], $m):
                 $this->switchAmnezia($m[1]);
+                break;
+            case preg_match('~^/resetAmnezia (-?\d+)$~', $this->input['callback'], $m):
+                $this->resetAmnezia($m[1]);
                 break;
             case preg_match('~^/switchExchange (\d+)$~', $this->input['callback'], $m):
                 $this->switchExchange($m[1]);
@@ -2073,63 +2073,65 @@ class Bot
         $this->restartWG($this->createConfig($server));
     }
 
-    public function switchAmnezia($page = 0)
+    public function resetAmnezia($page = 0) {
+        $this->switchAmnezia($page, 1);
+    }
+
+    public function switchAmnezia($page = 0, $reset = false)
     {
         $c = $this->getPacConf();
-        $amnezia = $c[$this->getInstanceWG(1) . 'amnezia'] = $c[$this->getInstanceWG(1) . 'amnezia'] ? 0 : 1;
+        if (empty($reset)) {
+            $amnezia = $c[$this->getInstanceWG(1) . 'amnezia'] = $c[$this->getInstanceWG(1) . 'amnezia'] ? 0 : 1;
+        } else {
+            $amnezia = 1;
+            unset($c['amnezia_keys']);
+            unset($c['presharedkey']);
+        }
         $this->setPacConf($c);
 
         $pk = $this->presharedKey();
         $ak = $this->amneziaKeys();
         $clients = $this->readClients();
         foreach ($clients as $k => $v) {
+            unset($clients[$k]['peers'][0]['PresharedKey']);
+            unset($clients[$k]['interface']['Jc']);
+            unset($clients[$k]['interface']['Jmin']);
+            unset($clients[$k]['interface']['Jmax']);
+            unset($clients[$k]['interface']['S1']);
+            unset($clients[$k]['interface']['S2']);
+            unset($clients[$k]['interface']['S3']);
+            unset($clients[$k]['interface']['S4']);
+            unset($clients[$k]['interface']['H1']);
+            unset($clients[$k]['interface']['H2']);
+            unset($clients[$k]['interface']['H3']);
+            unset($clients[$k]['interface']['H4']);
+            unset($clients[$k]['interface']['I1']);
             if (!empty($amnezia)) {
                 $clients[$k]['peers'][0]['PresharedKey'] = $pk;
-                $clients[$k]['interface']['Jc']          = $ak['Jc'];
-                $clients[$k]['interface']['Jmin']        = $ak['Jmin'];
-                $clients[$k]['interface']['Jmax']        = $ak['Jmax'];
-                $clients[$k]['interface']['S1']          = $ak['S1'];
-                $clients[$k]['interface']['S2']          = $ak['S2'];
-                $clients[$k]['interface']['H1']          = $ak['H1'];
-                $clients[$k]['interface']['H2']          = $ak['H2'];
-                $clients[$k]['interface']['H3']          = $ak['H3'];
-                $clients[$k]['interface']['H4']          = $ak['H4'];
-            } else {
-                unset($clients[$k]['peers'][0]['PresharedKey']);
-                unset($clients[$k]['interface']['Jc']);
-                unset($clients[$k]['interface']['Jmin']);
-                unset($clients[$k]['interface']['Jmax']);
-                unset($clients[$k]['interface']['S1']);
-                unset($clients[$k]['interface']['S2']);
-                unset($clients[$k]['interface']['H1']);
-                unset($clients[$k]['interface']['H2']);
-                unset($clients[$k]['interface']['H3']);
-                unset($clients[$k]['interface']['H4']);
+                foreach ($ak as $j => $i) {
+                    $clients[$k]['interface'][$j] = $i;
+                }
             }
         }
         $this->saveClients($clients);
 
         $wg = $this->readConfig();
+        unset($wg['interface']['Jc']);
+        unset($wg['interface']['Jmin']);
+        unset($wg['interface']['Jmax']);
+        unset($wg['interface']['S1']);
+        unset($wg['interface']['S2']);
+        unset($wg['interface']['S3']);
+        unset($wg['interface']['S4']);
+        unset($wg['interface']['H1']);
+        unset($wg['interface']['H2']);
+        unset($wg['interface']['H3']);
+        unset($wg['interface']['H4']);
+        unset($wg['interface']['I1']);
         if (!empty($amnezia)) {
-            $wg['interface']['Jc']   = $ak['Jc'];
-            $wg['interface']['Jmin'] = $ak['Jmin'];
-            $wg['interface']['Jmax'] = $ak['Jmax'];
-            $wg['interface']['S1']   = $ak['S1'];
-            $wg['interface']['S2']   = $ak['S2'];
-            $wg['interface']['H1']   = $ak['H1'];
-            $wg['interface']['H2']   = $ak['H2'];
-            $wg['interface']['H3']   = $ak['H3'];
-            $wg['interface']['H4']   = $ak['H4'];
-        } else {
-            unset($wg['interface']['Jc']);
-            unset($wg['interface']['Jmin']);
-            unset($wg['interface']['Jmax']);
-            unset($wg['interface']['S1']);
-            unset($wg['interface']['S2']);
-            unset($wg['interface']['H1']);
-            unset($wg['interface']['H2']);
-            unset($wg['interface']['H3']);
-            unset($wg['interface']['H4']);
+            foreach ($ak as $j => $i) {
+                $wg['interface'][$j] = $i;
+            }
         }
 
         foreach ($wg['peers'] as $k => $v) {
@@ -3361,12 +3363,6 @@ DNS-over-HTTPS with IP:
         $data    = [
             [
                 [
-                    'text'          => $this->i18n($am ? 'on' : 'off') . " amnezia",
-                    'callback_data' => "/switchAmnezia $page",
-                ],
-            ],
-            [
-                [
                     'text'          => $this->i18n(!$bt ? 'on' : 'off') . " {$this->i18n('torrent')} ",
                     'callback_data' => "/switchTorrent $page",
                 ],
@@ -3402,6 +3398,20 @@ DNS-over-HTTPS with IP:
                 ],
             ],
         ];
+        if (!empty($am)) {
+            array_unshift($data, [
+                [
+                    'text'          => "reset obf-keys",
+                    'callback_data' => "/resetAmnezia $page",
+                ],
+            ]);
+        }
+        array_unshift($data, [
+            [
+                'text'          => $this->i18n($am ? 'on' : 'off') . " amnezia",
+                'callback_data' => "/switchAmnezia $page",
+            ],
+        ]);
         if ($clients) {
             $data = array_merge($data, $clients);
         }
@@ -3809,46 +3819,51 @@ DNS-over-HTTPS with IP:
 
     public function getAmneziaShortLink($client)
     {
-        $domain = $this->getDomain();
-        $dns = explode(',', $client['interface']['DNS']);
-        $c   = json_encode([
+        $domain  = $this->getDomain();
+        $pac     = $this->getPacConf();
+        $dnsRaw  = $client['interface']['DNS'] ?: $pac[$this->getInstanceWG(1) . 'dns'] ?: $this->dns;
+        $dns     = array_map('trim', explode(',', $dnsRaw));
+        $wgPort  = (int) getenv($this->getInstanceWG() == 'wg1' ? 'WG1PORT' : 'WGPORT');
+        $c   = [
             "containers" => [
                 [
                     "awg" => [
-                        "isThirdPartyConfig" => True,
-                        "last_config" => json_encode([
-                            "H1"              => "{$client['interface']['H1']}",
-                            "H2"              => "{$client['interface']['H2']}",
-                            "H3"              => "{$client['interface']['H3']}",
-                            "H4"              => "{$client['interface']['H4']}",
-                            "Jc"              => "{$client['interface']['Jc']}",
-                            "Jmax"            => "{$client['interface']['Jmax']}",
-                            "Jmin"            => "{$client['interface']['Jmin']}",
-                            "S1"              => "{$client['interface']['S1']}",
-                            "S2"              => "{$client['interface']['S2']}",
-                            "client_ip"       => explode('/', $client['interface']['Address'])[0],
-                            "client_priv_key" => $client['interface']['PrivateKey'],
-                            "client_pub_key"  => "0",
-                            "config"          => $this->createConfig($client),
-                            "hostName"        => $domain,
-                            "port"            => (int) getenv($this->getInstanceWG() == 'wg1' ? 'WG1PORT' : 'WGPORT'),
-                            "psk_key"         => $client['peers'][0]['PresharedKey'],
-                            "server_pub_key"  => $client['peers'][0]['PublicKey']
-                        ]),
-                        "port" => (int) getenv('WG1PORT'),
-                        "transport_proto" => "udp"
+                        "isThirdPartyConfig" => true,
+                        "last_config" => json_encode(array_merge(array_map('strval', $this->amneziaKeys()), [
+                            "protocol_version" => "2",
+                            "client_ip"        => $client['interface']['Address'],
+                            "client_priv_key"  => $client['interface']['PrivateKey'],
+                            "client_pub_key"   => "0",
+                            "config"           => $this->createConfig($client),
+                            "hostName"         => $domain,
+                            "port"             => $wgPort,
+                            "psk_key"          => $client['peers'][0]['PresharedKey'],
+                            "server_pub_key"   => $client['peers'][0]['PublicKey'],
+                            "allowed_ips"      => array_map('trim', explode(',', $client['peers'][0]['AllowedIPs'])),
+                            "persistent_keep_alive" => "25"
+                        ])),
+                        "port" => $wgPort,
+                        "transport_proto" => "udp",
+                        "protocol_version" => "2"
                     ],
-                    "container" => "amnezia-awg"
+                    "container" => "amnezia-awg2"
                 ]
             ],
-            "defaultContainer" => "amnezia-awg",
-            "description"      => $client['interface']['## name'],
-            "dns1"             => $dns[0],
-            "dns2"             => $dns[1] ?: '',
-            "hostName"         => $domain
-        ]);
-        exec("echo '$c' | python amnezia.py", $o);
-        return $o[0];
+            "defaultContainer"  => "amnezia-awg2",
+            "description"       => $client['interface']['## name'],
+            "dns1"              => $dns[0] ?? '',
+            "dns2"              => $dns[1] ?? '',
+            "hostName"          => $domain,
+            "isThirdPartyConfig" => true
+        ];
+        $json = json_encode($c);
+        $proc = proc_open('python amnezia.py', [0 => ['pipe', 'r'], 1 => ['pipe', 'w']], $pipes);
+        fwrite($pipes[0], $json);
+        fclose($pipes[0]);
+        $result = trim(stream_get_contents($pipes[1]));
+        fclose($pipes[1]);
+        proc_close($proc);
+        return $result;
     }
 
     public function getClient($client, $page)
@@ -3856,7 +3871,7 @@ DNS-over-HTTPS with IP:
         $clients = $this->readClients();
         if ($clients) {
             $name = $this->getName($clients[$client]['interface']);
-            $conf = $this->createConfig($clients[$client]);
+            $conf = htmlspecialchars($this->createConfig($clients[$client]));
             if ($this->getWGType() == 'awg') {
                 $sl = $this->getAmneziaShortLink($clients[$client]);
             }
@@ -8947,7 +8962,7 @@ DNS-over-HTTPS with IP:
         $this->update(
             $this->input['chat'],
             $this->input['message_id'],
-            implode("\n", $text ?: ['...']),
+            implode("\n", ['...']),
             $data ?: false,
         );
     }
@@ -9398,16 +9413,34 @@ DNS-over-HTTPS with IP:
     {
         $c = $this->getPacConf();
         if (empty($c[$this->getInstanceWG(1) . 'amnezia_keys'])) {
+            // S1 and S2: 0–64 bytes; constraint: S1 + 56 ≠ S2
+            $s1 = random_int(15, 64);
+            do {
+                $s2 = random_int(15, 64);
+            } while ($s1 + 56 === $s2);
+
+            // H1–H4: distinct 32-bit values (must not overlap)
+            $h = [];
+            while (count($h) < 4) {
+                $v = random_int(1, 4_294_967_295);
+                if (!in_array($v, $h)) {
+                    $h[] = $v;
+                }
+            }
+
             $c[$this->getInstanceWG(1) . 'amnezia_keys'] = [
-                'Jc'   => rand(3, 10),
-                'Jmin' => 50,
+                'Jc'   => random_int(3, 10),
+                'Jmin' => 64,
                 'Jmax' => 1000,
-                'S1'   => rand(15, 150),
-                'S2'   => rand(15, 150),
-                'H1'   => rand(1, 2_147_483_647),
-                'H2'   => rand(1, 2_147_483_647),
-                'H3'   => rand(1, 2_147_483_647),
-                'H4'   => rand(1, 2_147_483_647),
+                'S1'   => $s1,
+                'S2'   => $s2,
+                'S3'   => random_int(0, 64),
+                'S4'   => random_int(0, 32),
+                'H1'   => $h[0],
+                'H2'   => $h[1],
+                'H3'   => $h[2],
+                'H4'   => $h[3],
+                'I1'   => '<b 0xc000000001><r 100>',
             ];
             $this->setPacConf($c);
         }
