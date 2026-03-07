@@ -2084,8 +2084,8 @@ class Bot
             $amnezia = $c[$this->getInstanceWG(1) . 'amnezia'] = $c[$this->getInstanceWG(1) . 'amnezia'] ? 0 : 1;
         } else {
             $amnezia = 1;
-            unset($c['amnezia_keys']);
-            unset($c['presharedkey']);
+            unset($c[$this->getInstanceWG(1) . 'amnezia_keys']);
+            unset($c[$this->getInstanceWG(1) . 'presharedkey']);
         }
         $this->setPacConf($c);
 
