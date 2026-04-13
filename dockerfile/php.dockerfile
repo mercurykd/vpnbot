@@ -28,11 +28,12 @@ RUN apk add --no-cache --update php81 \
     && mv linux-amd64/dnslookup /usr/bin \
     && rm dnslookup-linux-amd64-v1.11.1.tar.gz \
     && rm -rf /linux-amd64 \
-    && wget https://github.com/SagerNet/sing-box/releases/download/v1.10.3/sing-box-1.10.3-linux-amd64.tar.gz \
-    && tar -xf sing-box-1.10.3-linux-amd64.tar.gz \
-    && mv sing-box-1.10.3-linux-amd64/sing-box /usr/bin \
-    && rm sing-box-1.10.3-linux-amd64.tar.gz \
-    && rm -rf /sing-box-1.10.3-linux-amd64 \
-    && wget https://github.com/MetaCubeX/mihomo/releases/download/v1.18.10/mihomo-linux-amd64-v1.18.10.gz \
-    && gunzip mihomo-linux-amd64-v1.18.10.gz \
-    && mv mihomo-linux-amd64-v1.18.10 /usr/bin/mihomo
+    && wget https://github.com/SagerNet/sing-box/releases/download/v1.12.15/sing-box-1.12.15-linux-amd64.tar.gz \
+    && tar -xf sing-box-1.12.15-linux-amd64.tar.gz \
+    && mv sing-box-1.12.15-linux-amd64/sing-box /usr/bin \
+    && rm sing-box-1.12.15-linux-amd64.tar.gz \
+    && rm -rf /sing-box-1.12.15-linux-amd64 \
+    && wget https://github.com/MetaCubeX/mihomo/releases/download/v1.19.12/mihomo-linux-amd64-v1.19.12.gz \
+    && gunzip mihomo-linux-amd64-v1.19.12.gz \
+    && mv mihomo-linux-amd64-v1.19.12 /usr/bin/mihomo \
+    && chmod +x /usr/bin/mihomo
