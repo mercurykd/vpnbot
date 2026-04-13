@@ -9235,7 +9235,7 @@ DNS-over-HTTPS with IP:
                         "serverNames"  => [
                             $p['reality']['domain'] ?: $x['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]
                         ],
-                        "shortIds" => [$p['reality']['shortId']] ?: $x['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
+                        "shortIds" => !empty($p['reality']['shortId']) ? [$p['reality']['shortId']] : $x['inbounds'][0]['streamSettings']['realitySettings']['shortIds'],
                         "show"     => false,
                         "xver"     => 0
                     ],
