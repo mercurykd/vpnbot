@@ -9191,7 +9191,7 @@ DNS-over-HTTPS with IP:
             $keys    = $this->ssh('xray x25519', 'xr');
             preg_match('~^PrivateKey:\s([^\s]+)~m', $keys, $m);
             $private = trim($m[1]);
-            preg_match('~^Password:\s([^\s]+)~m', $keys, $m);
+            preg_match('~^Password(?:\s*\(PublicKey\))?:\s([^\s]+)~m', $keys, $m);
             $public = trim($m[1]);
             $p['xray'] = $public;
             $p['reality']['shortId']    = $shortId;
