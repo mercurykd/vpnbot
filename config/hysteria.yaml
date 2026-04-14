@@ -7,3 +7,28 @@ tls:
 auth:
     type: password
     password:
+quic:
+  initStreamReceiveWindow: 8388608
+  maxStreamReceiveWindow: 8388608
+  initConnReceiveWindow: 20971520
+  maxConnReceiveWindow: 20971520
+  maxIdleTimeout: 30s
+  maxIncomingStreams: 1024
+  disablePathMTUDiscovery: false
+congestion:
+  type: bbr
+resolver:
+  type: tls
+  tls:
+    addr: 1.1.1.1:853
+    timeout: 10s
+    sni: cloudflare-dns.com
+    insecure: false
+disableUDP: false
+udpIdleTimeout: 60s
+speedTest: false
+masquerade:
+  type: proxy
+  proxy:
+    url: 
+    rewriteHost: true

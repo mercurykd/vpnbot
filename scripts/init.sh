@@ -12,7 +12,7 @@ apt install -y \
     xtables-addons-common \
     xtables-addons-dkms
 curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh
-git clone https://github.com/mercurykd/vpnbot.git
+git clone https://github.com/syntakt/vpnbot.git
 cd ./vpnbot
 git checkout $TAG
 echo "<?php
