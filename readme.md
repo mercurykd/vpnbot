@@ -16,7 +16,7 @@ environment: ubuntu 22.04/24.04, debian 11/12
 ## Install:
 
 ```shell
-wget -O- https://raw.githubusercontent.com/mercurykd/vpnbot/master/scripts/init.sh | sh -s YOUR_TELEGRAM_BOT_KEY master
+wget -O- https://raw.githubusercontent.com/syntakt/vpnbot/master/scripts/init.sh | sh -s YOUR_TELEGRAM_BOT_KEY master
 ```
 #### Restart:
 ```shell
