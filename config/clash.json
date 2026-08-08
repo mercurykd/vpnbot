@@ -10,7 +10,7 @@
     "unified-delay": false,
     "profile": {
         "store-selected": true,
-        "store-fake-ip": true
+        "store-fake-ip": false
     },
     "sniffer": {
         "enable": true,
@@ -50,15 +50,22 @@
         "enable": true,
         "prefer-h3": false,
         "ipv6": false,
-        "enhanced-mode": "fake-ip",
-        "fake-ip-filter": [
-            "~domain~",
-            "+.lan",
-            "+.local"
+        "enhanced-mode": "redir-host",
+        "default-nameserver": [
+            "8.8.8.8",
+            "1.1.1.1",
+            "9.9.9.9"
         ],
         "nameserver": [
             "~dns~"
-        ]
+        ],
+        "fallback": [
+            "https://8.8.8.8/dns-query",
+            "https://9.9.9.9/dns-query"
+        ],
+        "fallback-filter": {
+            "geoip": false
+        }
     },
     "proxies": [
         {
