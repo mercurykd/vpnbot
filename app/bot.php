@@ -7546,6 +7546,11 @@ DNS-over-HTTPS with IP:
         $defaultHwid  = max(1, (int) ($pac['hwid_device_count'] ?: 1));
         $hwidLimit    = $c['hwid_limit'] ? (int) $c['hwid_limit'] : $defaultHwid;
 
+        $ageUpdated = $this->ensureAgeKeys($i);
+        if ($ageUpdated) {
+            $c = $ageUpdated;
+        }
+
         $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['email']}\n";
         if (file_exists(__DIR__ . '/subscription.php')) {
             $text[] = "<a href='$scheme://{$domain}/pac$hash/sub?id={$c['id']}'>subscription</a>";
@@ -7579,6 +7584,16 @@ DNS-over-HTTPS with IP:
         $text[] = "\nxray config: <pre><code>$xr</code></pre>";
         $text[] = "sing-box config: <pre><code>$si</code></pre>";
         $text[] = "mihomo config: <pre><code>$cl</code></pre>";
+
+        if (!empty($c['age_secret_key'])) {
+            $cla = "$scheme://{$domain}/pac$hash/" . base64_encode(serialize([
+                'h' => $hash,
+                't' => 'cla',
+                's' => $c['id'],
+            ]));
+            $text[] = "mihomo config with secret: <pre><code>$cla</code></pre>";
+            $text[] = "AGE-SECRET-KEY: <pre><code>{$c['age_secret_key']}</code></pre>";
+        }
 
         $text[]   = "sing-box windows: <a href='$scheme://{$domain}/pac$hash?t=si&r=w&s={$c['id']}'>windows service</a>";
         $st       = $this->getXrayStats();
@@ -8403,6 +8418,120 @@ DNS-over-HTTPS with IP:
 
         header('Content-type: application/json');
         echo json_encode($c);
+    }
+
+    public function ensureAgeKeys(int $i): array|false
+    {
+        $xr     = $this->getXray();
+        $client = $xr['inbounds'][0]['settings']['clients'][$i];
+
+        if (!empty($client['age_public_key']) && !empty($client['age_secret_key'])) {
+            return $client;
+        }
+
+        exec('age-keygen 2>&1', $lines, $code);
+        if ($code !== 0) {
+            return false;
+        }
+
+        $secretKey = null;
+        $publicKey = null;
+        foreach ($lines as $line) {
+            if (strncmp($line, 'AGE-SECRET-KEY-', 15) === 0) {
+                $secretKey = trim($line);
+            } elseif (strncmp($line, '# public key: ', 14) === 0) {
+                $publicKey = trim(substr($line, 14));
+            }
+        }
+
+        if (!$secretKey || !$publicKey) {
+            return false;
+        }
+
+        $xr['inbounds'][0]['settings']['clients'][$i]['age_public_key'] = $publicKey;
+        $xr['inbounds'][0]['settings']['clients'][$i]['age_secret_key'] = $secretKey;
+        file_put_contents('/config/xray.json', json_encode($xr, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        return $xr['inbounds'][0]['settings']['clients'][$i];
+    }
+
+    public function subscriptionAge(): void
+    {
+        $xr = $this->getXray();
+
+        $flag        = true;
+        $clientIndex = null;
+        $client      = null;
+        foreach ($xr['inbounds'][0]['settings']['clients'] as $k => $v) {
+            if ($v['id'] === $_GET['s']) {
+                if (empty($v['off'])) {
+                    $flag = false;
+                }
+                $client      = $v;
+                $clientIndex = $k;
+                break;
+            }
+        }
+        if ($flag) {
+            header('500', true, 500);
+            exit;
+        }
+
+        if (!$this->processHwidRequest($client)) {
+            exit;
+        }
+
+        exec('which age 2>/dev/null', $tmp, $ageCode);
+        if ($ageCode !== 0) {
+            header('503', true, 503);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'age encryption is not available on this server';
+            exit;
+        }
+
+        if (empty($client['age_public_key']) || empty($client['age_secret_key'])) {
+            $client = $this->ensureAgeKeys($clientIndex);
+            if (!$client) {
+                header('503', true, 503);
+                header('Content-Type: text/plain; charset=utf-8');
+                echo 'failed to generate age encryption keys';
+                exit;
+            }
+        }
+
+        $_GET['t'] = 'cl';
+        unset($_GET['r']);
+        $yaml = $this->subscription(true);
+
+        $process = proc_open(
+            ['age', '--recipient', $client['age_public_key']],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes
+        );
+        if (!is_resource($process)) {
+            header('503', true, 503);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'encryption process failed to start';
+            exit;
+        }
+
+        fwrite($pipes[0], $yaml);
+        fclose($pipes[0]);
+        $encrypted = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        proc_close($process);
+
+        if (empty($encrypted)) {
+            header('503', true, 503);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'encryption produced no output';
+            exit;
+        }
+
+        header('Content-Type: application/octet-stream');
+        header("Content-Disposition: attachment; filename=\"{$client['email']}_mihomo.yaml.age\"");
+        echo $encrypted;
     }
 
     public function getAwgClient($pk)
