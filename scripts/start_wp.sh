@@ -1,10 +1,6 @@
 #!/bin/bash
 set -e
 
-cat /ssh/key.pub > /root/.ssh/authorized_keys
-ssh-keygen -A
-exec /usr/sbin/sshd -D -e "$@" &
-
 WGCF_DIR="/etc/warp"
 WGCF_CONF="$WGCF_DIR/wgcf-profile.conf"
 WGCF_TOML="$WGCF_DIR/wgcf-account.toml"
@@ -17,6 +13,7 @@ cd "$WGCF_DIR"
 
 if [ ! -f "$WGCF_CONF" ]; then
     echo "[warp] Registering WARP account..."
+    rm -f "$WGCF_TOML"
     wgcf register --accept-tos
     if [ -n "$WARP_LICENSE_KEY" ]; then
         echo "[warp] Applying license key..."

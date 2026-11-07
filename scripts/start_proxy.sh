@@ -1,6 +1,3 @@
-cat /ssh/key.pub > /root/.ssh/authorized_keys
-ssh-keygen -A
-exec /usr/sbin/sshd -D -e "$@" &
 sed -n "s/\"server_port\": \([0-9]\+\),/\1/p" /config.json > current_port
 CURRENT_PORT=$(cat current_port | tr -d " ")
 if [ "$CURRENT_PORT" -ne "443" ]

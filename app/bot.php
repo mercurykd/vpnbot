@@ -32,6 +32,7 @@ class Bot
     public $time_xray_stats;
     public $admin;
     public $ports;
+    public $containers = [];
 
     public function __construct($key, $i18n)
     {
@@ -360,7 +361,7 @@ class Bot
                 $this->logs();
                 break;
             case preg_match('~^/dnstt$~', $this->input['callback'] ?: $this->input['message'], $m):
-                $this->dnstt(!empty($this->input['callback']));
+                $this->dnstt();
                 break;
             case preg_match('~^/showdnstt$~', $this->input['callback'], $m):
                 $this->showdnstt();
@@ -803,10 +804,10 @@ class Bot
         $secret     = file_get_contents('/config/mtprotosecret');
         $fakedomain = file_get_contents('/config/mtprotodomain') ?: 'yandex.ru';
         $adtag      = trim(file_exists('/config/mtprotoadtag') ? file_get_contents('/config/mtprotoadtag') : '');
-        $this->ssh('pkill mtproto-proxy', 'tg');
+        $this->dockerExec('pkill mtproto-proxy', 'tg');
         if (preg_match('~^\w{32}$~', $secret)) {
             $proxyTag = $adtag ? " -P " . escapeshellarg($adtag) : '';
-            $this->ssh("mtproto-proxy --domain $fakedomain -u nobody -H 443 --nat-info 10.10.0.8:{$this->ip} -S $secret --aes-pwd /proxy-secret /proxy-multi.conf -M 1$proxyTag", 'tg', false, '/logs/mtproto');
+            $this->dockerExec("mtproto-proxy --domain $fakedomain -u nobody -H 443 --nat-info 10.10.0.8:{$this->ip} -S $secret --aes-pwd /proxy-secret /proxy-multi.conf -M 1$proxyTag", 'tg', false, '/logs/mtproto');
         }
     }
 
@@ -891,8 +892,8 @@ class Bot
         if (empty($norestart)) {
             $this->collectSession();
             file_put_contents('/config/xray.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-            $this->ssh('pkill xray', 'xr');
-            $this->ssh('xray run -config /xray.json > /dev/null 2>&1 &', 'xr');
+            $this->dockerExec('pkill xray', 'xr');
+            $this->dockerExec('xray run -config /xray.json', 'xr', false, '/logs/xray');
         } else {
             file_put_contents('/config/xray.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         }
@@ -931,7 +932,7 @@ class Bot
     {
         $d      = file_get_contents('/config/mtprotodomain') ?: 'yandex.ru';
         $adtag  = trim(file_exists('/config/mtprotoadtag') ? file_get_contents('/config/mtprotoadtag') : '');
-        $st     = $this->ssh('pgrep mtproto-proxy', 'tg') ? 'on' : 'off';
+        $st     = $this->dockerExecOut('pgrep mtproto-proxy', 'tg') ? 'on' : 'off';
         $text[] = "Menu -> MTProto\n";
         $text[] = "status: $st\n";
         $text[] = "fake domain: <code>$d</code>\n";
@@ -1257,34 +1258,34 @@ class Bot
     public function restartOcserv($conf)
     {
         file_put_contents('/config/ocserv.conf', $conf);
-        $this->ssh('pkill ocserv', 'oc');
+        $this->dockerExec('pkill ocserv', 'oc');
         $pac = $this->getPacConf();
         if (!empty($pac['ocserv']) && !empty($this->getHashSubdomain('oc'))) {
-            $this->ssh('ocserv -c /etc/ocserv/ocserv.conf', 'oc');
+            $this->dockerExec('ocserv -c /etc/ocserv/ocserv.conf', 'oc');
         }
     }
 
     public function restartNaive()
     {
         $pac = $this->getPacConf();
-        $this->ssh('pkill caddy', 'np');
+        $this->dockerExec('pkill caddy', 'np');
         $c = file_get_contents('/config/Caddyfile');
         $t = preg_replace('~^(\t+)?basic_auth[^\n]+~sm', '$1basic_auth ' . ($pac['naive']['user'] ?? '_') . ' ' . ($pac['naive']['pass'] ?? '__'), $c);
         file_put_contents('/config/Caddyfile', $t);
         if (!empty($pac['naive']['pass']) && !empty($this->getHashSubdomain('np'))) {
-            $this->ssh('caddy run -c /config/Caddyfile', 'np', false);
+            $this->dockerExec('caddy run -c /config/Caddyfile', 'np', false);
         }
     }
 
     public function restartHysteria()
     {
         $pac = $this->getPacConf();
-        $this->ssh('pkill hysteria', 'hy');
+        $this->dockerExec('pkill hysteria', 'hy');
         $c   = yaml_parse_file('/config/hysteria.yaml');
         $c['auth']['password'] = $pac['hysteria_pass'] ?? '';
         yaml_emit_file('/config/hysteria.yaml', $c);
         if (!empty($pac['hysteria_pass'])) {
-            $this->ssh('hysteria server -c /config/hysteria.yaml', 'hy', false, '/logs/hysteria');
+            $this->dockerExec('hysteria server -c /config/hysteria.yaml', 'hy', false, '/logs/hysteria');
         }
     }
 
@@ -1378,7 +1379,7 @@ class Bot
         $this->setPacConf($pac);
         $clients = $this->getClientsOc();
         foreach ($clients as $k => $v) {
-            $this->ssh("echo '$pass' | ocpasswd -c /etc/ocserv/ocserv.passwd $v", 'oc');
+            $this->dockerExec("echo '$pass' | ocpasswd -c /etc/ocserv/ocserv.passwd $v", 'oc');
         }
         $this->restartOcserv(file_get_contents('/config/ocserv.conf'));
         $this->menu('oc');
@@ -1386,15 +1387,15 @@ class Bot
 
     public function sspwdch($pass, $nomenu = false)
     {
-        $this->ssh('pkill sslocal', 'proxy');
-        $this->ssh('pkill ssserver', 'ss');
+        $this->dockerExec('pkill sslocal', 'proxy');
+        $this->dockerExec('pkill ssserver', 'ss');
         $c = $this->getSSConfig();
         $l = $this->getSSLocalConfig();
         $c['password'] = $l['password'] = $pass;
         file_put_contents('/config/ssserver.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         file_put_contents('/config/sslocal.json', json_encode($l, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        $this->ssh('ssserver -v -d -c /config.json', 'ss');
-        $this->ssh('sslocal -v -d -c /config.json', 'proxy');
+        $this->dockerExec('ssserver -v -d -c /config.json', 'ss');
+        $this->dockerExec('sslocal -v -d -c /config.json', 'proxy');
 
         if (empty($nomenu)) {
             $this->menu('ss');
@@ -1403,8 +1404,8 @@ class Bot
 
     public function v2ray()
     {
-        $this->ssh('pkill sslocal', 'proxy');
-        $this->ssh('pkill ssserver', 'ss');
+        $this->dockerExec('pkill sslocal', 'proxy');
+        $this->dockerExec('pkill ssserver', 'ss');
         $ssl = $this->nginxGetTypeCert();
         $c = $this->getSSConfig();
         $l = $this->getSSLocalConfig();
@@ -1428,8 +1429,8 @@ class Bot
         }
         file_put_contents('/config/ssserver.json', json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         file_put_contents('/config/sslocal.json', json_encode($l, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        $this->ssh('ssserver -v -d -c /config.json', 'ss');
-        $this->ssh('sslocal -v -d -c /config.json', 'proxy');
+        $this->dockerExec('ssserver -v -d -c /config.json', 'ss');
+        $this->dockerExec('sslocal -v -d -c /config.json', 'proxy');
         $this->menu('ss');
     }
 
@@ -1560,8 +1561,8 @@ class Bot
             $this->time_xray_stats = time();
             try {
                 $x  = $this->getXray();
-                $td = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "inbound>>>vless_tls>>>traffic>>>downlink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
-                $tu = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "inbound>>>vless_tls>>>traffic>>>uplink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
+                $td = json_decode($this->dockerExecOut('xray api stats --server=127.0.0.1:8080 -name "inbound>>>vless_tls>>>traffic>>>downlink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
+                $tu = json_decode($this->dockerExecOut('xray api stats --server=127.0.0.1:8080 -name "inbound>>>vless_tls>>>traffic>>>uplink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
                 $p  = $this->getXrayStats();
                 $p['session'] = [
                     'download' => $td,
@@ -1570,8 +1571,8 @@ class Bot
                 if (!empty($users = $x['inbounds'][0]['settings']['clients'])) {
                     $tmp = [];
                     foreach ($users as $k => $v) {
-                        $d = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "user>>>' . $v['email'] . '>>>traffic>>>downlink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
-                        $u = json_decode($this->ssh('xray api stats --server=127.0.0.1:8080 -name "user>>>' . $v['email'] . '>>>traffic>>>uplink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
+                        $d = json_decode($this->dockerExecOut('xray api stats --server=127.0.0.1:8080 -name "user>>>' . $v['email'] . '>>>traffic>>>downlink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
+                        $u = json_decode($this->dockerExecOut('xray api stats --server=127.0.0.1:8080 -name "user>>>' . $v['email'] . '>>>traffic>>>uplink" 2>&1', 'xr'), true)['stat']['value'] ?: 0;
                         $tmp[$k] = [
                             'session' => [
                                 'download' => $d,
@@ -2047,17 +2048,17 @@ class Bot
             if (!empty($json['ss'])) {
                 $out[] = 'update shadowsocks server';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $this->ssh('pkill ssserver', 'ss');
+                $this->dockerExec('pkill ssserver', 'ss');
                 file_put_contents('/config/ssserver.json', json_encode($json['ss'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-                $this->ssh('ssserver -v -d -c /config.json', 'ss');
+                $this->dockerExec('ssserver -v -d -c /config.json', 'ss');
             }
             // sl
             if (!empty($json['sl'])) {
                 $out[] = 'update shadowsocks proxy';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $this->ssh('pkill sslocal', 'proxy');
+                $this->dockerExec('pkill sslocal', 'proxy');
                 file_put_contents('/config/sslocal.json', json_encode($json['sl'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-                $this->ssh('sslocal -v -d -c /config.json', 'proxy');
+                $this->dockerExec('sslocal -v -d -c /config.json', 'proxy');
             }
             // mtproto
             if (!empty($json['mtproto'])) {
@@ -2290,12 +2291,12 @@ class Bot
     public function iptablesWG()
     {
         $c = $this->getPacConf();
-        $this->ssh('iptables -F', $this->getInstanceWG());
+        $this->dockerExec('iptables -F', $this->getInstanceWG());
         if ($c['exchange']) {
-            $this->ssh('bash /block_exchange.sh', $this->getInstanceWG());
+            $this->dockerExec('bash /block_exchange.sh', $this->getInstanceWG());
         }
         if ($c['blocktorrent']) {
-            $this->ssh('bash /block_torrent.sh', $this->getInstanceWG());
+            $this->dockerExec('bash /block_torrent.sh', $this->getInstanceWG());
         }
     }
     public function switchExchange($page)
@@ -2422,7 +2423,7 @@ class Bot
 
     public function proxy()
     {
-        $proxy = trim($this->ssh("getent hosts proxy | awk '{ print $1 }'"));
+        $proxy = trim($this->dockerExecOut("getent hosts proxy | awk '{ print $1 }'"));
         $this->createPeer("$proxy/32", 'proxy');
     }
 
@@ -3043,12 +3044,12 @@ DNS-over-HTTPS with IP:
 
     public function startAd()
     {
-        return $this->ssh('/opt/adguardhome/AdGuardHome --no-check-update --pidfile /opt/adguardhome/pid -c /config/AdGuardHome.yaml -h 0.0.0.0 -w /opt/adguardhome/work', 'ad', false);
+        return $this->dockerExecOut('/opt/adguardhome/AdGuardHome --no-check-update --pidfile /opt/adguardhome/pid -c /config/AdGuardHome.yaml -h 0.0.0.0 -w /opt/adguardhome/work', 'ad', false);
     }
 
     public function stopAd()
     {
-        return $this->ssh('kill -15 $(cat /opt/adguardhome/pid)', 'ad');
+        return $this->dockerExecOut('kill -15 $(cat /opt/adguardhome/pid)', 'ad');
     }
 
     public function selfsslInstall()
@@ -3912,7 +3913,7 @@ DNS-over-HTTPS with IP:
                 $this->setIps(implode(',', $this->getPacConf()['subnets']), $k, $page);
                 break;
             case 'proxy':
-                $this->setIps(trim($this->ssh("getent hosts proxy | awk '{ print $1 }'")) . '/32', $k, $page);
+                $this->setIps(trim($this->dockerExecOut("getent hosts proxy | awk '{ print $1 }'")) . '/32', $k, $page);
                 break;
         }
     }
@@ -5011,14 +5012,14 @@ DNS-over-HTTPS with IP:
     public function dnsttStart()
     {
         $c = $this->getPacConf();
-        $this->ssh('pkill dnstt', 'dnstt');
+        $this->dockerExec('pkill dnstt', 'dnstt');
         if (!empty($c['dnsttDomain']) && !empty($c['dnsttPassword'])) {
-            $this->ssh("adduser -D -s /bin/sh vpnbot", 'dnstt');
-            $this->ssh("echo 'vpnbot:{$c['dnsttPassword']}' | chpasswd", 'dnstt');
+            $this->dockerExec("adduser -D -s /bin/sh vpnbot", 'dnstt');
+            $this->dockerExec("echo 'vpnbot:{$c['dnsttPassword']}' | chpasswd", 'dnstt');
             if (!file_exists('/config/dnstt/server.key')) {
-                $this->ssh("dnstt-server -gen-key -privkey-file /dnstt/server.key -pubkey-file /dnstt/server.pub", 'dnstt');
+                $this->dockerExec("dnstt-server -gen-key -privkey-file /dnstt/server.key -pubkey-file /dnstt/server.pub", 'dnstt');
             }
-            $this->ssh("dnstt-server -udp :53 -privkey-file /dnstt/server.key {$c['dnsttDomain']} 127.0.0.1:22", 'dnstt' , false, '/logs/dnstt');
+            $this->dockerExec("dnstt-server -udp :53 -privkey-file /dnstt/server.key {$c['dnsttDomain']} 127.0.0.1:22", 'dnstt' , false, '/logs/dnstt');
         }
     }
 
@@ -5032,10 +5033,10 @@ DNS-over-HTTPS with IP:
         $c = $this->getPacConf();
         $c['showdnstt'] = empty($c['showdnstt']);
         $this->setPacConf($c);
-        $this->dnstt(1);
+        $this->dnstt();
     }
 
-    public function dnstt($update = false)
+    public function dnstt()
     {
         $c      = $this->getPacConf();
         $pubkey = file_get_contents('/config/dnstt/server.pub');
@@ -5073,7 +5074,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/menu",
             ],
         ];
-        if ($update) {
+        if (!empty($this->input['callback_id'])) {
             $this->update(
                 $this->input['chat'],
                 $this->input['message_id'],
@@ -5120,7 +5121,7 @@ DNS-over-HTTPS with IP:
                     $backup = "{$conf['backup']} - wrong format";
                 }
             }
-            $cron   = $this->dontshowcron ? '' : $this->i18n($this->ssh('pgrep -f cron.php', 'service') ? 'on' : 'off') . ' cron';
+            $cron   = $this->dontshowcron ? '' : $this->i18n($this->dockerExecOut('pgrep -f cron.php', 'service') ? 'on' : 'off') . ' cron';
             $main[] = 'v' . getenv('VER') . " $branch" . ($update ? ' (have updates)' : '');
 
             if (!empty($conf['domain'])) {
@@ -5156,16 +5157,16 @@ DNS-over-HTTPS with IP:
             $main[] = '<code>';
             $main[] = $this->alignColumns([
                 [
-                    $this->i18n($this->ssh(!empty($this->getPacConf()['amnezia']) ? 'awg' : 'wg', 'wg') ? 'on' : 'off') . ' ' . $this->i18n(!empty($this->getPacConf()['amnezia']) ? 'amnezia' : 'wg_title'),
-                    $this->i18n($this->ssh(!empty($this->getPacConf()['wg1_amnezia']) ? 'awg' : 'wg', 'wg1') ? 'on' : 'off') . ' ' . $this->i18n(!empty($this->getPacConf()['wg1_amnezia']) ? 'amnezia' : 'wg_title'),
-                    $this->i18n($this->ssh('pgrep xray', 'xr') ? 'on' : 'off') . ' ' . $this->i18n('xray'),
-                    $this->i18n($this->ssh('pgrep caddy', 'np') ? 'on' : 'off') . ' ' . $this->i18n('naive'),
-                    $this->i18n($this->ssh('pgrep ocserv', 'oc') ? 'on' : 'off') . ' ' . $this->i18n('ocserv'),
-                    $this->i18n($this->ssh('pgrep hysteria', 'hy') ? 'on' : 'off') . ' ' . $this->i18n('hysteria'),
-                    $this->i18n($this->ssh('pgrep mtproto-proxy', 'tg') ? 'on' : 'off') . ' ' . $this->i18n('mtproto'),
+                    $this->i18n($this->dockerExecOut(!empty($this->getPacConf()['amnezia']) ? 'awg' : 'wg', 'wg') ? 'on' : 'off') . ' ' . $this->i18n(!empty($this->getPacConf()['amnezia']) ? 'amnezia' : 'wg_title'),
+                    $this->i18n($this->dockerExecOut(!empty($this->getPacConf()['wg1_amnezia']) ? 'awg' : 'wg', 'wg1') ? 'on' : 'off') . ' ' . $this->i18n(!empty($this->getPacConf()['wg1_amnezia']) ? 'amnezia' : 'wg_title'),
+                    $this->i18n($this->dockerExecOut('pgrep xray', 'xr') ? 'on' : 'off') . ' ' . $this->i18n('xray'),
+                    $this->i18n($this->dockerExecOut('pgrep caddy', 'np') ? 'on' : 'off') . ' ' . $this->i18n('naive'),
+                    $this->i18n($this->dockerExecOut('pgrep ocserv', 'oc') ? 'on' : 'off') . ' ' . $this->i18n('ocserv'),
+                    $this->i18n($this->dockerExecOut('pgrep hysteria', 'hy') ? 'on' : 'off') . ' ' . $this->i18n('hysteria'),
+                    $this->i18n($this->dockerExecOut('pgrep mtproto-proxy', 'tg') ? 'on' : 'off') . ' ' . $this->i18n('mtproto'),
                     $this->i18n(exec("JSON=1 timeout 2 dnslookup google.com ad") ? 'on' : 'off') . ' ' . $this->i18n('ad_title'),
-                    $this->i18n($this->ssh('pgrep ssserver', 'ss') ? 'on' : 'off') . ' ' . $this->i18n('sh_title'),
-                    $this->i18n($this->ssh('pgrep dnstt', 'dnstt') ? 'on' : 'off') . ' ' . $this->i18n('dnstt'),
+                    $this->i18n($this->dockerExecOut('pgrep ssserver', 'ss') ? 'on' : 'off') . ' ' . $this->i18n('sh_title'),
+                    $this->i18n($this->dockerExecOut('pgrep dnstt', 'dnstt') ? 'on' : 'off') . ' ' . $this->i18n('dnstt'),
                     $this->i18n($this->warpStatus()) . ' ' . $this->i18n('warp'),
                 ],
                 [
@@ -6205,7 +6206,7 @@ DNS-over-HTTPS with IP:
         }
         $this->setPacConf($pac);
         file_put_contents('/config/deny', $text ?: '');
-        $this->ssh('nginx -s reload', 'up');
+        $this->dockerExec('nginx -s reload', 'up');
     }
 
     public function linkXray($i, $s = false)
@@ -6526,7 +6527,7 @@ DNS-over-HTTPS with IP:
         $clients = $this->getClientsOc();
         foreach ($clients as $k => $v) {
             if ($i == $k) {
-                $this->ssh("ocpasswd -c /etc/ocserv/ocserv.passwd -d $v", 'oc');
+                $this->dockerExec("ocpasswd -c /etc/ocserv/ocserv.passwd -d $v", 'oc');
                 break;
             }
         }
@@ -6560,7 +6561,7 @@ DNS-over-HTTPS with IP:
     public function addocus($user)
     {
         $pac = $this->getPacConf();
-        $this->ssh("echo '{$pac['ocserv']}' | ocpasswd -c /etc/ocserv/ocserv.passwd $user", 'oc');
+        $this->dockerExec("echo '{$pac['ocserv']}' | ocpasswd -c /etc/ocserv/ocserv.passwd $user", 'oc');
         $this->menu('oc');
     }
 
@@ -6575,7 +6576,7 @@ DNS-over-HTTPS with IP:
             $emails[] = $v['email'];
         }
         foreach ($users as $user) {
-            $uuid = $user[1] ?: trim($this->ssh('xray uuid', 'xr'));
+            $uuid = $user[1] ?: trim($this->dockerExecOut('xray uuid', 'xr'));
             if (in_array($uuid, $uuids ?: []) || in_array($user[0], $emails ?: [])) {
                 $this->send($this->input['chat'], "user {$user[0]} already exists");
                 return $this->xray();
@@ -6627,7 +6628,7 @@ DNS-over-HTTPS with IP:
         }
         if (empty($c['inbounds'][0]['settings']['clients'][$i]['off'])) {
             $c['inbounds'][0]['settings']['clients'][$i]['off'] = $c['inbounds'][0]['settings']['clients'][$i]['id'];
-            $c['inbounds'][0]['settings']['clients'][$i]['id']  = trim($this->ssh('xray uuid', 'xr'));
+            $c['inbounds'][0]['settings']['clients'][$i]['id']  = trim($this->dockerExecOut('xray uuid', 'xr'));
         } else {
             $c['inbounds'][0]['settings']['clients'][$i]['id'] = $c['inbounds'][0]['settings']['clients'][$i]['off'];
             unset($c['inbounds'][0]['settings']['clients'][$i]['off']);
@@ -7271,10 +7272,11 @@ DNS-over-HTTPS with IP:
         $step = function($label, $cmd, $container) use ($chat, &$log) {
             $log .= "$label...";
             $this->sendDraft($chat, 1, $log);
-            $out = trim($this->ssh($cmd, $container));
+            $res = $this->dockerExec($cmd, $container);
+            $out = trim($res['out'] . ($res['err'] ? "\n" . trim($res['err']) : ''));
             $log .= $out ? "\n$out\n" : " ok\n";
             $this->sendDraft($chat, 1, $log);
-            return empty($out); // true = success (no output = exit 0)
+            return $res['ok']; // true = exit code 0
         };
 
         if (!$step('stopping warp', 'wg-quick down /etc/warp/wgcf-profile.conf 2>/dev/null || true', 'wp')) {
@@ -7315,10 +7317,11 @@ DNS-over-HTTPS with IP:
             $this->send($chat, $log);
             return;
         }
-        $this->ssh("sed -i '/^Address.*:/d' /etc/warp/wgcf-profile.conf", 'wp');
-        $this->ssh("sed -i '/^AllowedIPs.*::/d' /etc/warp/wgcf-profile.conf", 'wp');
+        $this->dockerExec("sed -i '/^Address.*:/d' /etc/warp/wgcf-profile.conf", 'wp');
+        $this->dockerExec("sed -i '/^AllowedIPs.*::/d' /etc/warp/wgcf-profile.conf", 'wp');
 
-        $started = $step('starting warp', 'out=$(wg-quick up /etc/warp/wgcf-profile.conf 2>&1 | grep -v "skip sysctl"); ec=${PIPESTATUS[0]}; [ "$ec" -ne 0 ] && printf "%s" "$out"; exit $ec', 'wp');
+        // pipe через grep ломает $?, а PIPESTATUS в busybox ash нет, поэтому ловим код отдельно
+        $started = $step('starting warp', 'out=$(wg-quick up /etc/warp/wgcf-profile.conf 2>&1); ec=$?; printf "%s\n" "$out" | grep -v "skip sysctl"; exit $ec', 'wp');
 
         if (!$started) {
             $this->send($chat, $log);
@@ -7337,7 +7340,7 @@ DNS-over-HTTPS with IP:
 
     public function warpStatus()
     {
-        $st = $this->ssh('curl -m 1 -x socks5://wp:1080 https://cloudflare.com/cdn-cgi/trace', 'xr');
+        $st = $this->dockerExecOut('curl -m 1 -x socks5://wp:1080 https://cloudflare.com/cdn-cgi/trace', 'xr');
         preg_match('~warp=(\w+)~', $st, $m);
         return trim($m[1]) ?: 'off';
     }
@@ -7423,24 +7426,24 @@ DNS-over-HTTPS with IP:
         $p    = $this->getPacConf();
         if (!empty($this->selfupdate)) {
             if (!empty($p['warpoff'])) {
-                $this->ssh('warp-cli --accept-tos registration delete 2>&1', 'wp');
-                $this->ssh('pkill warp-svc', 'wp');
+                $this->dockerExec('warp-cli --accept-tos registration delete 2>&1', 'wp');
+                $this->dockerExec('pkill warp-svc', 'wp');
             }
         } elseif (!empty($p['warpoff'])) {
-            $this->ssh('warp-svc > /dev/null 2>&1 &', 'wp');
+            $this->dockerExec('warp-svc > /dev/null 2>&1 &', 'wp');
             sleep(3);
-            if (empty($this->ssh('[ -f "/var/lib/cloudflare-warp/conf.json" ] && echo 1', 'wp'))) {
-                $this->send($this->input['chat'], 'Registration: ' . $this->ssh('warp-cli --accept-tos registration new 2>&1', 'wp'));
+            if (empty($this->dockerExecOut('[ -f "/var/lib/cloudflare-warp/conf.json" ] && echo 1', 'wp'))) {
+                $this->send($this->input['chat'], 'Registration: ' . $this->dockerExecOut('warp-cli --accept-tos registration new 2>&1', 'wp'));
                 if (!empty($p['warp'])) {
-                    $this->send($this->input['chat'], 'License: ' . $this->ssh("warp-cli --accept-tos registration license {$p['warp']} 2>&1", 'wp'));
+                    $this->send($this->input['chat'], 'License: ' . $this->dockerExecOut("warp-cli --accept-tos registration license {$p['warp']} 2>&1", 'wp'));
                 }
             }
-            $this->send($this->input['chat'], 'Proxy mode: ' . $this->ssh('warp-cli --accept-tos mode proxy 2>&1', 'wp'));
-            $this->send($this->input['chat'], 'Connect: ' . $this->ssh('warp-cli --accept-tos connect 2>&1', 'wp'));
+            $this->send($this->input['chat'], 'Proxy mode: ' . $this->dockerExecOut('warp-cli --accept-tos mode proxy 2>&1', 'wp'));
+            $this->send($this->input['chat'], 'Connect: ' . $this->dockerExecOut('warp-cli --accept-tos connect 2>&1', 'wp'));
             unset($p['warpoff']);
         } else {
-            $this->send($this->input['chat'], 'Registration delete: ' . $this->ssh('warp-cli --accept-tos registration delete 2>&1', 'wp'));
-            $this->ssh('pkill warp-svc', 'wp');
+            $this->send($this->input['chat'], 'Registration delete: ' . $this->dockerExecOut('warp-cli --accept-tos registration delete 2>&1', 'wp'));
+            $this->dockerExec('pkill warp-svc', 'wp');
             $p['warpoff'] = 1;
         }
         $this->setPacConf($p);
@@ -7455,7 +7458,7 @@ DNS-over-HTTPS with IP:
         $c      = file_get_contents('/etc/warp/wgcf-profile.conf');
         $a      = file_get_contents('/etc/warp/wgcf-account.toml');
         $text[] = "Menu -> " . $this->i18n('warp');
-        $text[] = "status: <pre>" . $this->ssh('wgcf trace', 'wp') . '</pre>';
+        $text[] = "status: <pre>" . $this->dockerExecOut('wgcf trace', 'wp') . '</pre>';
         $text[] = "key: <code>{$p['warp']}</code>";
         $text[] = "<pre>$a</pre>";
         $text[] = "<pre>$c</pre>";
@@ -8679,7 +8682,7 @@ DNS-over-HTTPS with IP:
         $nginx = file_get_contents('/config/upstream.conf');
         $t = preg_replace('~#domain.+#domain~s', "#domain\n$domain reality;\n#domain", $nginx);
         file_put_contents('/config/upstream.conf', $t);
-        $this->ssh("nginx -s reload 2>&1", 'up');
+        $this->dockerExec("nginx -s reload 2>&1", 'up');
     }
 
     public function setUpstreamDomainOcserv($domain)
@@ -8688,7 +8691,7 @@ DNS-over-HTTPS with IP:
         $nginx = file_get_contents('/config/upstream.conf');
         $t     = preg_replace('~#ocserv.+#ocserv~s', $domain ? "#ocserv\n" . ($sub ? '' : '#' ) . "$sub.$domain ocserv;\n#ocserv" : "#ocserv\n#$sub.\$domain ocserv;\n#ocserv", $nginx);
         file_put_contents('/config/upstream.conf', $t);
-        $this->ssh("nginx -s reload 2>&1", 'up');
+        $this->dockerExec("nginx -s reload 2>&1", 'up');
     }
 
     public function setUpstreamDomainNaive($domain)
@@ -8697,7 +8700,7 @@ DNS-over-HTTPS with IP:
         $nginx = file_get_contents('/config/upstream.conf');
         $t = preg_replace('~#naive.+#naive~s', $domain ? "#naive\n" . ($sub ? '' : '#' ) . "$sub.$domain naive;\n#naive" : "#naive\n#$sub.\$domain naive;\n#naive", $nginx);
         file_put_contents('/config/upstream.conf', $t);
-        $this->ssh("nginx -s reload 2>&1", 'up');
+        $this->dockerExec("nginx -s reload 2>&1", 'up');
     }
 
     public function getHashBot($notset = false)
@@ -8753,7 +8756,7 @@ DNS-over-HTTPS with IP:
             $this->restartXray($x);
         }
 
-        return $this->ssh('nginx -s reload', 'ng');
+        return $this->dockerExecOut('nginx -s reload', 'ng');
     }
 
     public function getHashSubdomain($subdomain)
@@ -9644,8 +9647,8 @@ DNS-over-HTTPS with IP:
         $p['reality']['shortId']     = $x['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0] ?? $p['reality']['shortId'];
 
         if (empty($p['xray'])) {
-            $shortId = trim($this->ssh('openssl rand -hex 8', 'xr'));
-            $keys    = $this->ssh('xray x25519', 'xr');
+            $shortId = trim($this->dockerExecOut('openssl rand -hex 8', 'xr'));
+            $keys    = $this->dockerExecOut('xray x25519', 'xr');
             preg_match('~^PrivateKey:\s([^\s]+)~m', $keys, $m);
             $private = trim($m[1]);
             preg_match('~^Password]\s(PublicKey):\s([^\s]+)~m', $keys, $m);
@@ -9796,7 +9799,7 @@ DNS-over-HTTPS with IP:
 
     public function readConfig()
     {
-        $r = $this->ssh('cat /etc/wireguard/wg0.conf', $this->getInstanceWG());
+        $r = $this->dockerExecOut('cat /etc/wireguard/wg0.conf', $this->getInstanceWG());
         $r = explode(PHP_EOL, $r);
         $r = array_filter($r);
         $i = 0;
@@ -9827,14 +9830,14 @@ DNS-over-HTTPS with IP:
 
     public function nginxGetTypeCert()
     {
-        $conf = $this->ssh('cat /etc/nginx/nginx.conf', 'ng');
+        $conf = $this->dockerExecOut('cat /etc/nginx/nginx.conf', 'ng');
         preg_match("/#~([^\s]+)/", $conf, $m);
         return $m[1];
     }
 
     public function readStatus()
     {
-        $r = $this->ssh($this->getWGType(), $this->getInstanceWG());
+        $r = $this->dockerExecOut($this->getWGType(), $this->getInstanceWG());
         $r = explode(PHP_EOL, $r);
         $r = array_filter($r);
         $i = 0;
@@ -9909,7 +9912,7 @@ DNS-over-HTTPS with IP:
     {
         $c = $this->getPacConf();
         if (empty($c[$this->getInstanceWG(1) . 'presharedkey'])) {
-            $c[$this->getInstanceWG(1) . 'presharedkey'] = trim($this->ssh("{$this->getWGType()} genpsk", $this->getInstanceWG()));
+            $c[$this->getInstanceWG(1) . 'presharedkey'] = trim($this->dockerExecOut("{$this->getWGType()} genpsk", $this->getInstanceWG()));
             $this->setPacConf($c);
         }
         return $c[$this->getInstanceWG(1) . 'presharedkey'];
@@ -9984,9 +9987,9 @@ DNS-over-HTTPS with IP:
                 break;
             }
         }
-        $public_server_key = trim($this->ssh("echo {$conf['interface']['PrivateKey']} | {$this->getWGType()} pubkey", $this->getInstanceWG()));
-        $private_peer_key  = trim($this->ssh("{$this->getWGType()} genkey", $this->getInstanceWG()));
-        $public_peer_key   = trim($this->ssh("echo $private_peer_key | {$this->getWGType()} pubkey", $this->getInstanceWG()));
+        $public_server_key = trim($this->dockerExecOut("echo {$conf['interface']['PrivateKey']} | {$this->getWGType()} pubkey", $this->getInstanceWG()));
+        $private_peer_key  = trim($this->dockerExecOut("{$this->getWGType()} genkey", $this->getInstanceWG()));
+        $public_peer_key   = trim($this->dockerExecOut("echo $private_peer_key | {$this->getWGType()} pubkey", $this->getInstanceWG()));
 
         $name = ($name ? "$name" : '') . time();
 
@@ -10064,9 +10067,9 @@ DNS-over-HTTPS with IP:
 
     public function restartWG($conf_str, $switch = false)
     {
-        $this->ssh("echo '$conf_str' > /etc/wireguard/wg0.conf", $this->getInstanceWG());
-        $this->ssh("{$this->getWGType((int) $switch)}-quick down wg0", $this->getInstanceWG());
-        $this->ssh("{$this->getWGType()}-quick up wg0", $this->getInstanceWG());
+        $this->dockerExec("echo '$conf_str' > /etc/wireguard/wg0.conf", $this->getInstanceWG());
+        $this->dockerExec("{$this->getWGType((int) $switch)}-quick down wg0", $this->getInstanceWG());
+        $this->dockerExec("{$this->getWGType()}-quick up wg0", $this->getInstanceWG());
         return true;
     }
 
@@ -10083,53 +10086,152 @@ DNS-over-HTTPS with IP:
         $this->send($this->input['chat'], "disconnect: \n" . var_export($args, true) . "\n", $this->input['message_id']);
     }
 
-    public function ssh($cmd, $service = 'wg', $wait = true, $log = '/dev/null')
+    // выполнение команды в контейнере через Docker API: ['out' => stdout, 'err' => stderr, 'code' => exit code, 'ok' => code === 0]
+    // если нужен только текст вывода — используйте dockerExecOut()
+    public function dockerExec($cmd, $service = 'wg', $wait = true, $log = '/dev/null')
     {
+        $data = [
+            'out'  => '',
+            'err'  => '',
+            'code' => null,
+            'ok'   => false,
+        ];
+
         try {
-            $c = ssh2_connect($service, 22);
-            if (empty($c)) {
-                throw new Exception("no connection to $service: \n$cmd\n" . var_export($c, true));
-            }
-            $a = ssh2_auth_pubkey_file($c, 'root', '/ssh/key.pub', '/ssh/key');
-            if (empty($a)) {
-                throw new Exception("auth fail: \n$cmd\n" . var_export($a, true));
+            $sock = '/var/run/docker.sock';
+
+            if (!file_exists($sock)) {
+                throw new Exception('docker socket not found');
             }
 
-            // Оборачиваем команду для выполнения в фоновом режиме
-            if (!$wait) {
-                // nohup запускает процесс независимо от SSH-сессии
-                // & переносит процесс в фон
-                // </dev/null >/dev/null 2>&1 перенаправляет все потоки ввода-вывода
-                $cmd = "nohup sh -c \"$cmd 2>&1 | tee -a $log >&3\" 3>/proc/1/fd/1 </dev/null &";
-            }
-
-
-            $s = ssh2_exec($c, $cmd);
-            if (empty($s)) {
-                throw new Exception("exec fail: \n$cmd\n" . var_export($s, true));
-            }
-
-            $data = "";
-            if ($wait) {
-                // Только для синхронных команд читаем вывод
-                stream_set_blocking($s, true);
-                while ($buf = fread($s, 4096)) {
-                    $data .= $buf;
+            $http = function ($url, $method = 'GET', $payload = null) use ($sock) {
+                $ch = curl_init();
+                $opts = [
+                    CURLOPT_URL              => "http://localhost{$url}",
+                    CURLOPT_CUSTOMREQUEST    => $method,
+                    CURLOPT_RETURNTRANSFER   => true,
+                    CURLOPT_UNIX_SOCKET_PATH => $sock,
+                    CURLOPT_CONNECTTIMEOUT   => 10,
+                    CURLOPT_TIMEOUT          => 3600,
+                ];
+                if (!is_null($payload)) {
+                    $opts[CURLOPT_POSTFIELDS] = is_string($payload) ? $payload : json_encode($payload);
+                    $opts[CURLOPT_HTTPHEADER] = ['Content-Type: application/json'];
                 }
-            } else {
-                // Для фоновых команд просто даем время запуститься
-                stream_set_blocking($s, false);
-                usleep(100000); // 100ms для запуска процесса
+                curl_setopt_array($ch, $opts);
+                $res = curl_exec($ch);
+                $err = curl_error($ch);
+                $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($res === false) {
+                    throw new Exception("docker api error: {$err}");
+                }
+                if ($code >= 400) {
+                    throw new Exception("docker api http {$code}: {$url}");
+                }
+
+                return (string) $res;
+            };
+
+            $containerId = $this->getContainerId($service, $http);
+            $runCmd      = $cmd;
+
+            if (!$wait) {
+                // detached exec: процесс живёт без нас, вывод дублируем в лог и в логи контейнера
+                $runCmd .= ' 2>&1 | tee -a ' . escapeshellarg($log) . ' >/proc/1/fd/1';
             }
 
-            fclose($s);
-            ssh2_disconnect($c);
-        } catch (Exception | Error $e) {
-            if (!empty($GLOBALS['debug'])) {
-                $this->send($this->input['chat'], $e->getMessage(), $this->input['message_id']);
+            $exec = json_decode($http("/containers/{$containerId}/exec", 'POST', [
+                'AttachStdin'  => false,
+                'AttachStdout' => true,
+                'AttachStderr' => true,
+                'Tty'          => false,
+                'Cmd'          => ['sh', '-c', $runCmd],
+            ]), true) ?: [];
+
+            if (empty($exec['Id'])) {
+                throw new Exception("docker exec create fail for {$service}");
             }
+
+            $raw = $http("/exec/{$exec['Id']}/start", 'POST', [
+                'Detach' => !$wait,
+                'Tty'    => false,
+            ]);
+
+            if ($wait) {
+                // Docker stream format: 8 байт заголовка (1 байт типа, 3 байта паддинга, 4 байта длины BE) + данные
+                $offset = 0;
+                $len    = strlen($raw);
+                while ($offset + 8 <= $len) {
+                    $type   = ord($raw[$offset]);
+                    $size   = unpack('N', substr($raw, $offset + 4, 4))[1];
+                    $chunk  = substr($raw, $offset + 8, $size);
+                    $offset += 8 + $size;
+
+                    if ($type === 2) {
+                        $data['err'] .= $chunk;
+                    } else {
+                        $data['out'] .= $chunk;
+                    }
+                }
+            }
+
+            $inspect      = json_decode($http("/exec/{$exec['Id']}/json"), true) ?: [];
+            $data['code'] = empty($inspect['Running']) ? ($inspect['ExitCode'] ?? null) : null;
+            $data['ok']   = $data['code'] === 0;
+        } catch (Exception | Error $e) {
+            $this->containers = []; // контейнер мог быть пересоздан — перечитаем id в следующий раз
+            $this->dockerExecError($service, $cmd, $e->getMessage());
         }
+
         return $data;
+    }
+
+    // то же самое, но возвращает только stdout — для мест, где нужен текст команды
+    public function dockerExecOut($cmd, $service = 'wg', $wait = true, $log = '/dev/null')
+    {
+        return $this->dockerExec($cmd, $service, $wait, $log)['out'];
+    }
+
+    public function getContainerId($service, callable $http)
+    {
+        if (empty($this->containers[$service][1]) || $this->containers[$service][1] < time()) {
+            $filters     = rawurlencode(json_encode(['label' => ["com.docker.compose.service={$service}"]]));
+            $containers  = json_decode($http("/containers/json?filters={$filters}"), true) ?: [];
+            $workdir     = getenv('COMPOSE_WORKDIR');
+            $containerId = null;
+
+            foreach ($containers as $container) {
+                if (empty($container['Id'])) {
+                    continue;
+                }
+                // приоритет контейнеру своего compose-проекта, иначе берем первый найденный
+                if (!empty($workdir) && ($container['Labels']['com.docker.compose.project.working_dir'] ?? '') === $workdir) {
+                    $containerId = $container['Id'];
+                    break;
+                }
+                $containerId = $containerId ?: $container['Id'];
+            }
+
+            if (empty($containerId)) {
+                throw new Exception("container not found for service: {$service}" . ($workdir ? " (workdir: {$workdir})" : ''));
+            }
+
+            $this->containers[$service] = [$containerId, time() + 60];
+        }
+
+        return $this->containers[$service][0];
+    }
+
+    public function dockerExecError($service, $cmd, $message)
+    {
+        $message = '[' . date('Y-m-d H:i:s') . "] {$service}: {$message}\ncmd: {$cmd}";
+        error_log($message);
+        @file_put_contents('/logs/exec_error', $message . "\n\n", FILE_APPEND);
+        if (!empty($GLOBALS['debug']) && !empty($this->input['chat'])) {
+            $this->send($this->input['chat'], $message, $this->input['message_id']);
+        }
     }
 
     public function request($method, $data, $json_header = 0)

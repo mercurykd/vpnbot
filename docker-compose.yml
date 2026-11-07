@@ -31,8 +31,6 @@ services:
             - ./config/upstream.conf:/etc/nginx/nginx.conf
             - ./config/deny:/etc/nginx/deny
             - ./scripts/start_upstream.sh:/start_upstream.sh
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./logs/:/logs/
         ports:
             - 443:443/tcp
@@ -74,8 +72,6 @@ services:
             - ./config/nginx_default.conf:/nginx_default.conf
             - ./scripts/start_ng.sh:/start_ng.sh
             - ./certs/:/certs/
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./logs/:/logs/
             - ./app/webapp:/app
         ports:
@@ -122,7 +118,6 @@ services:
             - ./config/php.ini:/etc/php81/php.ini
             - ./config/:/config/
             - ./certs/:/certs/
-            - ./ssh:/ssh
             - ./app:/app
             - ./logs/:/logs/
             - ./scripts/start_php.sh:/start_php.sh
@@ -139,6 +134,7 @@ services:
         environment:
             IP: ${IP}
             VER: ${VER}
+            COMPOSE_WORKDIR: ${PWD}
         env_file:
             - path: ./.env
               required: true # default
@@ -172,7 +168,6 @@ services:
             - ./config/php.ini:/etc/php81/php.ini
             - ./config/:/config/
             - ./certs/:/certs/
-            - ./ssh:/ssh
             - ./app:/app
             - ./logs/:/logs/
             - ./version:/version
@@ -184,6 +179,7 @@ services:
         environment:
             IP: ${IP}
             VER: ${VER}
+            COMPOSE_WORKDIR: ${PWD}
         env_file:
             - path: ./.env
               required: true # default
@@ -228,8 +224,6 @@ services:
             - ./scripts/reset_wg.sh:/reset_wg.sh
             - ./scripts/block_torrent.sh:/block_torrent.sh
             - ./scripts/block_exchange.sh:/block_exchange.sh
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
         hostname: wireguard
         container_name: wireguard-${VER}
         depends_on:
@@ -266,8 +260,6 @@ services:
             - ./scripts/reset_wg.sh:/reset_wg.sh
             - ./scripts/block_torrent.sh:/block_torrent.sh
             - ./scripts/block_exchange.sh:/block_exchange.sh
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
         hostname: wireguard1
         container_name: wireguard1-${VER}
         depends_on:
@@ -301,8 +293,6 @@ services:
             - type: volume
               target: /opt/adguardhome/work
               source: adguard
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./config/:/config/
             - ./certs/:/certs/
             - ./logs/:/logs/
@@ -331,8 +321,6 @@ services:
             dockerfile: dockerfile/telegram.dockerfile
         volumes:
             - ./config/.profile:/root/.bashrc:ro
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./scripts/start_tg.sh:/start_tg.sh
             - ./config/mtprotosecret:/mtprotosecret
             - ./logs/:/logs/
@@ -362,8 +350,6 @@ services:
                 image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./config/xray.json:/xray.json
             - ./scripts/start_xray.sh:/start_xray.sh
             - ./logs:/logs
@@ -393,8 +379,6 @@ services:
                 image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./config:/etc/ocserv
             - ./certs:/certs
             - ./scripts/start_oc.sh:/start_oc.sh
@@ -426,8 +410,6 @@ services:
                 image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./config:/config
             - ./certs:/certs
             - ./scripts/start_np.sh:/start_np.sh
@@ -463,8 +445,6 @@ services:
             - /dev/net/tun:/dev/net/tun
         volumes:
             - ./config/.profile:/root/.ashrc:ro
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./config:/config
             - ./scripts/start_wp.sh:/start_wp.sh
             - warp:/etc/warp
@@ -494,8 +474,6 @@ services:
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - ./config/sslocal.json:/config.json
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./scripts/start_proxy.sh:/start_proxy.sh
         hostname: proxy
         container_name: proxy-${VER}
@@ -524,8 +502,6 @@ services:
         volumes:
             - ./config/.profile:/root/.ashrc:ro
             - ./config/ssserver.json:/config.json
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./scripts/start_ss.sh:/start_ss.sh
         hostname: shadowsocks
         container_name: shadowsocks-${VER}
@@ -551,7 +527,6 @@ services:
                 image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
-            - ./ssh:/ssh
             - ./logs:/logs
             - ./config/sshd_config:/etc/ssh/sshd_config
             - ./config/dnstt:/dnstt
@@ -580,8 +555,6 @@ services:
                 image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
-            - ./ssh:/ssh
-            - ./config/sshd_config:/etc/ssh/sshd_config
             - ./certs:/certs
             - ./logs:/logs
             - ./config:/config

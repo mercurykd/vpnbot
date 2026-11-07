@@ -2,10 +2,6 @@
 INTERFACE_VPN="tun0"
 TABLE_ID=100
 
-cat /ssh/key.pub > /root/.ssh/authorized_keys
-ssh-keygen -A
-exec /usr/sbin/sshd -D -e "$@" &
-
 INTERFACE=$(route | grep '^default' | grep -o '[^ ]*$')
 if [ $(cat /etc/wireguard/wg0.conf | wc -c) -eq 0 ]
 then
