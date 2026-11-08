@@ -1482,7 +1482,7 @@ class Bot
         ];
     }
 
-    public function importListFile($message = '', $type)
+    public function importListFile($message, $type)
     {
         $r = $this->request('getFile', ['file_id' => $this->input['file_id']]);
         $f = file_get_contents($this->file . $r['result']['file_path']);

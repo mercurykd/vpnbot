@@ -20,7 +20,7 @@ volumes:
 
 services:
     up:
-        image: mercurykd/vpnbot-ng:1.1
+        image: mercurykd/vpnbot-ng:1.2
         build:
             context: dockerfile
             dockerfile: nginx.dockerfile
@@ -58,7 +58,7 @@ services:
                 ipv4_address: 10.10.0.10
         logging: *default-logging
     ng:
-        image: mercurykd/vpnbot-ng:1.1
+        image: mercurykd/vpnbot-ng:1.2
         build:
             context: dockerfile
             dockerfile: nginx.dockerfile
@@ -106,7 +106,7 @@ services:
             timeout: 5s
             retries: 3
     php:
-        image: mercurykd/vpnbot-php:1.7
+        image: mercurykd/vpnbot-php:1.8
         build:
             dockerfile: dockerfile/php.dockerfile
             args:
@@ -115,7 +115,7 @@ services:
             - 127.0.0.1:8081:8080
         volumes:
             - ./config/.profile:/root/.ashrc:ro
-            - ./config/php.ini:/etc/php81/php.ini
+            - ./config/php.ini:/etc/php85/php.ini
             - ./config/:/config/
             - ./certs/:/certs/
             - ./app:/app
@@ -158,14 +158,14 @@ services:
             timeout: 5s
             retries: 5
     service:
-        image: mercurykd/vpnbot-php:1.7
+        image: mercurykd/vpnbot-php:1.8
         build:
             dockerfile: dockerfile/php.dockerfile
             args:
                 image: ${IMAGE}
         volumes:
             - ./config/.profile:/root/.ashrc:ro
-            - ./config/php.ini:/etc/php81/php.ini
+            - ./config/php.ini:/etc/php85/php.ini
             - ./config/:/config/
             - ./certs/:/certs/
             - ./app:/app
@@ -211,7 +211,7 @@ services:
             - dnstt
             - hy
     wg:
-        image: mercurykd/vpnbot-wg:1.5
+        image: mercurykd/vpnbot-wg:1.6
         build:
             dockerfile: dockerfile/wireguard.dockerfile
             args:
@@ -247,7 +247,7 @@ services:
                 ipv4_address: 10.10.0.4
         logging: *default-logging
     wg1:
-        image: mercurykd/vpnbot-wg:1.5
+        image: mercurykd/vpnbot-wg:1.6
         build:
             dockerfile: dockerfile/wireguard.dockerfile
             args:
@@ -343,7 +343,7 @@ services:
                 ipv4_address: 10.10.0.8
         logging: *default-logging
     xr:
-        image: mercurykd/vpnbot-xr:1.7
+        image: mercurykd/vpnbot-xr:1.8
         build:
             dockerfile: dockerfile/xray.dockerfile
             args:
@@ -372,7 +372,7 @@ services:
                 ipv4_address: 10.10.1.9
         logging: *default-logging
     oc:
-        image: mercurykd/vpnbot-oc:1.2
+        image: mercurykd/vpnbot-oc:1.3
         build:
             dockerfile: dockerfile/ocserv.dockerfile
             args:
@@ -403,7 +403,7 @@ services:
                 ipv4_address: 10.10.0.11
         logging: *default-logging
     np:
-        image: mercurykd/vpnbot-np:1.3
+        image: mercurykd/vpnbot-np:1.4
         build:
             dockerfile: dockerfile/naive.dockerfile
             args:
@@ -432,7 +432,7 @@ services:
                 ipv4_address: 10.10.0.12
         logging: *default-logging
     wp:
-        image: mercurykd/vpnbot-wg:1.5
+        image: mercurykd/vpnbot-wg:1.6
         build:
             dockerfile: dockerfile/wireguard.dockerfile
             args:
@@ -466,7 +466,7 @@ services:
                 ipv4_address: 10.10.0.13
         logging: *default-logging
     proxy:
-        image: mercurykd/vpnbot-ss:1.2
+        image: mercurykd/vpnbot-ss:1.3
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
             args:
@@ -494,7 +494,7 @@ services:
         command: ["/bin/sh", "/start_proxy.sh"]
         logging: *default-logging
     ss:
-        image: mercurykd/vpnbot-ss:1.2
+        image: mercurykd/vpnbot-ss:1.3
         build:
             dockerfile: dockerfile/shadowsocks.dockerfile
             args:
@@ -520,7 +520,7 @@ services:
                 ipv4_address: 10.10.0.6
         logging: *default-logging
     dnstt:
-        image: mercurykd/vpnbot-dnstt:1.0
+        image: mercurykd/vpnbot-dnstt:1.1
         build:
             dockerfile: dockerfile/dnstt.dockerfile
             args:

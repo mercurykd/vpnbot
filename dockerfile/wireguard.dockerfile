@@ -3,7 +3,7 @@ FROM $image
 COPY --from=golang:1.22.3-alpine /usr/local/go/ /usr/local/go/
 ENV PATH="/usr/local/go/bin:${PATH}"
 RUN apk add --no-cache --virtual .build-deps alpine-sdk git \
-    && apk add iproute2 linux-headers iptables xtables-addons openssh wireguard-tools jq bash htop \
+    && apk add iproute2 linux-headers iptables xtables-addons wireguard-tools jq bash htop \
     && git clone https://github.com/amnezia-vpn/amneziawg-go \
     && git clone https://github.com/amnezia-vpn/amneziawg-tools.git \
     && git clone https://github.com/rofl0r/microsocks \
@@ -17,7 +17,6 @@ RUN apk add --no-cache --virtual .build-deps alpine-sdk git \
     && rm -rf /amneziawg-go \
     && rm -rf /amneziawg-tools \
     && rm -rf /microsocks \
-    && mkdir /root/.ssh \
     && cd /tmp \
     && wget -O tun2socks.zip https://github.com/xjasonlyu/tun2socks/releases/download/v2.6.0/tun2socks-linux-amd64.zip \
     && unzip tun2socks.zip \

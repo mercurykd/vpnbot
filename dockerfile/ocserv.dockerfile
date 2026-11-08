@@ -1,6 +1,6 @@
 ARG image
 FROM $image
-RUN apk add --update openssh \
+RUN apk add --update \
     iptables \
     gnutls-dev \
     libev-dev \
@@ -22,11 +22,10 @@ RUN apk add --update openssh \
     gperf \
     protobuf-c-compiler \
     git \
-    && git clone https://gitlab.com/openconnect/ocserv.git \
+    && git clone --depth 1 --branch 1.3.0 https://gitlab.com/openconnect/ocserv.git \
     && cd /ocserv \
     && autoreconf -fvi \
     && ./configure \
     && make \
     && make install \
-    && apk del .build-deps \
-    && mkdir /root/.ssh
+    && apk del .build-deps

@@ -1,6 +1,5 @@
 ARG image
 FROM $image
-RUN apk add nginx-mod-stream openssh \
-    && mkdir /root/.ssh \
+RUN apk add nginx-mod-stream \
     && mkdir /var/cache/nginx
 ENV ENV="/root/.ashrc"

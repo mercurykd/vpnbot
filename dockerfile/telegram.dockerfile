@@ -21,12 +21,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libssl3 \
         zlib1g \
         curl \
-        openssh-client \
-        openssh-server \
         ca-certificates \
         vim-common \
-    && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /root/.ssh /var/run/sshd
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /src/objs/bin/mtproto-proxy /usr/local/bin/mtproto-proxy
 
