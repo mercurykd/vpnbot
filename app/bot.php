@@ -5467,7 +5467,7 @@ DNS-over-HTTPS with IP:
     {
         $pac     = $this->getPacConf();
         $enabled = !empty($pac['hwid_limit_enabled']);
-        $count   = max(1, (int) ($pac['hwid_device_count'] ?: 1));
+        $count   = max(1, (int) (($pac['hwid_device_count'] ?? 0) ?: 1));
 
         $text[] = 'Settings -> ' . $this->i18n('hwid limit');
         $text[] = $this->i18n('hwid notice');
@@ -5503,7 +5503,7 @@ DNS-over-HTTPS with IP:
     public function toggleHwidLimit($context = null)
     {
         $pac = $this->getPacConf();
-        $pac['hwid_limit_enabled'] = $pac['hwid_limit_enabled'] ? 0 : 1;
+        $pac['hwid_limit_enabled'] = !empty($pac['hwid_limit_enabled']) ? 0 : 1;
         if (!empty($pac['hwid_limit_enabled']) && empty($pac['hwid_device_count'])) {
             $pac['hwid_device_count'] = 1;
         }
@@ -5642,7 +5642,7 @@ DNS-over-HTTPS with IP:
             return true;
         }
 
-        $limit = (int) ($client['hwid_limit'] ?: ($pac['hwid_device_count'] ?: 0));
+        $limit = (int) (($client['hwid_limit'] ?? 0) ?: (($pac['hwid_device_count'] ?? 0) ?: 0));
         if ($limit <= 0) {
             return true;
         }
@@ -7628,8 +7628,8 @@ DNS-over-HTTPS with IP:
 
         $devices      = $this->getHwidDevicesByUser($c['id']);
         $hwidEnabled  = !empty($pac['hwid_limit_enabled']) && empty($c['hwid_disabled']);
-        $defaultHwid  = max(1, (int) ($pac['hwid_device_count'] ?: 1));
-        $hwidLimit    = $c['hwid_limit'] ? (int) $c['hwid_limit'] : $defaultHwid;
+        $defaultHwid  = max(1, (int) (($pac['hwid_device_count'] ?? 0) ?: 1));
+        $hwidLimit    = !empty($c['hwid_limit']) ? (int) $c['hwid_limit'] : $defaultHwid;
 
         $text[] = "Menu -> " . $this->i18n('xray') . " -> {$c['email']}\n";
         if (file_exists(__DIR__ . '/subscription.php')) {
@@ -7705,17 +7705,23 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
-                'text'          => $c['time'] ? "timer: " . $this->getTime($c['time']) : $this->i18n('timer'),
+                'text'          => !empty($c['time']) ? "timer: " . $this->getTime($c['time']) : $this->i18n('timer'),
                 'callback_data' => "/timerXr $i",
             ],
             [
-                'text'          => $this->i18n($c['off'] ? 'off' : 'on'),
+                'text'          => $this->i18n(!empty($c['off']) ? 'off' : 'on'),
                 'callback_data' => "/switchXr $i",
             ],
         ];
-        $singtemplate  = $c['singtemplate'] ? base64_decode($c['singtemplate']) : 'default(' . ($pac['defaultsingtemplate'] && !empty($pac['singtemplates'][base64_decode($pac['defaultsingtemplate'])]) ? base64_decode($pac['defaultsingtemplate']) : 'origin') . ')';
-        $v2raytemplate = $c['v2raytemplate'] ? base64_decode($c['v2raytemplate']) : 'default(' . ($pac['defaultv2raytemplate'] && !empty($pac['v2raytemplates'][base64_decode($pac['defaultv2raytemplate'])]) ? base64_decode($pac['defaultv2raytemplate']) : 'origin') . ')';
-        $clashtemplate = $c['clashtemplate'] ? base64_decode($c['clashtemplate']) : 'default(' . ($pac['defaultclashtemplate'] && !empty($pac['clashtemplates'][base64_decode($pac['defaultclashtemplate'])]) ? base64_decode($pac['defaultclashtemplate']) : 'origin') . ')';
+        $singtemplate  = !empty($c['singtemplate'])
+            ? base64_decode($c['singtemplate'])
+            : 'default(' . (!empty($pac['singtemplates'][base64_decode($pac['defaultsingtemplate'] ?? '')]) ? base64_decode($pac['defaultsingtemplate']) : 'origin') . ')';
+        $v2raytemplate = !empty($c['v2raytemplate'])
+            ? base64_decode($c['v2raytemplate'])
+            : 'default(' . (!empty($pac['v2raytemplates'][base64_decode($pac['defaultv2raytemplate'] ?? '')]) ? base64_decode($pac['defaultv2raytemplate']) : 'origin') . ')';
+        $clashtemplate = !empty($c['clashtemplate'])
+            ? base64_decode($c['clashtemplate'])
+            : 'default(' . (!empty($pac['clashtemplates'][base64_decode($pac['defaultclashtemplate'] ?? '')]) ? base64_decode($pac['defaultclashtemplate']) : 'origin') . ')';
         $data[]        = [
             [
                 'text'          => $this->i18n('v2ray') . ": $v2raytemplate",
@@ -7793,7 +7799,7 @@ DNS-over-HTTPS with IP:
         $pages        = max(1, (int) ceil($total / $perPage));
         $page         = min(max((int) $page, 0), $pages - 1);
         $hwidsPage    = array_slice($hwids, $page * $perPage, $perPage);
-        $defaultHwid  = max(1, (int) ($pac['hwid_device_count'] ?: 1));
+        $defaultHwid  = max(1, (int) (($pac['hwid_device_count'] ?? 0) ?: 1));
 
         $text[] = "Menu -> " . $this->i18n('xray') . " -> {$client['email']} -> " . $this->i18n('hwid devices');
         $text[] = $this->i18n('hwid notice');
@@ -7959,10 +7965,10 @@ DNS-over-HTTPS with IP:
     public function getDomain($cdn = false)
     {
         $c = $this->getPacConf();
-        if ($cdn && $c['linkdomain']) {
+        if ($cdn && !empty($c['linkdomain'])) {
             return $c['linkdomain'];
         }
-        return $c['domain'] ?: $this->ip;
+        return ($c['domain'] ?? '') ?: $this->ip;
     }
 
     public function sub()
@@ -8392,11 +8398,11 @@ DNS-over-HTTPS with IP:
             '~dnspath~'      => "/dns-query$hash/$uid",
             '~uid~'          => $uid,
             '~domain~'       => $domain,
-            '~directdomain~' => $pac['domain'],
-            '~cdndomain~'    => $pac['linkdomain'],
+            '~directdomain~' => $pac['domain'] ?? '',
+            '~cdndomain~'    => $pac['linkdomain'] ?? '',
             '~short_id~'     => $xr['inbounds'][0]['streamSettings']['realitySettings']['shortIds'][0],
             '~email~'        => $email,
-            '~public_key~'   => $pac['xray'],
+            '~public_key~'   => $pac['xray'] ?? '',
             '~server_name~'  => $xr['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0],
             '~ip~'           => $this->ip,
             '~outbound~'     => $outbound,
