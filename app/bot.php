@@ -259,7 +259,7 @@ class Bot
                 $this->ports();
                 break;
             case preg_match('~^/analysisIp(?:\s(\d+))?$~', $this->input['callback'], $m):
-                $this->analysisIp($m[1] ?: 0);
+                $this->analysisIp(($m[1] ?? 0) ?: 0);
                 break;
             case preg_match('~^/ipMenu$~', $this->input['callback'], $m):
                 $this->ipMenu();
@@ -632,19 +632,19 @@ class Bot
                 $this->warpPlus();
                 break;
             case preg_match('~^/xray(?: (\d+))?$~', $this->input['callback'], $m):
-                $this->xray($m[1] ?: 0);
+                $this->xray(($m[1] ?? 0) ?: 0);
                 break;
             case preg_match('~^/xtlsblock(?: (\d+))?$~', $this->input['callback'], $m):
-                $this->xtlsblock($m[1] ?: 0);
+                $this->xtlsblock(($m[1] ?? 0) ?: 0);
                 break;
             case preg_match('~^/routes(?: (\d+))?$~', $this->input['callback'], $m):
-                $this->routes($m[1] ?: 0);
+                $this->routes(($m[1] ?? 0) ?: 0);
                 break;
             case preg_match('~^/tun$~', $this->input['callback'], $m):
                 $this->tun();
                 break;
             case preg_match('~^/tunpackage(?: (\d+))?$~', $this->input['callback'], $m):
-                $this->tunpackage($m[1] ?: 0);
+                $this->tunpackage(($m[1] ?? 0) ?: 0);
                 break;
             case preg_match('~^/tunpackagemode$~', $this->input['callback'], $m):
                 $this->tunpackagemode();
@@ -653,25 +653,25 @@ class Bot
                 $this->tunprocessmode();
                 break;
             case preg_match('~^/tunprocess(?: (\d+))?$~', $this->input['callback'], $m):
-                $this->tunprocess($m[1] ?: 0);
+                $this->tunprocess(($m[1] ?? 0) ?: 0);
                 break;
             case preg_match('~^/xtlswarp(?: (\d+))?$~', $this->input['callback'], $m):
-                $this->xtlswarp($m[1] ?: 0);
+                $this->xtlswarp(($m[1] ?? 0) ?: 0);
                 break;
             case preg_match('~^/xtlsproxy(?: (\d+))?$~', $this->input['callback'], $m):
-                $this->xtlsproxy($m[1] ?: 0);
+                $this->xtlsproxy(($m[1] ?? 0) ?: 0);
                 break;
             case preg_match('~^/xtlsapp(?: (\d+))?$~', $this->input['callback'], $m):
-                $this->xtlsapp($m[1] ?: 0);
+                $this->xtlsapp(($m[1] ?? 0) ?: 0);
                 break;
             case preg_match('~^/xtlsprocess(?: (\d+))?$~', $this->input['callback'], $m):
-                $this->xtlsprocess($m[1] ?: 0);
+                $this->xtlsprocess(($m[1] ?? 0) ?: 0);
                 break;
             case preg_match('~^/xtlssubnet(?: (\d+))?$~', $this->input['callback'], $m):
-                $this->xtlssubnet($m[1] ?: 0);
+                $this->xtlssubnet(($m[1] ?? 0) ?: 0);
                 break;
             case preg_match('~^/xtlsrulesset(?: (\d+))?$~', $this->input['callback'], $m):
-                $this->xtlsrulesset($m[1] ?: 0);
+                $this->xtlsrulesset(($m[1] ?? 0) ?: 0);
                 break;
             case preg_match('~^/templateCopy (\w+)(?: (.+))?$~', $this->input['callback'], $m):
                 $this->templateCopy($m[1], $m[2]);
@@ -958,17 +958,17 @@ class Bot
     public function collectSession() {
         $p = $this->getXrayStats();
         $p['global'] = [
-            'download' => $p['global']['download'] + $p['session']['download'],
-            'upload'   => $p['global']['upload'] + $p['session']['upload'],
+            'download' => ($p['global']['download'] ?? 0) + ($p['session']['download'] ?? 0),
+            'upload'   => ($p['global']['upload'] ?? 0) + ($p['session']['upload'] ?? 0),
         ];
         $p['session'] = [
             'download' => 0,
             'upload'   => 0,
         ];
-        foreach ($p['users'] as $k => $v) {
-            $p['users'][$k]['global']['download']  += $v['session']['download'];
+        foreach (($p['users'] ?? []) as $k => $v) {
+            $p['users'][$k]['global']['download']  += $v['session']['download'] ?? 0;
             $p['users'][$k]['session']['download']  = 0;
-            $p['users'][$k]['global']['upload']    += $v['session']['upload'];
+            $p['users'][$k]['global']['upload']    += $v['session']['upload'] ?? 0;
             $p['users'][$k]['session']['upload']    = 0;
         }
         $this->setXrayStats($p);
@@ -2062,6 +2062,8 @@ class Bot
 
     public function importFile($file = false)
     {
+        $switch_amnezia    = 0;
+        $switch_wg1amnezia = 0;
         if (!empty($file)) {
             $json = json_decode(file_get_contents($file), true);
         } else {
@@ -2082,10 +2084,10 @@ class Bot
             if (!empty($json['pac'])) {
                 $out[] = 'update pac';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                if ($this->getPacConf()['amnezia'] != $json['pac']['amnezia']) {
+                if (!empty($this->getPacConf()['amnezia']) != !empty($json['pac']['amnezia'])) {
                     $switch_amnezia = 1;
                 }
-                if ($this->getPacConf()['wg1_amnezia'] != $json['pac']['wg1_amnezia']) {
+                if (!empty($this->getPacConf()['wg1_amnezia']) != !empty($json['pac']['wg1_amnezia'])) {
                     $switch_wg1amnezia = 1;
                 }
                 $this->setPacConf($json['pac']);
@@ -2370,10 +2372,10 @@ class Bot
     {
         $c = $this->getPacConf();
         $this->dockerExec('iptables -F', $this->getInstanceWG());
-        if ($c['exchange']) {
+        if (!empty($c['exchange'])) {
             $this->dockerExec('bash /block_exchange.sh', $this->getInstanceWG());
         }
-        if ($c['blocktorrent']) {
+        if (!empty($c['blocktorrent'])) {
             $this->dockerExec('bash /block_torrent.sh', $this->getInstanceWG());
         }
     }
@@ -5187,8 +5189,9 @@ DNS-over-HTTPS with IP:
     public function menu($type = false, $arg = false, $return = false)
     {
         $conf   = $this->getPacConf();
-        $domain = $conf['domain'] ?: $this->ip;
+        $domain = ($conf['domain'] ?? '') ?: $this->ip;
         $hash   = $this->getHashBot();
+        $main   = [];
         if ($type == false) {
             $update = exec('git -C / rev-list --count HEAD..@{u}');
             $branch = exec('git -C / rev-parse --abbrev-ref HEAD');
@@ -7052,10 +7055,10 @@ DNS-over-HTTPS with IP:
         if (!empty($c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0])) {
             $text[] = "fake domain: <code>{$c['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]}</code>";
         }
-        $text[] = 'transport: ' . ($p['transport'] ?: 'Websocket');
+        $text[] = 'transport: ' . (($p['transport'] ?? '') ?: 'Websocket');
         $st = $this->getXrayStats();
-        $td = $this->getBytes($st['global']['download'] + $st['session']['download']);
-        $tu = $this->getBytes($st['global']['upload'] + $st['session']['upload']);
+        $td = $this->getBytes(($st['global']['download'] ?? 0) + ($st['session']['download'] ?? 0));
+        $tu = $this->getBytes(($st['global']['upload'] ?? 0) + ($st['session']['upload'] ?? 0));
         $text[] = "↓$td  ↑$tu";
         $data[] = [
             [
@@ -7081,22 +7084,22 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
-                'text'          => $this->i18n('RLTY') . ' ' . ($p['transport'] == 'Reality' ? $this->i18n('on') : $this->i18n('off')),
+                'text'          => $this->i18n('RLTY') . ' ' . (($p['transport'] ?? '') == 'Reality' ? $this->i18n('on') : $this->i18n('off')),
                 'callback_data' => "/changeTransport Reality",
             ],
             [
-                'text'          => $this->i18n('WS') . ' ' . ($p['transport'] == 'Websocket' ? $this->i18n('on') : $this->i18n('off')),
+                'text'          => $this->i18n('WS') . ' ' . (($p['transport'] ?? '') == 'Websocket' ? $this->i18n('on') : $this->i18n('off')),
                 'callback_data' => "/changeTransport Websocket",
             ],
             [
-                'text'          => $this->i18n('XHTTP') . ($p['transport'] == 'xhttp' ? $this->i18n('on') : $this->i18n('off')),
+                'text'          => $this->i18n('XHTTP') . (($p['transport'] ?? '') == 'xhttp' ? $this->i18n('on') : $this->i18n('off')),
                 'callback_data' => "/changeTransport xhttp",
             ],
         ];
 
-        $ip_count      = $p['ip_count'] ?: 1;
+        $ip_count      = ($p['ip_count'] ?? 0) ?: 1;
         $hwidEnabled   = !empty($p['hwid_limit_enabled']);
-        $defaultHwids  = max(1, (int) ($p['hwid_device_count'] ?: 1));
+        $defaultHwids  = max(1, (int) (($p['hwid_device_count'] ?? 0) ?: 1));
         $data[] = [
             [
                 'text'          => $this->i18n('ip limit') . ' ' . (!empty($p['ip_limit']) ? ": {$p['ip_limit']} sec & $ip_count" : $this->i18n('off')),
@@ -7113,7 +7116,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => '/setHwidDevices xray',
             ],
         ];
-        if ($p['transport'] == 'Reality') {
+        if (($p['transport'] ?? '') == 'Reality') {
             $data[] = [
                 [
                     'text'          => $this->i18n('changeFakeDomain'),
@@ -9071,7 +9074,7 @@ DNS-over-HTTPS with IP:
     public function updatebot()
     {
         $b = exec('git -C / rev-parse --abbrev-ref HEAD');
-        $track  = trim(file_get_contents('/update/branch'));
+        $track  = trim(@file_get_contents('/update/branch'));
         $data = [
             [
                 [
@@ -9106,12 +9109,12 @@ DNS-over-HTTPS with IP:
     public function applyupdatebot()
     {
         $this->pinBackup($this->update);
-        $r = $this->sendDraft($this->input['from'], 1, 'update...');
-        file_put_contents('/update/reload_message', "{$this->input['from']}:{$r['result']['message_id']}");
+        $this->sendDraft($this->input['from'], 1, 'update...');
+        file_put_contents('/update/reload_message', "{$this->input['from']}:" . (int) ($this->input['message_id'] ?? 0));
         file_put_contents('/update/key', $this->key);
         file_put_contents('/update/curl', json_encode([
             'chat_id'    => $this->input['chat'],
-            'message_id' => $r['result']['message_id'],
+            'message_id' => (int) ($this->input['message_id'] ?? 0),
             'text'       => '~t~'
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         file_put_contents('/update/pipe', '1');
@@ -9120,12 +9123,12 @@ DNS-over-HTTPS with IP:
 
     public function restart()
     {
-        $r = $this->sendDraft($this->input['from'], 1, 'restart...');
-        file_put_contents('/update/reload_message', "{$this->input['from']}:{$r['result']['message_id']}");
+        $this->sendDraft($this->input['from'], 1, 'restart...');
+        file_put_contents('/update/reload_message', "{$this->input['from']}:" . (int) ($this->input['message_id'] ?? 0));
         file_put_contents('/update/key', $this->key);
         file_put_contents('/update/curl', json_encode([
             'chat_id'    => $this->input['chat'],
-            'message_id' => $r['result']['message_id'],
+            'message_id' => (int) ($this->input['message_id'] ?? 0),
             'text'       => '~t~'
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         file_put_contents('/update/pipe', '2');
@@ -9157,8 +9160,8 @@ DNS-over-HTTPS with IP:
         $data = [
             [
                 [
-                    'text'          => $conf['domain'] ? "{$this->i18n('delete')} {$conf['domain']}" : $this->i18n('install domain'),
-                    'callback_data' => $conf['domain'] ? '/deldomain' : '/domain',
+                    'text'          => ($conf['domain'] ?? '') ? "{$this->i18n('delete')} {$conf['domain']}" : $this->i18n('install domain'),
+                    'callback_data' => ($conf['domain'] ?? '') ? '/deldomain' : '/domain',
                 ],
                 [
                     'text'          => $this->i18n('nip.io'),
@@ -9166,7 +9169,7 @@ DNS-over-HTTPS with IP:
                 ],
             ],
         ];
-        if ($conf['domain']) {
+        if (!empty($conf['domain'])) {
             if ($cert = $this->nginxGetTypeCert()) {
                 switch ($cert) {
                     case 'letsencrypt':
@@ -9224,7 +9227,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/menu lang",
             ],
             [
-                'text'          => "{$this->i18n('page')}: " . ($conf['limitpage'] ?: 5),
+                'text'          => "{$this->i18n('page')}: " . (($conf['limitpage'] ?? 0) ?: 5),
                 'callback_data' => "/enterPage",
             ],
         ];
@@ -9238,7 +9241,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/import",
             ],
         ];
-        $backup = array_filter(explode('/', $conf['backup']));
+        $backup = array_filter(explode('/', $conf['backup'] ?? ''));
         if (!empty($backup)) {
             if (!empty(strtotime($backup[0])) && !empty(strtotime($backup[1]))) {
                 $backup = "{$backup[0]} start / {$backup[1]} period";
@@ -9254,7 +9257,7 @@ DNS-over-HTTPS with IP:
         ];
         $data[] = [
             [
-                'text'          => $this->i18n('autoupdate') . ': ' .  $this->i18n($conf['autoupdate'] ? 'on' : 'off'),
+                'text'          => $this->i18n('autoupdate') . ': ' .  $this->i18n(($conf['autoupdate'] ?? 0) ? 'on' : 'off'),
                 'callback_data' => "/autoupdate",
             ],
         ];
@@ -9510,7 +9513,7 @@ DNS-over-HTTPS with IP:
                 'callback_data' => "/cleanLog",
             ],
         ];
-        $autocleanlogs = array_filter(explode('/', $p['autocleanlogs']));
+        $autocleanlogs = array_filter(explode('/', $p['autocleanlogs'] ?? ''));
         if (!empty($autocleanlogs)) {
             if (!empty(strtotime($autocleanlogs[0])) && !empty(strtotime($autocleanlogs[1]))) {
                 $autocleanlogs = "{$autocleanlogs[0]} start / {$autocleanlogs[1]} period";
@@ -9584,20 +9587,26 @@ DNS-over-HTTPS with IP:
     public function selfUpdate()
     {
         $ip                         = getenv('IP');
-        $rm                         = explode(':', trim(file_get_contents('/update/reload_message')));
-        $m                          = file_get_contents('/update/message');
-        $this->input['chat']        = $rm[0];
-        $this->input['message_id']  = $rm[1] ?? false;
-        $this->input['callback_id'] = $rm[1] ?? false;
+        $rm                         = explode(':', trim(@file_get_contents('/update/reload_message')));
+        $m                          = @file_get_contents('/update/message');
+        $this->input['chat']        = $rm[0] ?: false;
+        $this->input['message_id']  = (int) ($rm[1] ?? 0);
+        $this->input['callback_id'] = $this->input['message_id'] ?: false;
         if (file_exists($this->update)) {
             $this->selfupdate = true;
             if (!empty($m)) {
-                $this->send($this->input['chat'], "<pre>$m</pre>", $rm[1]);
+                $this->send($this->input['chat'], "<pre>$m</pre>", $this->input['message_id']);
             }
             $r = $this->send($this->input['chat'], "import settings");
-            $this->input['message_id']  = $r['result']['message_id'];
-            $this->input['callback_id'] = $r['result']['message_id'];
-            $this->importFile($this->update);
+            $this->input['message_id']  = $r['result']['message_id'] ?? false;
+            $this->input['callback_id'] = $r['result']['message_id'] ?? false;
+            try {
+                $this->importFile($this->update);
+            } catch (Throwable $e) {
+                // файл не удаляем — импорт можно повторить
+                $this->send($this->input['chat'], 'import failed: ' . $e->getMessage());
+                return;
+            }
             unlink($this->update);
         }
         file_put_contents('/update/message', '');
@@ -10130,7 +10139,7 @@ DNS-over-HTTPS with IP:
     {
         $c      = $this->getPacConf();
         $ports  = $this->getPorts();
-        $domain = ($c['domain'] ?: $this->ip) . ":" . $ports[$this->getInstanceWG()]['port'];
+        $domain = (($c['domain'] ?? '') ?: $this->ip) . ":" . $ports[$this->getInstanceWG()]['port'];
         foreach ($clients as $k => $v) {
             $clients[$k]['peers'][0]['Endpoint'] = $domain;
         }
