@@ -2196,11 +2196,13 @@ class Bot
             $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
 
             $this->cloakNginx();
+            // base_path релея должен совпасть с хешем, который только что записан в nginx
+            $this->restartTGWeb();
 
             $out[] = "end import";
             $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-            $this->language = $this->getPacConf()['language'] ?: 'en';
-            $this->limit    = $this->getPacConf()['limitpage'] ?: 5;
+            $this->language = ($this->getPacConf()['language'] ?? '') ?: 'en';
+            $this->limit    = ($this->getPacConf()['limitpage'] ?? 0) ?: 5;
             if (empty($file)) {
                 sleep(3);
                 $this->menu();
