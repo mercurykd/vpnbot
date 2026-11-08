@@ -11,6 +11,7 @@
 /tg.pyr
 /config/wg0.conf
 /config/hwid.json
+/config/tproxy/
 /todo.todo
 /app/zapretlists/*
 !/app/zapretlists/.gitkeep

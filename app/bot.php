@@ -45,10 +45,10 @@ class Bot
         $this->pac      = '/config/pac.json';
         $this->ip       = getenv('IP');
         $this->i18n     = $i18n;
-        $this->language = $this->getPacConf()['language'] ?: 'en';
+        $this->language = ($this->getPacConf()['language'] ?? '') ?: 'en';
         $this->dns      = '1.1.1.1, 8.8.8.8';
         $this->mtu      = 1350;
-        $this->limit    = $this->getPacConf()['limitpage'] ?: 5;
+        $this->limit    = ($this->getPacConf()['limitpage'] ?? 0) ?: 5;
         $this->adguard  = '/config/AdGuardHome.yaml';
         $this->update   = '/update/json';
         $this->hwid     = '/config/hwid.json';
@@ -809,6 +809,62 @@ class Bot
             $proxyTag = $adtag ? " -P " . escapeshellarg($adtag) : '';
             $this->dockerExec("mtproto-proxy --domain $fakedomain -u nobody -H 443 --nat-info 10.10.0.8:{$this->ip} -S $secret --aes-pwd /proxy-secret /proxy-multi.conf -M 1$proxyTag", 'tg', false, '/logs/mtproto');
         }
+        $this->restartTGWeb();
+    }
+
+    // конфиг официального WEB-релея (tproxy-server) для web-mtproto:
+    // домен + cloak-путь = base_path, секрет MTProxy, backend в MTProxy через loopback
+    public function restartTGWeb()
+    {
+        $secret = trim(file_get_contents('/config/mtprotosecret'));
+        $host   = strtolower((string) $this->getPacConf()['domain']);
+        if (!preg_match('~^[a-z\d]([a-z\d-]*[a-z\d])?(\.[a-z\d]([a-z\d-]*[a-z\d])?)+$~', $host) || !preg_match('~^[a-f\d]{32}$~i', $secret)) {
+            return;
+        }
+        $dir = '/config/tproxy';
+        if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
+            return;
+        }
+        $changed = false;
+        $key     = "$dir/token.key";
+        if (!file_exists($key) || filesize($key) !== 32) {
+            file_put_contents($key, random_bytes(32));
+            chmod($key, 0400);
+            $changed = true;
+        }
+        $files = [
+            "$dir/config.json"   => json_encode([
+                'public_hostname' => $host,
+                'base_path'       => 'tgweb' . $this->getHashBot(),
+                'listen'          => '127.0.0.1:8080',
+                'admin_listen'    => '127.0.0.1:8081',
+                'public_upstream' => 'http://127.0.0.1:8082',
+                'static_routes'   => 'exact',
+                'token_key_file'  => $key,
+                'profiles_file'   => "$dir/profiles.json",
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n",
+            "$dir/profiles.json" => json_encode([
+                'profiles' => [
+                    [
+                        'name'         => 'default',
+                        'secret'       => $secret,
+                        'backend'      => '127.0.0.1:2399',
+                        'carrier_mode' => 'https',
+                    ],
+                ],
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n",
+        ];
+        foreach ($files as $path => $content) {
+            if (@file_get_contents($path) !== $content) {
+                file_put_contents($path, $content);
+                chmod($path, 0400);
+                $changed = true;
+            }
+        }
+        if ($changed || !$this->dockerExecOut('pgrep -f tproxy-server', 'ng')) {
+            // поднимет заново start_ng.sh
+            $this->dockerExec('pkill -f tproxy-server', 'ng');
+        }
     }
 
     public function restartXray($c, $norestart = false)
@@ -928,6 +984,18 @@ class Bot
         return "https://t.me/proxy?server=$ip&port=$p&secret=ee$s$d";
     }
 
+    public function linkMtprotoWeb()
+    {
+        $s  = trim(file_get_contents('/config/mtprotosecret'));
+        $ip = $this->getDomain();
+        $h  = $this->getHashBot();
+        // ссылка с base path несёт секрет как unpadded base64url(0x70 + секрет)
+        $secret = preg_match('~^[a-f\d]{32}$~i', $s)
+            ? rtrim(strtr(base64_encode(chr(0x70) . hex2bin($s)), '+/', '-_'), '=')
+            : $s;
+        return 'https://t.me/webproxy?server=' . urlencode("$ip/tgweb$h") . "&secret=$secret";
+    }
+
     public function mtproto()
     {
         $d      = file_get_contents('/config/mtprotodomain') ?: 'yandex.ru';
@@ -939,6 +1007,10 @@ class Bot
         $text[] = "adtag: <code>" . ($adtag ?: 'off') . "</code>\n";
         if ($st == 'on') {
             $text[] = $this->linkMtproto();
+            if (!empty($this->getPacConf()['domain'])) {
+                $web    = $this->linkMtprotoWeb();
+                $text[] = "<a href=\"$web\">$web</a>";
+            }
         }
         $data[] = [
             [
@@ -1745,7 +1817,11 @@ class Bot
 
     public function cleanQueue(): void
     {
-        $r = $this->request('deleteWebhook', []);
+        // deleteWebhook при отсутствии вебхука отвечает 400 "Webhook is already deleted"
+        $info = $this->request('getWebhookInfo', []);
+        if (!empty($info['result']['url'])) {
+            $this->request('deleteWebhook', []);
+        }
         $r = $this->request('getUpdates', ['offset' => -1]);
     }
 
@@ -2595,7 +2671,6 @@ class Bot
         }
         curl_setopt_array($ch, $opt);
         $r = curl_exec($ch);
-        curl_close($ch);
         return $r ?: 'lost connect to unit';
     }
 
@@ -3179,6 +3254,7 @@ DNS-over-HTTPS with IP:
                 ],
             ],
         ];
+        $rules = [];
         if (!empty($c['blocklist']) && !empty(array_filter($c['blocklist']))) {
             $domains = array_keys(array_filter($c['blocklist'], function ($v, $k){
                     if (!empty($v)) {
@@ -4905,7 +4981,8 @@ DNS-over-HTTPS with IP:
 
     public function i18n(string $menu): string
     {
-        return $this->i18n[$menu][$this->language] ?: $menu;
+        // ключа может не быть (см. i18n.override.php) — тогда показываем сам ключ
+        return ($this->i18n[$menu][$this->language] ?? '') ?: $menu;
     }
 
     public function changeWG($i)
@@ -6290,7 +6367,6 @@ DNS-over-HTTPS with IP:
             CURLOPT_TIMEOUT          => 600,
         ]);
         $r = json_decode(curl_exec($ch), true);
-        curl_close($ch);
         return $r;
     }
 
@@ -6442,11 +6518,11 @@ DNS-over-HTTPS with IP:
         $domain = $this->getDomain();
         $ocserv = file_get_contents('/config/ocserv.conf');
         preg_match('~^camouflage_secret[^\n]+?"([^"]+)*"~sm', $ocserv, $m);
-        $cs = $m[1];
+        $cs = $m[1] ?? '';
         preg_match('~^dns = ([^\n]+)~sm', $ocserv, $m);
-        $dns = $m[1];
+        $dns = $m[1] ?? '';
         preg_match('~^expose-iroutes = (true)~sm', $ocserv, $m);
-        $expose = $m[1];
+        $expose = $m[1] ?? '';
         $pass   = htmlspecialchars($pac['ocserv']);
         $text[] = "Menu -> OpenConnect";
         if (!empty($cs)) {
@@ -6519,7 +6595,7 @@ DNS-over-HTTPS with IP:
     {
         $c = file_get_contents('/config/ocserv.conf');
         preg_match('~^expose-iroutes = ([^\n]+)~sm', $c, $m);
-        $t = preg_replace('~^expose-iroutes[^\n]+~sm', "expose-iroutes = " . ($m[1] == 'true' ? 'false' : 'true'), $c);
+        $t = preg_replace('~^expose-iroutes[^\n]+~sm', "expose-iroutes = " . (($m[1] ?? '') == 'true' ? 'false' : 'true'), $c);
         $this->restartOcserv($t);
         $this->menu('oc');
     }
@@ -7343,8 +7419,7 @@ DNS-over-HTTPS with IP:
     public function warpStatus()
     {
         $st = $this->dockerExecOut('curl -m 1 -x socks5://wp:1080 https://cloudflare.com/cdn-cgi/trace', 'xr');
-        preg_match('~warp=(\w+)~', $st, $m);
-        return trim($m[1]) ?: 'off';
+        return preg_match('~warp=(\w+)~', $st, $m) ? trim($m[1]) : 'off';
     }
 
     public function analyzeXray()
@@ -8746,7 +8821,7 @@ DNS-over-HTTPS with IP:
             location
         CONF;
         $template = preg_replace('~(location /adguard.+?})\s*location~s', $r, $template);
-        $template = preg_replace('~(/webapp|/pac|/adguard|/ws|/v2ray|location /dns-query)~', '${1}' . $h, $template);
+        $template = preg_replace('~(/webapp|/pac|/adguard|/ws|/v2ray|/tgweb|location /dns-query)~', '${1}' . $h, $template);
         file_put_contents('/config/nginx.conf', $template);
         $x = $this->getXray();
         if (!empty($x['inbounds'][0]['streamSettings']['wsSettings']['path'])) {
@@ -9651,10 +9726,9 @@ DNS-over-HTTPS with IP:
         if (empty($p['xray'])) {
             $shortId = trim($this->dockerExecOut('openssl rand -hex 8', 'xr'));
             $keys    = $this->dockerExecOut('xray x25519', 'xr');
-            preg_match('~^PrivateKey:\s([^\s]+)~m', $keys, $m);
-            $private = trim($m[1]);
-            preg_match('~^Password]\s(PublicKey):\s([^\s]+)~m', $keys, $m);
-            $public = trim($m[1]);
+            // разные версии xray печатают PrivateKey/Public key и Password
+            $private = preg_match('~^Private\s?Key:\s*(\S+)~mi', $keys, $m) ? $m[1] : '';
+            $public  = preg_match('~^(?:Password|Public\s?Key):\s*(\S+)~mi', $keys, $m) ? $m[1] : '';
             $p['xray'] = $public;
             $p['reality']['shortId']    = $shortId;
             $p['reality']['privateKey'] = $private;
@@ -9834,7 +9908,7 @@ DNS-over-HTTPS with IP:
     {
         $conf = $this->dockerExecOut('cat /etc/nginx/nginx.conf', 'ng');
         preg_match("/#~([^\s]+)/", $conf, $m);
-        return $m[1];
+        return $m[1] ?? '';
     }
 
     public function readStatus()
@@ -10124,7 +10198,6 @@ DNS-over-HTTPS with IP:
                 $res = curl_exec($ch);
                 $err = curl_error($ch);
                 $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                curl_close($ch);
 
                 if ($res === false) {
                     throw new Exception("docker api error: {$err}");
@@ -10282,7 +10355,6 @@ DNS-over-HTTPS with IP:
         $res  = curl_exec($ch);
         $err  = curl_error($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         if ($res === false) {
             $this->requestError($method, $data, $err ?: "curl failed, http code: $code");

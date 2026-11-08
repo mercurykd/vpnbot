@@ -72,9 +72,8 @@ function getSize($url)
         CURLOPT_TIMEOUT        => 10,
     ]);
     $r = curl_exec($ch);
-    curl_close($ch);
     preg_match('~content-length.+?(\d+)~ius', $r, $m);
-    return (int) $m[1];
+    return (int) ($m[1] ?? 0);
 }
 
 function update($text)
@@ -127,7 +126,9 @@ function start()
             fwrite($f, preg_quote($v) . "\n");
 
             preg_match('~(.+)\.([^.]+)$~', $v, $m);
-            $t[$m[2]][strlen($m[1])][] = $m[1];
+            if (isset($m[1], $m[2])) {
+                $t[$m[2]][strlen($m[1])][] = $m[1];
+            }
         }
         fclose($f);
         $text .= $tail ? "$tail\n" : '';

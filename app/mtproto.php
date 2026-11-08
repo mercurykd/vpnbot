@@ -30,3 +30,6 @@ if (empty($p)) {
 }
 // Вывод ссылки на MTProto-прокси
 echo $bot->linkMtproto();
+if (!empty($bot->getPacConf()['domain'])) {
+    echo "\n" . $bot->linkMtprotoWeb();
+}
