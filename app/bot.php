@@ -6285,7 +6285,9 @@ DNS-over-HTTPS with IP:
             CURLOPT_POSTFIELDS       => !empty($data) ? json_encode($data) : null,
             CURLOPT_URL              => "http://localhost$url",
             CURLOPT_RETURNTRANSFER   => true,
-            CURLOPT_UNIX_SOCKET_PATH => '/var/run/docker.sock'
+            CURLOPT_UNIX_SOCKET_PATH => '/var/run/docker.sock',
+            CURLOPT_CONNECTTIMEOUT   => 10,
+            CURLOPT_TIMEOUT          => 600,
         ]);
         $r = json_decode(curl_exec($ch), true);
         curl_close($ch);
@@ -10234,30 +10236,74 @@ DNS-over-HTTPS with IP:
         }
     }
 
-    public function request($method, $data, $json_header = 0)
+    public function request($method, $data, $json_header = 0, $options = [])
     {
+        // без таймаутов curl ждет ответ api.telegram.org бесконечно и процесс виснет
+        $opt = [
+            CURLOPT_URL             => $this->api . $method,
+            CURLOPT_CUSTOMREQUEST   => 'POST',
+            CURLOPT_RETURNTRANSFER  => true,
+            CURLOPT_POSTFIELDS      => $data,
+            CURLOPT_CONNECTTIMEOUT  => 10,
+            CURLOPT_TIMEOUT         => 30,
+            CURLOPT_LOW_SPEED_LIMIT => 10,
+            CURLOPT_LOW_SPEED_TIME  => 30,
+            CURLOPT_NOSIGNAL        => true,
+        ];
+
+        $size = 0;
+        foreach (is_array($data) ? $data : [] as $v) {
+            if ($v instanceof CURLFile && is_file($v->getFilename())) {
+                $size += (int) filesize($v->getFilename());
+            }
+        }
+
+        $headers = [];
+        if ($json_header) {
+            $headers[] = 'Content-Type: application/json';
+        }
+
+        if ($size > 0) {
+            // загрузка файла: 60 секунд + 10 секунд на каждый мегабайт
+            $opt[CURLOPT_TIMEOUT] = 60 + (int) ceil($size / 1048576) * 10;
+            // отключаем 100-continue, иначе каждая загрузка ждет лишнюю секунду
+            $headers[] = 'Expect:';
+        }
+
+        // long polling: клиент должен ждать дольше, чем сервер держит запрос
+        if ($method == 'getUpdates' && is_array($data) && !empty($data['timeout'])) {
+            $opt[CURLOPT_TIMEOUT] = max($opt[CURLOPT_TIMEOUT], (int) $data['timeout'] + 15);
+        }
+
+        $opt[CURLOPT_HTTPHEADER] = $headers;
+
         $ch = curl_init();
-        curl_setopt_array($ch, [
-            CURLOPT_URL            => $this->api . $method,
-            CURLOPT_CUSTOMREQUEST  => 'POST',
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => $json_header ? [
-                'Content-Type: application/json'
-            ] : [],
-            CURLOPT_POSTFIELDS     => $data,
-        ]);
-        $res = curl_exec($ch);
-        $r   = json_decode($res, true);
-        if (!empty($res['description']) || is_null($res)) {
-            file_put_contents('/logs/requests_error', var_export([
-                'r' => [
-                    'method' => $method,
-                    'data'   => $data,
-                ],
-                'a' => $res,
-            ], true) . "\n", FILE_APPEND);
+        curl_setopt_array($ch, array_replace($opt, $options));
+        $res  = curl_exec($ch);
+        $err  = curl_error($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($res === false) {
+            $this->requestError($method, $data, $err ?: "curl failed, http code: $code");
+            return null;
+        }
+
+        $r = json_decode($res, true);
+        if (!empty($r['description'])) {
+            $this->requestError($method, $data, $r['description'], $res);
         }
         return $r;
+    }
+
+    public function requestError($method, $data, $message, $response = null)
+    {
+        $log = '[' . date('Y-m-d H:i:s') . "] {$method}: {$message}\n" . var_export([
+            'request'  => $data,
+            'response' => $response,
+        ], true) . "\n";
+        @file_put_contents('/logs/requests_error', $log, FILE_APPEND | LOCK_EX);
+        error_log("telegram request error: {$method}: {$message}");
     }
 
     public function polling()
@@ -10269,6 +10315,11 @@ DNS-over-HTTPS with IP:
                 'limit'   => 3,
                 'timeout' => 5,
             ]);
+            if (is_null($r)) {
+                // сеть/таймаут: не дергаем api сразу, даем соединению восстановиться
+                sleep(3);
+                continue;
+            }
             if (!empty($r['description'])) {
                 error_log('getUpdates error: ' . $r['description']);
                 sleep(3);
