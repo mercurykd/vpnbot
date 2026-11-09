@@ -18,7 +18,7 @@ dv: # остановка контейнеров
 	docker compose down -v
 r: d u
 ps: # список контейнеров
-	docker compose ps
+	docker compose ps -a
 l: # логи из контейнеров
 	docker compose logs
 php: # консоль сервиса
