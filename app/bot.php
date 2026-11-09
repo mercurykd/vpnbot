@@ -7388,13 +7388,13 @@ DNS-over-HTTPS with IP:
             return $res['ok']; // true = exit code 0
         };
 
-        if (!$step('stopping warp', 'wg-quick down /etc/warp/wgcf-profile.conf 2>/dev/null || true', 'wp')) {
+        if (!$step('stopping warp', 'wg-quick down /etc/warp/wgcf-profile.conf 2>/dev/null || wg-quick down /etc/warp/wgcf-profile-v4.conf 2>/dev/null || true', 'wp')) {
             $this->send($chat, $log);
             return;
         }
 
         // Удаляем старые профиль и аккаунт
-        if (!$step('removing old profile', 'rm -f /etc/warp/wgcf-profile.conf /etc/warp/wgcf-account.toml', 'wp')) {
+        if (!$step('removing old profile', 'rm -f /etc/warp/wgcf-profile.conf /etc/warp/wgcf-profile-v4.conf /etc/warp/wgcf-account.toml', 'wp')) {
             $this->send($chat, $log);
             return;
         }
@@ -7426,14 +7426,13 @@ DNS-over-HTTPS with IP:
             $this->send($chat, $log);
             return;
         }
-        $this->dockerExec("sed -i '/^Address.*:/d' /etc/warp/wgcf-profile.conf", 'wp');
-        $this->dockerExec("sed -i '/^AllowedIPs.*::/d' /etc/warp/wgcf-profile.conf", 'wp');
         // wg-quick в контейнере не может управлять /etc/resolv.conf (его монтирует Docker),
         // resolvconf падает и wg-quick откатывает интерфейс — поэтому убираем DNS из профиля
         $this->dockerExec("sed -i '/^DNS.*=/d' /etc/warp/wgcf-profile.conf", 'wp');
 
+        // профиль оставляем dual-stack; если IPv6 в окружении нет — поднимаем копию без IPv6.
         // pipe через grep ломает $?, а PIPESTATUS в busybox ash нет, поэтому ловим код отдельно
-        $started = $step('starting warp', 'out=$(wg-quick up /etc/warp/wgcf-profile.conf 2>&1); ec=$?; printf "%s\n" "$out" | grep -v "skip sysctl"; exit $ec', 'wp');
+        $started = $step('starting warp', 'if ! out=$(wg-quick up /etc/warp/wgcf-profile.conf 2>&1); then printf "%s\n" "$out"; (umask 077; grep -v -e "^Address[[:space:]]*=.*:" -e "^AllowedIPs[[:space:]]*=.*::" /etc/warp/wgcf-profile.conf > /etc/warp/wgcf-profile-v4.conf); out=$(wg-quick up /etc/warp/wgcf-profile-v4.conf 2>&1); fi; ec=$?; printf "%s\n" "$out" | grep -v "skip sysctl"; exit $ec', 'wp');
 
         if (!$started) {
             $this->send($chat, $log);
