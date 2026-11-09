@@ -25,10 +25,15 @@ if [ ! -f "$WGCF_CONF" ]; then
     fi
     echo "[warp] Generating WireGuard profile..."
     wgcf generate
-    echo "[warp] Stripping IPv6 from profile..."
-    sed -i '/^Address.*:/d' "$WGCF_CONF"
-    sed -i '/^AllowedIPs.*::/d' "$WGCF_CONF"
 fi
+
+# wg-quick в контейнере не может управлять /etc/resolv.conf: Docker монтирует его сам,
+# resolvconf падает с "signature mismatch" и wg-quick откатывает интерфейс (exit 1).
+# поэтому выкидываем IPv6 и DNS из профиля — microsocks и socks5 не требуют DNS на интерфейсе.
+echo "[warp] Stripping IPv6/DNS from profile..."
+sed -i '/^Address.*:/d' "$WGCF_CONF"
+sed -i '/^AllowedIPs.*::/d' "$WGCF_CONF"
+sed -i '/^DNS.*=/d' "$WGCF_CONF"
 
 echo "[warp] Starting WireGuard (WARP)..."
 wg-quick up "$WGCF_CONF"

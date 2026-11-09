@@ -7428,6 +7428,9 @@ DNS-over-HTTPS with IP:
         }
         $this->dockerExec("sed -i '/^Address.*:/d' /etc/warp/wgcf-profile.conf", 'wp');
         $this->dockerExec("sed -i '/^AllowedIPs.*::/d' /etc/warp/wgcf-profile.conf", 'wp');
+        // wg-quick в контейнере не может управлять /etc/resolv.conf (его монтирует Docker),
+        // resolvconf падает и wg-quick откатывает интерфейс — поэтому убираем DNS из профиля
+        $this->dockerExec("sed -i '/^DNS.*=/d' /etc/warp/wgcf-profile.conf", 'wp');
 
         // pipe через grep ломает $?, а PIPESTATUS в busybox ash нет, поэтому ловим код отдельно
         $started = $step('starting warp', 'out=$(wg-quick up /etc/warp/wgcf-profile.conf 2>&1); ec=$?; printf "%s\n" "$out" | grep -v "skip sysctl"; exit $ec', 'wp');
