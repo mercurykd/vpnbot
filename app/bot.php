@@ -564,6 +564,9 @@ class Bot
             case preg_match('~^/reduceAmnezia (-?\d+)$~', $this->input['callback'], $m):
                 $this->reduceAmnezia($m[1]);
                 break;
+            case preg_match('~^/upgradeAmnezia (-?\d+)$~', $this->input['callback'], $m):
+                $this->upgradeAmnezia($m[1]);
+                break;
             case preg_match('~^/switchExchange (\d+)$~', $this->input['callback'], $m):
                 $this->switchExchange($m[1]);
                 break;
@@ -2292,89 +2295,108 @@ class Bot
         $this->restartWG($this->createConfig($server));
     }
 
-    public function resetAmnezia($page = 0) {
-        $this->switchAmnezia($page, 1);
-    }
-
-    public function reduceAmnezia($page = 0) {
-        $this->switchAmnezia($page, false, 1);
-    }
-
-    public function switchAmnezia($page = 0, $reset = false, $reduce = false)
+    public function resetAmnezia($page = 0)
     {
-        $c = $this->getPacConf();
-        switch (true) {
-            case !empty($reset):
-                $amnezia = 1;
-                unset($c[$this->getInstanceWG(1) . 'amnezia_keys']);
-                unset($c[$this->getInstanceWG(1) . 'presharedkey']);
-                break;
-            case !empty($reduce):
-                $amnezia = 1;
-                unset($c[$this->getInstanceWG(1) . 'amnezia_keys']['S3']);
-                unset($c[$this->getInstanceWG(1) . 'amnezia_keys']['S4']);
-                unset($c[$this->getInstanceWG(1) . 'amnezia_keys']['I1']);
-                break;
+        $ver = $this->amneziaVer();
+        $c   = $this->getPacConf();
+        unset($c[$this->getInstanceWG(1) . 'amnezia_keys']);
+        unset($c[$this->getInstanceWG(1) . 'presharedkey']);
+        $c[$this->getInstanceWG(1) . 'amnezia_ver'] = $ver;
+        $this->setPacConf($c);
+        $this->applyAmnezia($ver, $page);
+    }
 
-            default:
-                $amnezia = $c[$this->getInstanceWG(1) . 'amnezia'] = $c[$this->getInstanceWG(1) . 'amnezia'] ? 0 : 1;
-                break;
+    public function reduceAmnezia($page = 0)
+    {
+        $map = ['3.1' => '2', '2' => '1', '1' => '1'];
+        $ver = $this->amneziaVer();
+        $this->applyAmnezia($map[$ver] ?? '1', $page);
+    }
+
+    public function upgradeAmnezia($page = 0)
+    {
+        $map = ['1' => '2', '2' => '3.1', '3.1' => '3.1'];
+        $ver = $this->amneziaVer();
+        $this->applyAmnezia($map[$ver] ?? '3.1', $page);
+    }
+
+    public function switchAmnezia($page = 0)
+    {
+        $c   = $this->getPacConf();
+        $key = $this->getInstanceWG(1) . 'amnezia';
+        $all = $this->amneziaAllFields();
+        if (!empty($c[$key])) {
+            $c[$key] = 0;
+            $this->setPacConf($c);
+            $clients = $this->readClients();
+            foreach ($clients as $k => $v) {
+                foreach ($all as $f) {
+                    unset($clients[$k]['interface'][$f]);
+                }
+                unset($clients[$k]['peers'][0]['PresharedKey']);
+            }
+            $this->saveClients($clients);
+
+            $wg = $this->readConfig();
+            foreach ($all as $f) {
+                unset($wg['interface'][$f]);
+            }
+            foreach ($wg['peers'] as $k => $v) {
+                unset($wg['peers'][$k]['PresharedKey']);
+            }
+            $this->restartWG($this->createConfig($wg), true);
+            $this->menu('wg', $page);
+            return;
         }
+        $this->applyAmnezia($this->amneziaVer(), $page, true);
+    }
+
+    // применяет obf-параметры выбранной версии (1 / 2 / 3.1) к серверу и всем клиентам
+    public function applyAmnezia($ver = null, $page = 0, $switch = false)
+    {
+        $ver = $ver ?: $this->amneziaVer();
+        if ($ver === '3.1' && !$this->awgToolsSupportsAwg3()) {
+            $this->answer($this->input['callback_id'], 'wg image is too old for amnezia 3.1, rebuild the image', true);
+            $this->menu('wg', $page);
+            return;
+        }
+        $c      = $this->getPacConf();
+        $ak     = $this->amneziaKeys($ver);
+        $fields = $this->amneziaFields($ver);
+        $all    = $this->amneziaAllFields();
+        $c[$this->getInstanceWG(1) . 'amnezia_ver'] = $ver;
+        $c[$this->getInstanceWG(1) . 'amnezia']     = 1;
         $this->setPacConf($c);
 
-        $pk = $this->presharedKey();
-        $ak = $this->amneziaKeys();
+        $pk      = $this->presharedKey();
         $clients = $this->readClients();
         foreach ($clients as $k => $v) {
+            foreach ($all as $f) {
+                unset($clients[$k]['interface'][$f]);
+            }
             unset($clients[$k]['peers'][0]['PresharedKey']);
-            unset($clients[$k]['interface']['Jc']);
-            unset($clients[$k]['interface']['Jmin']);
-            unset($clients[$k]['interface']['Jmax']);
-            unset($clients[$k]['interface']['S1']);
-            unset($clients[$k]['interface']['S2']);
-            unset($clients[$k]['interface']['S3']);
-            unset($clients[$k]['interface']['S4']);
-            unset($clients[$k]['interface']['H1']);
-            unset($clients[$k]['interface']['H2']);
-            unset($clients[$k]['interface']['H3']);
-            unset($clients[$k]['interface']['H4']);
-            unset($clients[$k]['interface']['I1']);
-            if (!empty($amnezia)) {
-                $clients[$k]['peers'][0]['PresharedKey'] = $pk;
-                foreach ($ak as $j => $i) {
-                    $clients[$k]['interface'][$j] = $i;
+            $clients[$k]['peers'][0]['PresharedKey'] = $pk;
+            foreach ($fields as $f) {
+                if (isset($ak[$f]) && $ak[$f] !== '') {
+                    $clients[$k]['interface'][$f] = $this->amneziaFieldValue($f, $ak[$f], $ver);
                 }
             }
         }
         $this->saveClients($clients);
 
         $wg = $this->readConfig();
-        unset($wg['interface']['Jc']);
-        unset($wg['interface']['Jmin']);
-        unset($wg['interface']['Jmax']);
-        unset($wg['interface']['S1']);
-        unset($wg['interface']['S2']);
-        unset($wg['interface']['S3']);
-        unset($wg['interface']['S4']);
-        unset($wg['interface']['H1']);
-        unset($wg['interface']['H2']);
-        unset($wg['interface']['H3']);
-        unset($wg['interface']['H4']);
-        unset($wg['interface']['I1']);
-        if (!empty($amnezia)) {
-            foreach ($ak as $j => $i) {
-                $wg['interface'][$j] = $i;
+        foreach ($all as $f) {
+            unset($wg['interface'][$f]);
+        }
+        foreach ($fields as $f) {
+            if (isset($ak[$f]) && $ak[$f] !== '') {
+                $wg['interface'][$f] = $this->amneziaFieldValue($f, $ak[$f], $ver);
             }
         }
-
         foreach ($wg['peers'] as $k => $v) {
-            if (!empty($amnezia)) {
-                $wg['peers'][$k]['PresharedKey'] = $pk;
-            } else {
-                unset($wg['peers'][$k]['PresharedKey']);
-            }
+            $wg['peers'][$k]['PresharedKey'] = $pk;
         }
-        $this->restartWG($this->createConfig($wg), !$reset && !$reduce);
+        $this->restartWG($this->createConfig($wg), $switch);
         $this->menu('wg', $page);
     }
 
@@ -3569,8 +3591,13 @@ DNS-over-HTTPS with IP:
         $am      = $c[$this->getInstanceWG(1) . 'amnezia'] ?? false;
         $end     = $c[$this->getInstanceWG(1) . 'endpoint'] ?? false;
 
+        $ver = $this->amneziaVer();
         if (!empty($am)) {
             $ak     = $this->amneziaKeys();
+            $text[] = '<code>amnezia: ' . htmlspecialchars($ver) . '</code>';
+            if ($ver === '3.1' && !empty($c['awg_for_vless'])) {
+                $text[] = 'note: awg for vless works up to version 2';
+            }
             $text[] = '<code>' . implode("\n", array_map(fn($k, $v) => htmlspecialchars($k) . ': ' . htmlspecialchars($v), array_keys($ak), $ak)) . "</code>\n";
         }
         $data   = [
@@ -3612,16 +3639,25 @@ DNS-over-HTTPS with IP:
             ],
         ];
         if (!empty($am)) {
-            array_unshift($data, [
+            $row = [
                 [
                     'text'          => "reset obf-keys",
                     'callback_data' => "/resetAmnezia $page",
                 ],
-                [
-                    'text'          => "reduce to 1",
+            ];
+            if ($ver !== '1') {
+                $row[] = [
+                    'text'          => 'reduce to ' . ($ver === '3.1' ? '2' : '1'),
                     'callback_data' => "/reduceAmnezia $page",
-                ],
-            ]);
+                ];
+            }
+            if ($ver !== '3.1') {
+                $row[] = [
+                    'text'          => 'upgrade to ' . ($ver === '1' ? '2' : '3.1'),
+                    'callback_data' => "/upgradeAmnezia $page",
+                ];
+            }
+            array_unshift($data, $row);
         }
         array_unshift($data, [
             [
@@ -4042,9 +4078,9 @@ DNS-over-HTTPS with IP:
         $dns           = array_map('trim', explode(',', $dnsRaw));
         $ports         = $this->getPorts();
         $wgPort        = (int) $ports[$this->getInstanceWG()]['port'];
+        $protoVer      = $this->amneziaVer();
         $amneziaKeys   = $this->amneziaKeys();
-        $protoVer      = array_key_exists('I1', $amneziaKeys) ? "2" : "1";
-        $containerName = $protoVer === "2" ? "amnezia-awg2" : "amnezia-awg";
+        $containerName = $protoVer === "1" ? "amnezia-awg" : "amnezia-awg2";
         $c             = [
             "containers" => [
                 [
@@ -4061,7 +4097,8 @@ DNS-over-HTTPS with IP:
                             "psk_key"          => $client['peers'][0]['PresharedKey'],
                             "server_pub_key"   => $client['peers'][0]['PublicKey'],
                             "allowed_ips"      => array_map('trim', explode(',', $client['peers'][0]['AllowedIPs'])),
-                            "persistent_keep_alive" => "25"
+                            "persistent_keep_alive" => "25",
+                            "mtu"              => (string) ($pac[$this->getInstanceWG(1) . 'mtu'] ?: $this->mtu)
                         ])),
                         "port" => $wgPort,
                         "transport_proto" => "udp",
@@ -4114,7 +4151,7 @@ DNS-over-HTTPS with IP:
             return false;
         }
         return [
-            "amnezia-wg-option" => $c["{$container}amnezia_keys"],
+            "amnezia-wg-option" => $this->amneziaCompatKeys($container),
             "pre-shared-key"    => $c["{$container}presharedkey"],
             "server"            => explode(':', $clients[$client]['peers'][0]['Endpoint'])[0],
             "port"              => explode(':', $clients[$client]['peers'][0]['Endpoint'])[1],
@@ -8562,7 +8599,7 @@ DNS-over-HTTPS with IP:
         }
 
         return [
-            "amnezia-wg-option" => $c["{$container}amnezia_keys"],
+            "amnezia-wg-option" => $this->amneziaCompatKeys($container),
             "pre-shared-key"    => $c["{$container}presharedkey"],
             "server"            => explode(':', $cl['peers'][0]['Endpoint'])[0],
             "port"              => explode(':', $cl['peers'][0]['Endpoint'])[1],
@@ -10052,10 +10089,106 @@ DNS-over-HTTPS with IP:
         return $c[$this->getInstanceWG(1) . 'presharedkey'];
     }
 
-    public function amneziaKeys()
+    // версия obf-конфига amnezia: 1 / 2 / 3.1 (ядро awg одно, версия задаёт набор полей конфига)
+    public function amneziaVer()
     {
-        $c = $this->getPacConf();
-        if (empty($c[$this->getInstanceWG(1) . 'amnezia_keys'])) {
+        $c   = $this->getPacConf();
+        $key = $this->getInstanceWG(1) . 'amnezia_ver';
+        if (!empty($c[$key])) {
+            return (string) $c[$key];
+        }
+        $ak = (array) ($c[$this->getInstanceWG(1) . 'amnezia_keys'] ?? []);
+        return array_key_exists('I1', $ak) ? '2' : '1';
+    }
+
+    // какие поля конфига выводить для версии
+    public function amneziaFields($ver)
+    {
+        $base = ['Jc', 'Jmin', 'Jmax', 'S1', 'S2'];
+        $h    = ['H1', 'H2', 'H3', 'H4'];
+        if ($ver === '1') {
+            return array_merge($base, $h);
+        }
+        if ($ver === '2') {
+            return array_merge($base, $h, ['S3', 'S4', 'I1']);
+        }
+        return array_merge($base, $h, ['S3', 'S4', 'I1',
+            'HeaderProtectionKey', 'ContentPaddingAddition',
+            'RekeyAfterTime', 'RekeyTimeout', 'RejectAfterTime',
+            'KeepaliveTimeout', 'MaxHandshakeAttempts',
+            'RandomTrailers', 'DisableCookies']);
+    }
+
+    // все возможные поля (для очистки конфигов при смене версии)
+    public function amneziaAllFields()
+    {
+        return $this->amneziaFields('3.1');
+    }
+
+    // AWG 1.x не понимает диапазоны в H1-H4
+    public function amneziaFieldValue($field, $value, $ver)
+    {
+        if ($ver === '1' && in_array($field, ['H1', 'H2', 'H3', 'H4'], true) && strpos((string) $value, '-') !== false) {
+            return explode('-', $value)[0];
+        }
+        return $value;
+    }
+
+    // набор obf-параметров для сторонних ядер (sing-box/mihomo): максимум awg 2.0
+    public function amneziaCompatKeys($prefix = null)
+    {
+        $c   = $this->getPacConf();
+        $ak  = (array) ($c[($prefix ?? $this->getInstanceWG(1)) . 'amnezia_keys'] ?? []);
+        $out = [];
+        foreach ($this->amneziaFields('2') as $f) {
+            if (isset($ak[$f]) && $ak[$f] !== '') {
+                $out[$f] = $ak[$f];
+            }
+        }
+        return $out;
+    }
+
+    // S1-S4 для AWG 3.1: header protection требует не меньше 12 байт
+    public function genAmneziaPaddings()
+    {
+        for ($i = 0; $i < 100; $i++) {
+            $s1 = random_int(15, 64);
+            do {
+                $s2 = random_int(15, 64);
+            } while ($s1 + 56 === $s2 || $s1 === $s2);
+            $s3    = random_int(12, 64);
+            $s4    = random_int(12, 16);
+            $sizes = [148 + $s1, 92 + $s2, 64 + $s3, 32 + $s4];
+            if (count(array_unique($sizes)) === 4) {
+                return ['S1' => $s1, 'S2' => $s2, 'S3' => $s3, 'S4' => $s4];
+            }
+        }
+        return ['S1' => 20, 'S2' => 33, 'S3' => 24, 'S4' => 16];
+    }
+
+    public function genAmneziaKey()
+    {
+        $key = trim($this->dockerExecOut('awg genkey', $this->getInstanceWG()));
+        return $key ?: base64_encode(random_bytes(32));
+    }
+
+    // поддерживает ли установленный в контейнере awg-tools параметры 3.x
+    public function awgToolsSupportsAwg3()
+    {
+        $out = trim($this->dockerExecOut('awg --version', $this->getInstanceWG()));
+        if (preg_match('~(\d+)\.(\d+)\.~', $out, $m)) {
+            return (int) $m[1] >= 3;
+        }
+        return true; // версию узнать не удалось — не блокируем
+    }
+
+    public function amneziaKeys($ver = null)
+    {
+        $ver = $ver ?: $this->amneziaVer();
+        $c   = $this->getPacConf();
+        $key = $this->getInstanceWG(1) . 'amnezia_keys';
+        $ak  = (array) ($c[$key] ?? []);
+        if (empty($ak)) {
             // S1 and S2: 15–64 bytes; constraints: S1 + 56 ≠ S2 and S1 ≠ S2
             $s1 = random_int(15, 64);
             do {
@@ -10080,7 +10213,7 @@ DNS-over-HTTPS with IP:
                 $h[] = $start . '-' . ($start + $range_width);
             }
 
-            $c[$this->getInstanceWG(1) . 'amnezia_keys'] = [
+            $ak = [
                 'Jc'   => random_int(3, 7), // 10 is sometimes overkill, 3-7 is ideal
                 'Jmin' => random_int(32, 64),
                 'Jmax' => random_int(512, 1024),
@@ -10095,10 +10228,67 @@ DNS-over-HTTPS with IP:
                 // Excellent custom signature (Yandex/Kinopoisk simulation)
                 'I1'   => '<b 0x084481800001000300000000077469636b65747306776964676574096b696e6f706f69736b0272750000010001c00c0005000100000039001806776964676574077469636b6574730679616e646578c025c0390005000100000039002b1765787465726e616c2d7469636b6574732d776964676574066166697368610679616e646578036e657400c05d000100010000001c000457fafe25>',
             ];
+        }
 
+        // S3/S4 появились в 1.5, но в старых конфигах их может не быть
+        if (in_array($ver, ['2', '3.1'], true)) {
+            if (empty($ak['S3'])) {
+                $ak['S3'] = random_int(10, 64);
+            }
+            if (empty($ak['S4'])) {
+                $ak['S4'] = random_int(3, 16);
+            }
+        }
+
+        // 3.0/3.1: header protection требует S1-S4 >= 12, иначе ядро не поднимет интерфейс
+        if ($ver === '3.1') {
+            if (empty($ak['HeaderProtectionKey'])) {
+                $ak['HeaderProtectionKey'] = $this->genAmneziaKey();
+            }
+            $need = false;
+            foreach (['S1', 'S2', 'S3', 'S4'] as $f) {
+                if (empty($ak[$f]) || (int) $ak[$f] < 12) {
+                    $need = true;
+                }
+            }
+            if ($need) {
+                $ak = array_merge($ak, $this->genAmneziaPaddings());
+            }
+            $ak += [
+                'ContentPaddingAddition' => '10-100',
+                'RekeyAfterTime'         => '100-120',
+                'RekeyTimeout'           => '3-7',
+                'RejectAfterTime'        => '150-180',
+                'KeepaliveTimeout'       => '5-15',
+                'MaxHandshakeAttempts'   => '15-20',
+                'RandomTrailers'         => 'on',
+                'DisableCookies'         => 'on',
+            ];
+        }
+
+        // итоговые размеры сообщений не должны совпадать, иначе клиент считает конфиг битым
+        if (in_array($ver, ['2', '3.1'], true) && !empty($ak['S3']) && !empty($ak['S4'])) {
+            for ($i = 0; $i < 20; $i++) {
+                $sizes = [148 + (int) $ak['S1'], 92 + (int) $ak['S2'], 64 + (int) $ak['S3'], 32 + (int) $ak['S4']];
+                if (count(array_unique($sizes)) === 4 && (int) $ak['S1'] + 56 !== (int) $ak['S2']) {
+                    break;
+                }
+                $ak['S3'] = $ver === '3.1' ? random_int(12, 64) : random_int(10, 64);
+            }
+        }
+
+        if ($ak !== (array) ($c[$key] ?? [])) {
+            $c[$key] = $ak;
             $this->setPacConf($c);
         }
-        return $c[$this->getInstanceWG(1) . 'amnezia_keys'];
+
+        $out = [];
+        foreach ($this->amneziaFields($ver) as $f) {
+            if (isset($ak[$f]) && $ak[$f] !== '') {
+                $out[$f] = $this->amneziaFieldValue($f, $ak[$f], $ver);
+            }
+        }
+        return $out;
     }
 
     public function createPeer($ips_user = false, $name = false)

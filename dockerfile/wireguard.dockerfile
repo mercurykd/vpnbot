@@ -1,11 +1,11 @@
 ARG image
 FROM $image
-COPY --from=golang:1.22.3-alpine /usr/local/go/ /usr/local/go/
+COPY --from=golang:1.25.12-alpine /usr/local/go/ /usr/local/go/
 ENV PATH="/usr/local/go/bin:${PATH}"
 RUN apk add --no-cache --virtual .build-deps alpine-sdk git \
     && apk add iproute2 linux-headers iptables xtables-addons wireguard-tools jq bash htop \
-    && git clone https://github.com/amnezia-vpn/amneziawg-go \
-    && git clone https://github.com/amnezia-vpn/amneziawg-tools.git \
+    && git clone --depth 1 --branch v3.1.20260828 https://github.com/amnezia-vpn/amneziawg-go \
+    && git clone --depth 1 --branch v3.1.20260812 https://github.com/amnezia-vpn/amneziawg-tools.git \
     && git clone https://github.com/rofl0r/microsocks \
     && cd /amneziawg-go \
     && make install \
