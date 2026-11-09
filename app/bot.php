@@ -7452,9 +7452,10 @@ DNS-over-HTTPS with IP:
 
     public function warpStatus()
     {
-        // первый запрос после простоя поднимает WireGuard-хендшейк (это дольше 1 секунды),
-        // поэтому даем запас по времени и один повтор на случай таймаута
-        $st = $this->dockerExecOut('curl -s -m 5 --retry 1 --retry-delay 0 -x socks5://wp:1080 https://cloudflare.com/cdn-cgi/trace', 'xr');
+        // трафик из контейнера wp уже заворачивается в WARP (policy routing от wg-quick),
+        // поэтому проверяем выход прямо в нём: IP-литерал вместо имени — без DNS,
+        // и не зависим от socks-прокси и от контейнера xr (wget есть в busybox образа wp)
+        $st = $this->dockerExecOut('wget -q -O - -T 5 https://1.1.1.1/cdn-cgi/trace', 'wp');
         return preg_match('~warp=(\w+)~', $st, $m) ? trim($m[1]) : 'off';
     }
 
