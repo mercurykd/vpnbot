@@ -12,6 +12,7 @@
 /config/wg0.conf
 /config/hwid.json
 /config/tproxy/
+/config/telemt/
 /todo.todo
 /app/zapretlists/*
 !/app/zapretlists/.gitkeep

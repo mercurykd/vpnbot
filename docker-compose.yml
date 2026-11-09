@@ -70,7 +70,6 @@ services:
             - ./config/override.conf:/etc/nginx/override.conf
             - ./config/location.conf:/etc/nginx/location.conf
             - ./config/nginx_default.conf:/nginx_default.conf
-            - ./config/tproxy:/config/tproxy
             - ./scripts/start_ng.sh:/start_ng.sh
             - ./certs/:/certs/
             - ./logs/:/logs/
@@ -319,13 +318,13 @@ services:
         entrypoint: ["/bin/sh", "/start_ad.sh"]
         logging: *default-logging
     tg:
-        image: mercurykd/vpnbot-tg:1.3
+        image: mercurykd/vpnbot-tg:1.4
         build:
             dockerfile: dockerfile/telegram.dockerfile
         volumes:
             - ./config/.profile:/root/.bashrc:ro
             - ./scripts/start_tg.sh:/start_tg.sh
-            - ./config/mtprotosecret:/mtprotosecret
+            - ./config/telemt:/config/telemt
             - ./logs/:/logs/
         hostname: telegram
         container_name: mtproto-${VER}
