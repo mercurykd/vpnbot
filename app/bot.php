@@ -807,7 +807,11 @@ class Bot
         $this->dockerExec('pkill mtproto-proxy', 'tg');
         if (preg_match('~^\w{32}$~', $secret)) {
             $proxyTag = $adtag ? " -P " . escapeshellarg($adtag) : '';
+            // 1) FakeTLS (ee-ссылки) — публичный порт 443 (--domain обязателен)
             $this->dockerExec("mtproto-proxy --domain $fakedomain -u nobody -H 443 --nat-info 10.10.0.8:{$this->ip} -S $secret --aes-pwd /proxy-secret /proxy-multi.conf -M 1$proxyTag", 'tg', false, '/logs/mtproto');
+            // 2) obfuscated2 (dd-ссылки и web-релей) — внутренний порт 2398, наружу не публикуется;
+            //    с --domain этот инстанс obfuscated2 не принимает, поэтому запускается без него
+            $this->dockerExec("mtproto-proxy -u nobody -H 2398 --nat-info 10.10.0.8:{$this->ip} -S $secret --aes-pwd /proxy-secret /proxy-multi.conf -M 1", 'tg', false, '/logs/mtproto_obfs');
         }
         $this->restartTGWeb();
     }
