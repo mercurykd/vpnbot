@@ -2186,7 +2186,7 @@ class Bot
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 $this->restartXray($json['xray']);
                 $this->adguardXrayClients();
-                $this->setUpstreamDomain($json['pac']['transport'] != 'Reality' ? 't' : ($json['pac']['reality']['domain'] ?: $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]));
+                $this->setUpstreamDomain(($json['pac']['transport'] ?? '') != 'Reality' ? 't' : ($json['pac']['reality']['domain'] ?: $json['xray']['inbounds'][0]['streamSettings']['realitySettings']['serverNames'][0]));
             }
             // xraystats
             if (!empty($json['xraystats'])) {
@@ -2198,7 +2198,9 @@ class Bot
             if (!empty($json['oc'])) {
                 $out[] = 'update ocserv';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                file_put_contents('/config/ocserv.passwd', $json['ocu']);
+                if (isset($json['ocu'])) {
+                    file_put_contents('/config/ocserv.passwd', $json['ocu']);
+                }
                 $this->restartOcserv($json['oc']);
             }
             // hysteria

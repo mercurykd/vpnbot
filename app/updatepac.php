@@ -79,6 +79,10 @@ function getSize($url)
 function update($text)
 {
     global $bot;
+    // без chat (запуск из командной строки) прогресс некуда выводить
+    if (empty($bot->input['chat'])) {
+        return;
+    }
     $bot->update($bot->input['chat'], $bot->input['message_id'], $text);
 }
 

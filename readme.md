@@ -27,3 +27,13 @@ make r
 crontab -e
 ```
 add `@reboot cd /root/vpnbot && make r` and save
+
+#### Backup / restore:
+```shell
+make backup                          # save settings to ./backup.json
+make restore                         # restore from ./backup.json
+make restore FILE=/root/backup.json  # restore from another file
+make restore-check FILE=backup.json  # validate the file, change nothing
+```
+after restoring on a clean server run `make r` if some services keep old configs
+

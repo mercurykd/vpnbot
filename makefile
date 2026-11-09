@@ -74,8 +74,14 @@ reset:
 	git clean -fd
 	docker volume rm vpnbot_adguard vpnbot_warp
 	make u
-backup:
+backup: # сохранение настроек в backup.json
 	docker compose exec php php backup.php > backup.json
+restore: # восстановление из backup.json (make restore FILE=path/to/backup.json)
+	@test -f "$(or $(FILE),backup.json)" || (echo "file not found: $(or $(FILE),backup.json)" && exit 1)
+	docker compose exec -T php php restore.php < "$(or $(FILE),backup.json)"
+restore-check: # проверка файла бэкапа без восстановления
+	@test -f "$(or $(FILE),backup.json)" || (echo "file not found: $(or $(FILE),backup.json)" && exit 1)
+	docker compose exec -T php php restore.php --check < "$(or $(FILE),backup.json)"
 mtproto:
 	docker compose exec php php mtproto.php
 cron: # установка задачи в cron для автозапуска при перезагрузке
