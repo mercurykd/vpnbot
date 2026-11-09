@@ -2342,6 +2342,10 @@ class Bot
         }
         $hs    = trim($this->dockerExecOut('awg show wg0 latest-handshakes 2>/dev/null', $wg));
         $out[] = 'handshakes: ' . ($hs ?: 'none');
+        $show  = trim($this->dockerExecOut('awg show wg0 2>/dev/null | head -20', $wg));
+        if ($show) {
+            $out[] = 'show: ' . $show;
+        }
         $err   = trim($this->dockerExecOut('cat /tmp/wg_last_error 2>/dev/null', $wg));
         if ($err) {
             $out[] = 'last error: ' . $err;
