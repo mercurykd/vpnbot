@@ -2342,9 +2342,21 @@ class Bot
         }
         $hs    = trim($this->dockerExecOut('awg show wg0 latest-handshakes 2>/dev/null', $wg));
         $out[] = 'handshakes: ' . ($hs ?: 'none');
-        $show  = trim($this->dockerExecOut('awg show wg0 2>/dev/null | head -20', $wg));
+        $show  = trim($this->dockerExecOut('awg show wg0 2>/dev/null | head -40', $wg));
         if ($show) {
             $out[] = 'show: ' . $show;
+        }
+        $lp = trim($this->dockerExecOut("grep -m1 '^ListenPort' /etc/wireguard/wg0.conf 2>/dev/null", $wg));
+        if ($lp) {
+            $out[] = 'conf ' . $lp;
+        }
+        $cl = $this->readClients();
+        if (!empty($cl[0]['peers'][0]['Endpoint'])) {
+            $out[] = 'client endpoint: ' . $cl[0]['peers'][0]['Endpoint'];
+        }
+        $resolved = trim($this->dockerExecOut('getent ahosts ' . escapeshellarg(explode(':', $cl[0]['peers'][0]['Endpoint'] ?? '') [0]) . ' 2>/dev/null | awk \'{print $1}\' | sort -u', $wg));
+        if ($resolved) {
+            $out[] = 'endpoint dns: ' . $resolved;
         }
         $err   = trim($this->dockerExecOut('cat /tmp/wg_last_error 2>/dev/null', $wg));
         if ($err) {
