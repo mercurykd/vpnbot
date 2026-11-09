@@ -3690,18 +3690,21 @@ DNS-over-HTTPS with IP:
                     'callback_data' => "/upgradeAmnezia $page",
                 ];
             }
-            $row[] = [
-                'text'          => 'check',
-                'callback_data' => "/amneziaCheck $page",
-            ];
             array_unshift($data, $row);
         }
-        array_unshift($data, [
+        $switch = [
             [
                 'text'          => $this->i18n($am ? 'on' : 'off') . " amnezia",
                 'callback_data' => "/switchAmnezia $page",
             ],
-        ]);
+        ];
+        if (!empty($am)) {
+            $switch[] = [
+                'text'          => 'check',
+                'callback_data' => "/amneziaCheck $page",
+            ];
+        }
+        array_unshift($data, $switch);
         if ($clients) {
             $data = array_merge($data, $clients);
         }
