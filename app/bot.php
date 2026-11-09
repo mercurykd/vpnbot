@@ -7452,7 +7452,9 @@ DNS-over-HTTPS with IP:
 
     public function warpStatus()
     {
-        $st = $this->dockerExecOut('curl -m 1 -x socks5://wp:1080 https://cloudflare.com/cdn-cgi/trace', 'xr');
+        // первый запрос после простоя поднимает WireGuard-хендшейк (это дольше 1 секунды),
+        // поэтому даем запас по времени и один повтор на случай таймаута
+        $st = $this->dockerExecOut('curl -s -m 5 --retry 1 --retry-delay 0 -x socks5://wp:1080 https://cloudflare.com/cdn-cgi/trace', 'xr');
         return preg_match('~warp=(\w+)~', $st, $m) ? trim($m[1]) : 'off';
     }
 
