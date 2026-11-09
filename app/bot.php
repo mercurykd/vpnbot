@@ -567,6 +567,9 @@ class Bot
             case preg_match('~^/upgradeAmnezia (-?\d+)$~', $this->input['callback'], $m):
                 $this->upgradeAmnezia($m[1]);
                 break;
+            case preg_match('~^/amneziaCheck (-?\d+)$~', $this->input['callback'], $m):
+                $this->amneziaCheck($m[1]);
+                break;
             case preg_match('~^/switchExchange (\d+)$~', $this->input['callback'], $m):
                 $this->switchExchange($m[1]);
                 break;
@@ -2320,6 +2323,33 @@ class Bot
         $this->applyAmnezia($map[$ver] ?? '3.1', $page);
     }
 
+    // диагностика obf-конфига: версии ядра, живые параметры и последняя ошибка awg-quick
+    public function amneziaCheck($page = 0)
+    {
+        $wg    = $this->getInstanceWG();
+        $out   = [];
+        $out[] = 'tools: ' . (trim($this->dockerExecOut('awg --version', $wg)) ?: 'n/a');
+        $out[] = 'go: ' . (trim($this->dockerExecOut('amneziawg-go --version', $wg)) ?: 'n/a');
+        $link  = trim($this->dockerExecOut('ip -d link show wg0 2>/dev/null | head -2', $wg));
+        if ($link) {
+            $out[] = 'link: ' . $link;
+        }
+        $conf = $this->dockerExecOut('cat /etc/wireguard/wg0.conf', $wg);
+        foreach (explode(PHP_EOL, (string) $conf) as $line) {
+            if (preg_match('~^\s*(Jc|Jmin|Jmax|S[1-4]|H[1-4]|I[1-5]|HeaderProtectionKey|ContentPaddingAddition|RekeyAfterTime|RekeyTimeout|RejectAfterTime|KeepaliveTimeout|MaxHandshakeAttempts|RandomTrailers|DisableCookies)\s*=\s*\S~', $line)) {
+                $out[] = trim($line);
+            }
+        }
+        $hs    = trim($this->dockerExecOut('awg show wg0 latest-handshakes 2>/dev/null', $wg));
+        $out[] = 'handshakes: ' . ($hs ?: 'none');
+        $err   = trim($this->dockerExecOut('cat /tmp/wg_last_error 2>/dev/null', $wg));
+        if ($err) {
+            $out[] = 'last error: ' . $err;
+        }
+        $this->send($this->input['chat'], '<pre>' . htmlspecialchars(mb_substr(implode(PHP_EOL, $out), 0, 3500)) . '</pre>');
+        $this->menu('wg', $page);
+    }
+
     public function switchAmnezia($page = 0)
     {
         $c   = $this->getPacConf();
@@ -2397,6 +2427,9 @@ class Bot
             $wg['peers'][$k]['PresharedKey'] = $pk;
         }
         $this->restartWG($this->createConfig($wg), $switch);
+        if (!empty($this->input['callback_id'])) {
+            $this->answer($this->input['callback_id'], "amnezia $ver applied, re-import client configs", true);
+        }
         $this->menu('wg', $page);
     }
 
@@ -3657,6 +3690,10 @@ DNS-over-HTTPS with IP:
                     'callback_data' => "/upgradeAmnezia $page",
                 ];
             }
+            $row[] = [
+                'text'          => 'check',
+                'callback_data' => "/amneziaCheck $page",
+            ];
             array_unshift($data, $row);
         }
         array_unshift($data, [
@@ -10245,6 +10282,20 @@ DNS-over-HTTPS with IP:
             if (empty($ak['HeaderProtectionKey'])) {
                 $ak['HeaderProtectionKey'] = $this->genAmneziaKey();
             }
+            // ranged H1-H4 + RandomTrailers ломает классификатор пакетов в awg 3.x
+            // (handshake/транспорт не распознаются), поэтому для 3.1 только фиксированные H
+            $used = [];
+            foreach (['H1', 'H2', 'H3', 'H4'] as $f) {
+                $cur   = (string) ($ak[$f] ?? '');
+                $fixed = strpos($cur, '-') === false ? $cur : '';
+                if ($fixed === '' || in_array($fixed, $used, true)) {
+                    do {
+                        $fixed = (string) random_int(0x01000000, 0x7FFFFFFF);
+                    } while (in_array($fixed, $used, true));
+                    $ak[$f] = $fixed;
+                }
+                $used[] = $fixed;
+            }
             $need = false;
             foreach (['S1', 'S2', 'S3', 'S4'] as $f) {
                 if (empty($ak[$f]) || (int) $ak[$f] < 12) {
@@ -10391,9 +10442,19 @@ DNS-over-HTTPS with IP:
 
     public function restartWG($conf_str, $switch = false)
     {
-        $this->dockerExec("echo '$conf_str' > /etc/wireguard/wg0.conf", $this->getInstanceWG());
-        $this->dockerExec("{$this->getWGType((int) $switch)}-quick down wg0", $this->getInstanceWG());
-        $this->dockerExec("{$this->getWGType()}-quick up wg0", $this->getInstanceWG());
+        $wg = $this->getInstanceWG();
+        $this->dockerExec("echo '$conf_str' > /etc/wireguard/wg0.conf", $wg);
+        $this->dockerExec("{$this->getWGType((int) $switch)}-quick down wg0", $wg);
+        $r = $this->dockerExec("{$this->getWGType()}-quick up wg0", $wg);
+        if (empty($r['ok'])) {
+            $err = trim(($r['err'] ?? '') . PHP_EOL . ($r['out'] ?? ''));
+            $this->dockerExec('printf %s ' . escapeshellarg($err) . ' > /tmp/wg_last_error', $wg);
+            if (!empty($this->input['chat'])) {
+                $this->send($this->input['chat'], "wg0 restart error:\n" . mb_substr($err, 0, 1500));
+            }
+        } else {
+            $this->dockerExec('rm -f /tmp/wg_last_error', $wg);
+        }
         return true;
     }
 
