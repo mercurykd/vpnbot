@@ -7563,10 +7563,18 @@ DNS-over-HTTPS with IP:
     public function warp()
     {
         $p      = $this->getPacConf();
-        $c      = file_get_contents('/etc/warp/wgcf-profile.conf');
-        $a      = file_get_contents('/etc/warp/wgcf-account.toml');
+        $c      = @file_get_contents('/etc/warp/wgcf-profile.conf') ?: 'not registered';
+        $a      = @file_get_contents('/etc/warp/wgcf-account.toml') ?: 'not registered';
+        $trace  = $this->dockerExec('wgcf trace', 'wp');
+        $status = trim($trace['out']);
+
+        // контейнер не запущен или wgcf недоступен — показываем причину, а не пустой статус
+        if ($status === '' && $trace['err'] !== '') {
+            $status = 'error: ' . trim($trace['err']);
+        }
+
         $text[] = "Menu -> " . $this->i18n('warp');
-        $text[] = "status: <pre>" . $this->dockerExecOut('wgcf trace', 'wp') . '</pre>';
+        $text[] = "status: <pre>{$status}</pre>";
         $text[] = "key: <code>{$p['warp']}</code>";
         $text[] = "<pre>$a</pre>";
         $text[] = "<pre>$c</pre>";
@@ -10300,6 +10308,7 @@ DNS-over-HTTPS with IP:
             $data['ok']   = $data['code'] === 0;
         } catch (Exception | Error $e) {
             $this->containers = []; // контейнер мог быть пересоздан — перечитаем id в следующий раз
+            $data['err']      = $e->getMessage(); // чтобы вызывающий код мог показать причину
             $this->dockerExecError($service, $cmd, $e->getMessage());
         }
 
@@ -10315,28 +10324,41 @@ DNS-over-HTTPS with IP:
     public function getContainerId($service, callable $http)
     {
         if (empty($this->containers[$service][1]) || $this->containers[$service][1] < time()) {
-            $filters     = rawurlencode(json_encode(['label' => ["com.docker.compose.service={$service}"]]));
-            $containers  = json_decode($http("/containers/json?filters={$filters}"), true) ?: [];
-            $workdir     = getenv('COMPOSE_WORKDIR');
-            $containerId = null;
+            $filters = rawurlencode(json_encode(['label' => ["com.docker.compose.service={$service}"]]));
+            $workdir = getenv('COMPOSE_WORKDIR');
 
-            foreach ($containers as $container) {
-                if (empty($container['Id'])) {
-                    continue;
+            // приоритет контейнеру своего compose-проекта, иначе берем первый найденный
+            $find = function ($containers) use ($workdir) {
+                $found = null;
+                foreach ($containers ?: [] as $container) {
+                    if (empty($container['Id'])) {
+                        continue;
+                    }
+                    if (!empty($workdir) && ($container['Labels']['com.docker.compose.project.working_dir'] ?? '') === $workdir) {
+                        return $container;
+                    }
+                    $found = $found ?: $container;
                 }
-                // приоритет контейнеру своего compose-проекта, иначе берем первый найденный
-                if (!empty($workdir) && ($container['Labels']['com.docker.compose.project.working_dir'] ?? '') === $workdir) {
-                    $containerId = $container['Id'];
-                    break;
-                }
-                $containerId = $containerId ?: $container['Id'];
-            }
+                return $found;
+            };
 
-            if (empty($containerId)) {
+            // /containers/json без all=1 отдает только запущенные контейнеры
+            $container = $find(json_decode($http("/containers/json?filters={$filters}"), true));
+
+            if (empty($container)) {
+                // контейнер может существовать, но быть остановленным — сообщаем реальное состояние, а не «not found»
+                $stopped = $find(json_decode($http("/containers/json?all=1&filters={$filters}"), true));
+
+                if (!empty($stopped)) {
+                    $state = $stopped['State'] ?? 'unknown';
+
+                    throw new Exception("container is not running for service: {$service} (state: {$state}, status: " . ($stopped['Status'] ?? 'unknown') . ')');
+                }
+
                 throw new Exception("container not found for service: {$service}" . ($workdir ? " (workdir: {$workdir})" : ''));
             }
 
-            $this->containers[$service] = [$containerId, time() + 60];
+            $this->containers[$service] = [$container['Id'], time() + 60];
         }
 
         return $this->containers[$service][0];
