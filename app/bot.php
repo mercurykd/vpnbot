@@ -8966,8 +8966,20 @@ DNS-over-HTTPS with IP:
             location
         CONF;
         $template = preg_replace('~(location /adguard.+?})\s*location~s', $r, $template);
-        $template = preg_replace('~(/webapp|/pac|/adguard|/ws|/v2ray|/tgweb|location /dns-query)~', '${1}' . $h, $template);
+        $template = preg_replace('~(/webapp|/pac|/adguard|/ws|/v2ray|/tgweb|location /dns-query|location /tg(?=[/\s]))~', '${1}' . $h, $template);
+        // кривой конфиг не должен оставлять nginx лежать: тестируем перед reload и откатываемся.
+        // если ng не запущен, docker exec не выполнится (code === null) — откат НЕ делаем,
+        // иначе только что сгенерированный конфиг затирался бы старым
+        $old = @file_get_contents('/config/nginx.conf');
         file_put_contents('/config/nginx.conf', $template);
+        $test = $this->dockerExec('nginx -t 2>&1', 'ng');
+        if ($test['code'] !== null && strpos($test['out'] . $test['err'], '[emerg]') !== false) {
+            if ($old !== false) {
+                file_put_contents('/config/nginx.conf', $old);
+            }
+            $this->dockerExecError('ng', 'nginx -t', trim($test['out'] . $test['err']));
+            return $test['out'] . $test['err'];
+        }
         $x = $this->getXray();
         if (!empty($x['inbounds'][0]['streamSettings']['wsSettings']['path'])) {
             $x['inbounds'][0]['streamSettings']['wsSettings']['path'] = "/ws$h";
@@ -9292,6 +9304,7 @@ DNS-over-HTTPS with IP:
             if (!empty($conf['adguardkey'])) {
                 $text[] = "{$conf['adguardkey']}.{$conf['domain']}" . (in_array("{$conf['adguardkey']}.{$conf['domain']}", $certs) ? ' (ssl: ' . date('Y-m-d H:i:s', $ssl_expiry) . ')' : '') . ' adguard DOT';
             }
+            $text[] = 'telegram api ' . (empty($this->nginxGetTypeCert()) ? 'http' : 'https') . "://{$conf['domain']}/tg{$this->getHashBot()}";
             $text[] = "</blockquote>";
         } else {
             $text[] = $this->i18n('domain explain');
