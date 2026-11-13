@@ -25,7 +25,8 @@ class Bot
     public $last;
     public $dontshowcron;
     public $input_raw;
-    public $wg;
+    // инстанс wireguard (0/1) больше не хранится в объекте: он передаётся явно,
+    // иначе в long-polling процессе он «залипает» между апдейтами (см. wgInstance()).
     public $time;
     public $time2;
     public $time3;
@@ -1768,8 +1769,7 @@ class Bot
 
                 // Если последний бэкап был сделан до начала текущего периода - делаем бэкап
                 if ($lastBackupTime < $lastScheduledBackup) {
-                    $c['last_backup_time'] = $now;
-                    $this->setPacConf($c);
+                    $this->patchPacConf(['last_backup_time' => $now]);
                     $this->pinBackup();
                 }
             }
@@ -1801,8 +1801,7 @@ class Bot
 
                 // Если последний сброс был сделан до начала текущего периода - делаем сброс
                 if ($lastResetTime < $lastScheduledReset) {
-                    $pac['last_reset_xray_time'] = $now;
-                    $this->setPacConf($pac);
+                    $this->patchPacConf(['last_reset_xray_time' => $now]);
                     $this->resetXrStats(1);
                     require __DIR__ . '/config.php';
                     foreach ($c['admin'] as $admin) {
@@ -1839,8 +1838,7 @@ class Bot
 
                 // Если последняя очистка была сделана до начала текущего периода - делаем очистку
                 if ($lastCleanTime < $lastScheduledClean) {
-                    $c['last_clean_logs_time'] = $now;
-                    $this->setPacConf($c);
+                    $this->patchPacConf(['last_clean_logs_time' => $now]);
                     $this->cleanLog();
                 }
             }
@@ -1986,14 +1984,13 @@ class Bot
     public function shutdownClient()
     {
         try {
-            for ($i=0; $i < 2; $i++) {
-                $this->wg = $i;
-                $clients  = $this->readClients();
+            for ($i = 0; $i < 2; $i++) {
+                $clients = $this->readClients($i);
                 if ($clients) {
                     foreach ($clients as $k => $v) {
                         if (!empty($v['interface']['## time'])) {
                             if (strtotime($v['interface']['## time']) < time()) {
-                                $this->switchClient($k);
+                                $this->switchClient($k, 0, $i);
                             }
                         }
                     }
@@ -2031,21 +2028,20 @@ class Bot
         $this->menu('client', implode('_', $_SESSION['reply'][$this->input['reply']]['args']));
     }
 
-    public function readClients(): array
+    public function readClients(?int $instance = null): array
     {
-        return json_decode(file_get_contents($this->getInstanceWG(1) ? $this->clients1 : $this->clients), true) ?: [];
+        $file = $this->wgInstance($instance) ? $this->clients1 : $this->clients;
+        return json_decode((string) @file_get_contents($file), true) ?: [];
     }
 
     public function export()
     {
-        $this->wg = 0;
         $wg = [
-            'server'  => $this->readConfig(),
+            'server'  => $this->readConfig(0),
             'clients' => json_decode(file_get_contents($this->clients), true) ?: [],
         ];
-        $this->wg = 1;
         $wg1 = [
-            'server'  => $this->readConfig(),
+            'server'  => $this->readConfig(1),
             'clients' => json_decode(file_get_contents($this->clients1), true) ?: [],
         ];
         $conf = [
@@ -2113,7 +2109,7 @@ class Bot
                 file_put_contents('/certs/cert_public', $json['ssl']['public']);
             }
             // pac
-            if (!empty($json['pac'])) {
+            if (!empty($json['pac']) && is_array($json['pac'])) {
                 $out[] = 'update pac';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
                 if (!empty($this->getPacConf()['amnezia']) != !empty($json['pac']['amnezia'])) {
@@ -2132,19 +2128,17 @@ class Bot
             if (!empty($json['wg'])) {
                 $out[] = 'update wireguard';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $this->wg = 0;
-                $this->saveClients($json['wg']['clients']);
-                $this->restartWG($this->createConfig($json['wg']['server']), $switch_amnezia);
-                $this->iptablesWG();
+                $this->saveClients((array) ($json['wg']['clients'] ?? []), 0);
+                $this->restartWG($this->createConfig((array) ($json['wg']['server'] ?? []), 0), $switch_amnezia, 0);
+                $this->iptablesWG(0);
             }
             // wg1
             if (!empty($json['wg1'])) {
                 $out[] = 'update wireguard 1';
                 $this->update($this->input['chat'], $this->input['message_id'], implode("\n", $out));
-                $this->wg = 1;
-                $this->saveClients($json['wg1']['clients']);
-                $this->restartWG($this->createConfig($json['wg1']['server']), $switch_wg1amnezia);
-                $this->iptablesWG();
+                $this->saveClients((array) ($json['wg1']['clients'] ?? []), 1);
+                $this->restartWG($this->createConfig((array) ($json['wg1']['server'] ?? []), 1), $switch_wg1amnezia, 1);
+                $this->iptablesWG(1);
             }
             // ad
             if (!empty($json['ad'])) {
@@ -2271,18 +2265,18 @@ class Bot
         }
     }
 
-    public function switchClient($client)
+    public function switchClient($client, $page = 0, ?int $instance = null)
     {
-        $clients = $this->readClients();
-        if ($clients[$client]['# off']) {
+        $clients = $this->readClients($instance);
+        if (!empty($clients[$client]['# off'])) {
             unset($clients[$client]['# off']);
         } else {
             $clients[$client]['# off'] = 1;
         }
         unset($clients[$client]['interface']['## time']);
-        $this->saveClients($clients);
+        $this->saveClients($clients, $instance);
 
-        $server = $this->readConfig();
+        $server = $this->readConfig($instance);
         if (array_key_exists('# PublicKey', $server['peers'][$client])) {
             foreach ($server['peers'][$client] as $k => $v) {
                 $new[trim(preg_replace('~#~', '', $k, 1))] = $v;
@@ -2295,40 +2289,45 @@ class Bot
         unset($new['## time']);
         unset($new['# ## time']);
         $server['peers'][$client] = $new;
-        $this->restartWG($this->createConfig($server));
+        $this->restartWG($this->createConfig($server, $instance), false, $instance);
     }
 
     public function resetAmnezia($page = 0)
     {
-        $ver = $this->amneziaVer();
-        $c   = $this->getPacConf();
-        unset($c[$this->getInstanceWG(1) . 'amnezia_keys']);
-        unset($c[$this->getInstanceWG(1) . 'presharedkey']);
-        $c[$this->getInstanceWG(1) . 'amnezia_ver'] = $ver;
-        $this->setPacConf($c);
-        $this->applyAmnezia($ver, $page);
+        $instance = $this->wgInstance();
+        $key      = $this->wgKey($instance);
+        $ver      = $this->amneziaVer($instance);
+        $this->patchPacConf([
+            $key . 'amnezia_keys' => null,
+            $key . 'presharedkey' => null,
+            $key . 'amnezia_ver'  => $ver,
+        ]);
+        $this->applyAmnezia($ver, $page, false, $instance);
     }
 
     public function reduceAmnezia($page = 0)
     {
-        $map = ['3.1' => '2', '2' => '1', '1' => '1'];
-        $ver = $this->amneziaVer();
-        $this->applyAmnezia($map[$ver] ?? '1', $page);
+        $map      = ['3.1' => '2', '2' => '1', '1' => '1'];
+        $instance = $this->wgInstance();
+        $ver      = $this->amneziaVer($instance);
+        $this->applyAmnezia($map[$ver] ?? '1', $page, false, $instance);
     }
 
     public function upgradeAmnezia($page = 0)
     {
-        $map = ['1' => '2', '2' => '3.1', '3.1' => '3.1'];
-        $ver = $this->amneziaVer();
-        $this->applyAmnezia($map[$ver] ?? '3.1', $page);
+        $map      = ['1' => '2', '2' => '3.1', '3.1' => '3.1'];
+        $instance = $this->wgInstance();
+        $ver      = $this->amneziaVer($instance);
+        $this->applyAmnezia($map[$ver] ?? '3.1', $page, false, $instance);
     }
 
     // диагностика obf-конфига: версии ядра, живые параметры и последняя ошибка awg-quick
     public function amneziaCheck($page = 0)
     {
-        $wg    = $this->getInstanceWG();
-        $out   = [];
-        $out[] = 'tools: ' . (trim($this->dockerExecOut('awg --version', $wg)) ?: 'n/a');
+        $instance = $this->wgInstance();
+        $wg       = $this->wgName($instance);
+        $out      = [];
+        $out[]    = 'tools: ' . (trim($this->dockerExecOut('awg --version', $wg)) ?: 'n/a');
         $out[] = 'go: ' . (trim($this->dockerExecOut('amneziawg-go --version', $wg)) ?: 'n/a');
         $link  = trim($this->dockerExecOut('ip -d link show wg0 2>/dev/null | head -2', $wg));
         if ($link) {
@@ -2350,7 +2349,7 @@ class Bot
         if ($lp) {
             $out[] = 'conf ' . $lp;
         }
-        $cl = $this->readClients();
+        $cl = $this->readClients($instance);
         if (!empty($cl[0]['peers'][0]['Endpoint'])) {
             $out[] = 'client endpoint: ' . $cl[0]['peers'][0]['Endpoint'];
         }
@@ -2368,54 +2367,69 @@ class Bot
 
     public function switchAmnezia($page = 0)
     {
-        $c   = $this->getPacConf();
-        $key = $this->getInstanceWG(1) . 'amnezia';
-        $all = $this->amneziaAllFields();
+        $instance = $this->wgInstance();
+        $c        = $this->getPacConf();
+        $key      = $this->wgKey($instance) . 'amnezia';
+        $all      = $this->amneziaAllFields();
         if (!empty($c[$key])) {
-            $c[$key] = 0;
-            $this->setPacConf($c);
-            $clients = $this->readClients();
+            $this->patchPacConf([$key => 0]);
+            $clients = $this->readClients($instance);
             foreach ($clients as $k => $v) {
                 foreach ($all as $f) {
                     unset($clients[$k]['interface'][$f]);
                 }
                 unset($clients[$k]['peers'][0]['PresharedKey']);
             }
-            $this->saveClients($clients);
+            $this->saveClients($clients, $instance);
 
-            $wg = $this->readConfig();
+            $wg = $this->readConfig($instance);
             foreach ($all as $f) {
                 unset($wg['interface'][$f]);
             }
-            foreach ($wg['peers'] as $k => $v) {
+            foreach (($wg['peers'] ?? []) as $k => $v) {
                 unset($wg['peers'][$k]['PresharedKey']);
             }
-            $this->restartWG($this->createConfig($wg), true);
+            $this->restartWG($this->createConfig($wg, $instance), true, $instance);
             $this->menu('wg', $page);
             return;
         }
-        $this->applyAmnezia($this->amneziaVer(), $page, true);
+        $this->applyAmnezia($this->amneziaVer($instance), $page, true, $instance);
     }
 
     // применяет obf-параметры выбранной версии (1 / 2 / 3.1) к серверу и всем клиентам
-    public function applyAmnezia($ver = null, $page = 0, $switch = false)
+    public function applyAmnezia($ver = null, $page = 0, $switch = false, ?int $instance = null)
     {
-        $ver = $ver ?: $this->amneziaVer();
-        if ($ver === '3.1' && !$this->awgToolsSupportsAwg3()) {
+        $instance = $this->wgInstance($instance);
+        $ver      = $ver ?: $this->amneziaVer($instance);
+        if ($ver === '3.1' && !$this->awgToolsSupportsAwg3($instance)) {
             $this->answer($this->input['callback_id'], 'wg image is too old for amnezia 3.1, rebuild the image', true);
             $this->menu('wg', $page);
             return;
         }
-        $c      = $this->getPacConf();
-        $ak     = $this->amneziaKeys($ver);
+        $key    = $this->wgKey($instance);
         $fields = $this->amneziaFields($ver);
         $all    = $this->amneziaAllFields();
-        $c[$this->getInstanceWG(1) . 'amnezia_ver'] = $ver;
-        $c[$this->getInstanceWG(1) . 'amnezia']     = 1;
-        $this->setPacConf($c);
 
-        $pk      = $this->presharedKey();
-        $clients = $this->readClients();
+        // читаем серверный конфиг ДО генерации ключей и записи в pac: иначе при недоступном
+        // контейнере в pac останется «amnezia=1», а конфиг будет перезаписан обрывком
+        $wg = $this->readConfig($instance);
+        if (empty($wg['interface']['PrivateKey'])) {
+            $err = 'can not read wg0.conf from ' . $this->wgName($instance);
+            $this->dockerExecError($this->wgName($instance), 'applyAmnezia', $err);
+            if (!empty($this->input['callback_id'])) {
+                $this->answer($this->input['callback_id'], $err, true);
+            }
+            $this->menu('wg', $page);
+            return;
+        }
+        $ak = $this->amneziaKeys($ver, $instance);
+        $this->patchPacConf([
+            $key . 'amnezia_ver' => $ver,
+            $key . 'amnezia'     => 1,
+        ]);
+
+        $pk      = $this->presharedKey($instance);
+        $clients = $this->readClients($instance);
         foreach ($clients as $k => $v) {
             foreach ($all as $f) {
                 unset($clients[$k]['interface'][$f]);
@@ -2428,9 +2442,8 @@ class Bot
                 }
             }
         }
-        $this->saveClients($clients);
+        $this->saveClients($clients, $instance);
 
-        $wg = $this->readConfig();
         foreach ($all as $f) {
             unset($wg['interface'][$f]);
         }
@@ -2439,10 +2452,10 @@ class Bot
                 $wg['interface'][$f] = $this->amneziaFieldValue($f, $ak[$f], $ver);
             }
         }
-        foreach ($wg['peers'] as $k => $v) {
+        foreach (($wg['peers'] ?? []) as $k => $v) {
             $wg['peers'][$k]['PresharedKey'] = $pk;
         }
-        $this->restartWG($this->createConfig($wg), $switch);
+        $this->restartWG($this->createConfig($wg, $instance), $switch, $instance);
         if (!empty($this->input['callback_id'])) {
             $this->answer($this->input['callback_id'], "amnezia $ver applied, re-import client configs", true);
         }
@@ -2451,40 +2464,44 @@ class Bot
 
     public function switchTorrent($page = 0, $restart = false)
     {
-        $c = $this->getPacConf();
-        $c[$this->getInstanceWG(1) . 'blocktorrent'] = $c[$this->getInstanceWG(1) . 'blocktorrent'] ? 0 : 1;
+        $key = $this->wgKey();
+        $c   = $this->getPacConf();
+        $c[$key . 'blocktorrent'] = empty($c[$key . 'blocktorrent']) ? 1 : 0;
         $this->setPacConf($c);
         $this->iptablesWG();
-        $this->answer($this->input['callback_id'], 'доступ к торрентам ' . ($c[$this->getInstanceWG(1) . 'blocktorrent'] ? 'заблокирован' : 'разблокирован'), true);
+        $this->answer($this->input['callback_id'], 'доступ к торрентам ' . ($c[$key . 'blocktorrent'] ? 'заблокирован' : 'разблокирован'), true);
         $this->menu('wg', $page);
     }
 
     public function switchEndpoint($page = 0)
     {
-        $c = $this->getPacConf();
-        $c[$this->getInstanceWG(1) . 'endpoint'] = $c[$this->getInstanceWG(1) . 'endpoint'] ? 0 : 1;
-        $this->setPacConf($c);
+        $key = $this->wgKey() . 'endpoint';
+        $c   = $this->getPacConf();
+        $this->patchPacConf([$key => empty($c[$key]) ? 1 : 0]);
         $this->menu('wg', $page);
     }
 
-    public function iptablesWG()
+    public function iptablesWG(?int $instance = null)
     {
-        $c = $this->getPacConf();
-        $this->dockerExec('iptables -F', $this->getInstanceWG());
-        if (!empty($c['exchange'])) {
-            $this->dockerExec('bash /block_exchange.sh', $this->getInstanceWG());
+        $c   = $this->getPacConf();
+        $key = $this->wgKey($instance);
+        $wg  = $this->wgName($instance);
+        $this->dockerExec('iptables -F', $wg);
+        if (!empty($c[$key . 'exchange'])) {
+            $this->dockerExec('bash /block_exchange.sh', $wg);
         }
-        if (!empty($c['blocktorrent'])) {
-            $this->dockerExec('bash /block_torrent.sh', $this->getInstanceWG());
+        if (!empty($c[$key . 'blocktorrent'])) {
+            $this->dockerExec('bash /block_torrent.sh', $wg);
         }
     }
     public function switchExchange($page)
     {
-        $c = $this->getPacConf();
-        $c[$this->getInstanceWG(1) . 'exchange'] = $c[$this->getInstanceWG(1) . 'exchange'] ? 0 : 1;
+        $key = $this->wgKey();
+        $c   = $this->getPacConf();
+        $c[$key . 'exchange'] = empty($c[$key . 'exchange']) ? 1 : 0;
         $this->setPacConf($c);
         $this->iptablesWG();
-        $this->answer($this->input['callback_id'], 'обмен между пользователями ' . ($c[$this->getInstanceWG(1) . 'exchange'] ? 'заблокирован' : 'разблокирован'), true);
+        $this->answer($this->input['callback_id'], 'обмен между пользователями ' . ($c[$key . 'exchange'] ? 'заблокирован' : 'разблокирован'), true);
         $this->menu('wg', $page);
     }
 
@@ -2805,14 +2822,76 @@ class Bot
         ];
     }
 
-    public function getPacConf()
+    // чтение под разделяемой блокировкой: не отдаём наружу частично записанный файл
+    public function getPacConf(): array
     {
-        return json_decode(file_get_contents($this->pac), true);
+        $f = @fopen($this->pac, 'r');
+        if (!$f) {
+            return [];
+        }
+        $locked = flock($f, LOCK_SH);
+        $decoded = json_decode((string) stream_get_contents($f), true);
+        if ($locked) {
+            flock($f, LOCK_UN);
+        }
+        fclose($f);
+        return is_array($decoded) ? $decoded : [];
     }
 
+    // запись в тот же inode (pac.json примонтирован в wg-контейнеры файлом, поэтому rename нельзя)
     public function setPacConf(array $conf)
     {
-        return file_put_contents($this->pac, json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $json = json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($json === false) {
+            return false;
+        }
+        $f = @fopen($this->pac, 'c+');
+        if (!$f) {
+            return false;
+        }
+        $locked = flock($f, LOCK_EX);
+        ftruncate($f, 0);
+        rewind($f);
+        $len = fwrite($f, $json);
+        fflush($f);
+        if ($locked) {
+            flock($f, LOCK_UN);
+        }
+        fclose($f);
+        return $len === strlen($json);
+    }
+
+    // точечное обновление под блокировкой: не перетирает ключи, которые успели изменить
+    // между getPacConf() и setPacConf() (cron и бот пишут один и тот же файл)
+    public function patchPacConf(array $patch): bool
+    {
+        $f = @fopen($this->pac, 'c+');
+        if (!$f) {
+            return false;
+        }
+        $locked = flock($f, LOCK_EX);
+        $conf = json_decode((string) stream_get_contents($f), true);
+        $conf = is_array($conf) ? $conf : [];
+        foreach ($patch as $k => $v) {
+            if ($v === null) {
+                unset($conf[$k]);
+            } else {
+                $conf[$k] = $v;
+            }
+        }
+        $json = json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $ok   = false;
+        if ($json !== false) {
+            ftruncate($f, 0);
+            rewind($f);
+            $ok = fwrite($f, $json) === strlen($json);
+            fflush($f);
+        }
+        if ($locked) {
+            flock($f, LOCK_UN);
+        }
+        fclose($f);
+        return $ok;
     }
 
     public function domain()
@@ -3612,15 +3691,20 @@ DNS-over-HTTPS with IP:
 
     public function getTitleWG()
     {
-        $c = $this->getPacConf();
-        return $this->i18n($c[$this->getInstanceWG(1) . 'amnezia'] ? 'amnezia' : 'wg_title') . ' ' . $c['wg_instance'];
+        $instance = $this->wgInstance();
+        $c        = $this->getPacConf();
+        $title    = $this->i18n(!empty($c[$this->wgKey($instance) . 'amnezia']) ? 'amnezia' : 'wg_title');
+        // номер инстанса 1/2, а не индекс 0/1 из pac.json — иначе непонятно, какой контейнер открыт
+        return $title . ' ' . ($instance + 1);
     }
 
     public function statusWg(int $page = 0)
     {
-        $c       = $this->getPacConf();
-        $conf    = $this->readConfig();
-        $status  = $this->readStatus();
+        $instance = $this->wgInstance();
+        $key      = $this->wgKey($instance);
+        $c        = $this->getPacConf();
+        $conf     = $this->readConfig($instance);
+        $status   = $this->readStatus($instance);
         if (empty($status)) {
             return [
                 'text' => "Menu -> " . $this->getTitleWG() . "\n\nerror status",
@@ -3632,22 +3716,26 @@ DNS-over-HTTPS with IP:
                 ]],
             ];
         }
-        $clients = $this->getClients($page);
-        $bt      = $c[$this->getInstanceWG(1) . 'blocktorrent'] ?? false;
-        $ex      = $c[$this->getInstanceWG(1) . 'exchange'] ?? false;
-        $dns     = $c[$this->getInstanceWG(1) . 'dns'] ?? false;
-        $mtu     = $c[$this->getInstanceWG(1) . 'mtu'] ?? $this->mtu;
-        $am      = $c[$this->getInstanceWG(1) . 'amnezia'] ?? false;
-        $end     = $c[$this->getInstanceWG(1) . 'endpoint'] ?? false;
+        $clients = $this->getClients($page, $this->limit, $instance);
+        $bt      = $c[$key . 'blocktorrent'] ?? false;
+        $ex      = $c[$key . 'exchange'] ?? false;
+        $dns     = $c[$key . 'dns'] ?? false;
+        $mtu     = $c[$key . 'mtu'] ?? $this->mtu;
+        $am      = $c[$key . 'amnezia'] ?? false;
+        $end     = $c[$key . 'endpoint'] ?? false;
 
-        $ver = $this->amneziaVer();
+        $text = [];
+        $ver  = $this->amneziaVer($instance);
         if (!empty($am)) {
-            $ak     = $this->amneziaKeys();
+            // только чтение: рендер меню не должен генерировать и сохранять ключи
+            $ak     = $this->amneziaKeys(null, $instance, false);
             $text[] = '<code>amnezia: ' . htmlspecialchars($ver) . '</code>';
             if ($ver === '3.1' && !empty($c['awg_for_vless'])) {
                 $text[] = 'note: awg for vless works up to version 2';
             }
-            $text[] = '<code>' . implode("\n", array_map(fn($k, $v) => htmlspecialchars($k) . ': ' . htmlspecialchars($v), array_keys($ak), $ak)) . "</code>\n";
+            if (!empty($ak)) {
+                $text[] = '<code>' . implode("\n", array_map(fn($k, $v) => htmlspecialchars($k) . ': ' . htmlspecialchars($v), array_keys($ak), $ak)) . "</code>\n";
+            }
         }
         $data   = [
             [
@@ -3746,7 +3834,7 @@ DNS-over-HTTPS with IP:
                 }
                 $t = [
                     'name'    => $this->getName($v),
-                    'time'    => $this->getTime(strtotime($v['## time'])),
+                    'time'    => !empty($v['## time']) ? $this->getTime(strtotime($v['## time'])) : '',
                     'status'  => $v['online'] == 'off' ? '🚷' : $this->i18n($v['online'] ? 'on' : 'off'),
                     'traffic' => $tr,
                 ];
@@ -3834,25 +3922,15 @@ DNS-over-HTTPS with IP:
 
     public function setDNS($text, $page = 0)
     {
-        $c = $this->getPacConf();
-        if ($text) {
-            $c[$this->getInstanceWG(1) . 'dns'] = $text;
-        } else {
-            unset($c[$this->getInstanceWG(1) . 'dns']);
-        }
-        $this->setPacConf($c);
+        $key = $this->wgKey() . 'dns';
+        $this->patchPacConf([$key => $text ?: null]);
         $this->menu('wg', $page);
     }
 
     public function setMTU($text, $page = 0)
     {
-        $c = $this->getPacConf();
-        if ($text) {
-            $c[$this->getInstanceWG(1) . 'mtu'] = $text;
-        } else {
-            unset($c[$this->getInstanceWG(1) . 'mtu']);
-        }
-        $this->setPacConf($c);
+        $key = $this->wgKey() . 'mtu';
+        $this->patchPacConf([$key => $text ?: null]);
         $this->menu('wg', $page);
     }
 
@@ -4128,14 +4206,16 @@ DNS-over-HTTPS with IP:
 
     public function getAmneziaShortLink($client)
     {
+        $instance      = $this->wgInstance();
+        $key           = $this->wgKey($instance);
         $pac           = $this->getPacConf();
-        $domain        = $pac[$this->getInstanceWG(1) . 'endpoint'] ? $this->ip : $this->getDomain();
-        $dnsRaw        = $client['interface']['DNS'] ?: $pac[$this->getInstanceWG(1) . 'dns'] ?: $this->dns;
+        $domain        = !empty($pac[$key . 'endpoint']) ? $this->ip : $this->getDomain();
+        $dnsRaw        = ($client['interface']['DNS'] ?? '') ?: ($pac[$key . 'dns'] ?? '') ?: $this->dns;
         $dns           = array_map('trim', explode(',', $dnsRaw));
         $ports         = $this->getPorts();
-        $wgPort        = (int) $ports[$this->getInstanceWG()]['port'];
-        $protoVer      = $this->amneziaVer();
-        $amneziaKeys   = $this->amneziaKeys();
+        $wgPort        = (int) $ports[$this->wgName($instance)]['port'];
+        $protoVer      = $this->amneziaVer($instance);
+        $amneziaKeys   = $this->amneziaKeys(null, $instance);
         $containerName = $protoVer === "1" ? "amnezia-awg" : "amnezia-awg2";
         $c             = [
             "containers" => [
@@ -4147,14 +4227,14 @@ DNS-over-HTTPS with IP:
                             "client_ip"        => $client['interface']['Address'],
                             "client_priv_key"  => $client['interface']['PrivateKey'],
                             "client_pub_key"   => "0",
-                            "config"           => $this->createConfig($client),
+                            "config"           => $this->createConfig($client, $instance),
                             "hostName"         => $domain,
                             "port"             => $wgPort,
                             "psk_key"          => $client['peers'][0]['PresharedKey'],
                             "server_pub_key"   => $client['peers'][0]['PublicKey'],
                             "allowed_ips"      => array_map('trim', explode(',', $client['peers'][0]['AllowedIPs'])),
                             "persistent_keep_alive" => "25",
-                            "mtu"              => (string) ($pac[$this->getInstanceWG(1) . 'mtu'] ?: $this->mtu)
+                            "mtu"              => (string) (($pac[$key . 'mtu'] ?? '') ?: $this->mtu)
                         ])),
                         "port" => $wgPort,
                         "transport_proto" => "udp",
@@ -4182,12 +4262,12 @@ DNS-over-HTTPS with IP:
 
     public function setAsVlessTransport($k, $page)
     {
-        $c = $this->getPacConf();
-        $key = $this->getInstanceWG() . ':' . $k;
-        if ($key == $c['awg_for_vless']) {
+        $c   = $this->getPacConf();
+        $key = $this->wgKey() . ':' . $k;
+        if (($c['awg_for_vless'] ?? '') === $key) {
             unset($c['awg_for_vless']);
         } else {
-            $c['awg_for_vless'] = $this->getInstanceWG(1) . ':' . $k;
+            $c['awg_for_vless'] = $key;
         }
         $this->setPacConf($c);
         $this->menu('wg', $page);
@@ -4201,20 +4281,23 @@ DNS-over-HTTPS with IP:
         }
         $container = explode(':', $c['awg_for_vless'])[0] ?? '';
         $client    = explode(':', $c['awg_for_vless'])[1] ?? false;
+        // поддерживаем и новый формат ('wg1_'), и старый ('wg1') из предыдущих версий
+        $instance  = in_array($container, ['wg1', 'wg1_'], true) ? 1 : 0;
+        $prefix    = $this->wgKey($instance);
 
-        $clients = $this->readClients();
+        $clients = $this->readClients($instance);
         if ($client === false || empty($clients[$client])) {
             return false;
         }
         return [
-            "amnezia-wg-option" => $this->amneziaCompatKeys($container),
-            "pre-shared-key"    => $c["{$container}presharedkey"],
+            "amnezia-wg-option" => $this->amneziaCompatKeys($prefix),
+            "pre-shared-key"    => $c["{$prefix}presharedkey"] ?? '',
             "server"            => explode(':', $clients[$client]['peers'][0]['Endpoint'])[0],
             "port"              => explode(':', $clients[$client]['peers'][0]['Endpoint'])[1],
             "ip"                => explode('/', $clients[$client]['interface']['Address'])[0],
             "private-key"       => $clients[$client]['interface']['PrivateKey'],
             "public-key"        => $clients[$client]['peers'][0]['PublicKey'],
-            "mtu"               => $c["{$container}mtu"] ?? $this->mtu,
+            "mtu"               => $c["{$prefix}mtu"] ?? $this->mtu,
         ];
 
     }
@@ -4269,7 +4352,7 @@ DNS-over-HTTPS with IP:
                     ],
                     [
                         [
-                            'text'          => $this->i18n('MTU') . " " . ($clients[$client]['interface']['MTU'] ?: $this->getPacConf()[$this->getInstanceWG(1) . 'mtu'] ?: $this->mtu),
+                            'text'          => $this->i18n('MTU') . " " . (($clients[$client]['interface']['MTU'] ?? '') ?: (($this->getPacConf()[$this->getInstanceWG(1) . 'mtu'] ?? '') ?: $this->mtu)),
                             'callback_data' => "/changeMTU {$client}_$page",
                         ],
                     ],
@@ -4381,10 +4464,10 @@ DNS-over-HTTPS with IP:
         );
     }
 
-    public function getClients(int $page, int $count = 5)
+    public function getClients(int $page, int $count = 5, ?int $instance = null)
     {
         $count   = $this->limit;
-        $clients = $this->readClients();
+        $clients = $this->readClients($instance);
         if (!empty($clients)) {
             $all     = (int) ceil(count($clients) / $count);
             $page    = min($page, $all - 1);
@@ -5112,6 +5195,10 @@ DNS-over-HTTPS with IP:
 
     public function changeWG($i)
     {
+        $i = (int) $i;
+        if ($i !== 1) {
+            $i = 0;
+        }
         $c = $this->getPacConf();
         $c['wg_instance'] = $i;
         $this->setPacConf($c);
@@ -10029,19 +10116,40 @@ DNS-over-HTTPS with IP:
         }
     }
 
-    public function getInstanceWG($k = false)
+    // 0 / 1 — номер инстанса: явный аргумент, иначе выбранный в меню (pac.json)
+    public function wgInstance(?int $instance = null): int
     {
-        if (!empty($k)) {
-            return ($this->wg ?? $this->getPacConf()['wg_instance']) ? 'wg1_' : '';
+        if ($instance === 0 || $instance === 1) {
+            return $instance;
         }
-        return ($this->wg ?? $this->getPacConf()['wg_instance']) ? 'wg1' : 'wg';
+        return ((int) ($this->getPacConf()['wg_instance'] ?? 0)) === 1 ? 1 : 0;
     }
 
-    public function readConfig()
+    // 'wg' | 'wg1' — имя сервиса в docker compose
+    public function wgName(?int $instance = null): string
     {
-        $r = $this->dockerExecOut('cat /etc/wireguard/wg0.conf', $this->getInstanceWG());
+        return $this->wgInstance($instance) ? 'wg1' : 'wg';
+    }
+
+    // '' | 'wg1_' — префикс ключей в pac.json
+    public function wgKey(?int $instance = null): string
+    {
+        return $this->wgInstance($instance) ? 'wg1_' : '';
+    }
+
+    // совместимость: $k = true возвращает префикс, иначе имя контейнера
+    public function getInstanceWG($k = false, ?int $instance = null)
+    {
+        return $k ? $this->wgKey($instance) : $this->wgName($instance);
+    }
+
+    public function readConfig(?int $instance = null)
+    {
+        $r = $this->dockerExecOut('cat /etc/wireguard/wg0.conf', $this->wgName($instance));
         $r = explode(PHP_EOL, $r);
         $r = array_filter($r);
+        $data = [];
+        $d    = [];
         $i = 0;
         foreach ($r as $k => $v) {
             if (preg_match('~\[(.+)\]~', $v, $m)) {
@@ -10075,11 +10183,13 @@ DNS-over-HTTPS with IP:
         return $m[1] ?? '';
     }
 
-    public function readStatus()
+    public function readStatus(?int $instance = null)
     {
-        $r = $this->dockerExecOut($this->getWGType(), $this->getInstanceWG());
+        $r = $this->dockerExecOut($this->getWGType(0, $instance), $this->wgName($instance));
         $r = explode(PHP_EOL, $r);
         $r = array_filter($r);
+        $data = [];
+        $d    = [];
         $i = 0;
         foreach ($r as $k => $v) {
             if (preg_match('~^(interface|peer):~', $v, $m)) {
@@ -10117,16 +10227,18 @@ DNS-over-HTTPS with IP:
         return $name;
     }
 
-    public function createConfig($data)
+    public function createConfig($data, ?int $instance = null)
     {
-        $pac = $this->getPacConf();
-        $conf[] = "[Interface]";
+        $pac    = $this->getPacConf();
+        $key    = $this->wgKey($instance);
+        $data['interface'] = $data['interface'] ?? [];
+        $conf   = ["[Interface]"];
         if (empty($data['interface']['ListenPort'])) {
             if (empty($data['interface']['DNS'])) {
-                $data['interface']['DNS'] = $pac[$this->getInstanceWG(1) . 'dns'] ?: $this->dns;
+                $data['interface']['DNS'] = ($pac[$key . 'dns'] ?? '') ?: $this->dns;
             }
             if (empty($data['interface']['MTU'])) {
-                $data['interface']['MTU'] = $pac[$this->getInstanceWG(1) . 'mtu'] ?: $this->mtu;
+                $data['interface']['MTU'] = ($pac[$key . 'mtu'] ?? '') ?: $this->mtu;
             }
         }
         foreach ($data['interface'] as $k => $v) {
@@ -10136,9 +10248,9 @@ DNS-over-HTTPS with IP:
         if (!empty($data['peers'])) {
             foreach ($data['peers'] as $peer) {
                 $conf[] = '';
-                $conf[] = $peer['# PublicKey'] ? '# [Peer]' : '[Peer]';
+                $conf[] = !empty($peer['# PublicKey']) ? '# [Peer]' : '[Peer]';
                 if (!empty($peer['Endpoint'])) {
-                    $peer['Endpoint'] = ($pac[$this->getInstanceWG(1) . 'endpoint'] ? $this->ip : $this->getDomain()) . ":" . $ports[$this->getInstanceWG()]['port'];
+                    $peer['Endpoint'] = (!empty($pac[$key . 'endpoint']) ? $this->ip : $this->getDomain()) . ":" . $ports[$this->wgName($instance)]['port'];
                 }
                 foreach ($peer as $k => $v) {
                     $conf[] = "$k = $v";
@@ -10148,25 +10260,27 @@ DNS-over-HTTPS with IP:
         return implode(PHP_EOL, $conf);
     }
 
-    public function presharedKey()
+    public function presharedKey(?int $instance = null)
     {
-        $c = $this->getPacConf();
-        if (empty($c[$this->getInstanceWG(1) . 'presharedkey'])) {
-            $c[$this->getInstanceWG(1) . 'presharedkey'] = trim($this->dockerExecOut("{$this->getWGType()} genpsk", $this->getInstanceWG()));
-            $this->setPacConf($c);
+        $key = $this->wgKey($instance) . 'presharedkey';
+        $c   = $this->getPacConf();
+        if (empty($c[$key])) {
+            $psk = trim($this->dockerExecOut("{$this->getWGType(0, $instance)} genpsk", $this->wgName($instance)));
+            $this->patchPacConf([$key => $psk]);
+            return $psk;
         }
-        return $c[$this->getInstanceWG(1) . 'presharedkey'];
+        return $c[$key];
     }
 
     // версия obf-конфига amnezia: 1 / 2 / 3.1 (ядро awg одно, версия задаёт набор полей конфига)
-    public function amneziaVer()
+    public function amneziaVer(?int $instance = null)
     {
         $c   = $this->getPacConf();
-        $key = $this->getInstanceWG(1) . 'amnezia_ver';
+        $key = $this->wgKey($instance) . 'amnezia_ver';
         if (!empty($c[$key])) {
             return (string) $c[$key];
         }
-        $ak = (array) ($c[$this->getInstanceWG(1) . 'amnezia_keys'] ?? []);
+        $ak = (array) ($c[$this->wgKey($instance) . 'amnezia_keys'] ?? []);
         return array_key_exists('I1', $ak) ? '2' : '1';
     }
 
@@ -10207,7 +10321,7 @@ DNS-over-HTTPS with IP:
     public function amneziaCompatKeys($prefix = null)
     {
         $c   = $this->getPacConf();
-        $ak  = (array) ($c[($prefix ?? $this->getInstanceWG(1)) . 'amnezia_keys'] ?? []);
+        $ak  = (array) ($c[($prefix ?? $this->wgKey()) . 'amnezia_keys'] ?? []);
         $out = [];
         foreach ($this->amneziaFields('2') as $f) {
             if (isset($ak[$f]) && $ak[$f] !== '') {
@@ -10235,28 +10349,32 @@ DNS-over-HTTPS with IP:
         return ['S1' => 20, 'S2' => 33, 'S3' => 24, 'S4' => 16];
     }
 
-    public function genAmneziaKey()
+    public function genAmneziaKey(?int $instance = null)
     {
-        $key = trim($this->dockerExecOut('awg genkey', $this->getInstanceWG()));
+        $key = trim($this->dockerExecOut('awg genkey', $this->wgName($instance)));
         return $key ?: base64_encode(random_bytes(32));
     }
 
     // поддерживает ли установленный в контейнере awg-tools параметры 3.x
-    public function awgToolsSupportsAwg3()
+    public function awgToolsSupportsAwg3(?int $instance = null)
     {
-        $out = trim($this->dockerExecOut('awg --version', $this->getInstanceWG()));
+        $out = trim($this->dockerExecOut('awg --version', $this->wgName($instance)));
         if (preg_match('~(\d+)\.(\d+)\.~', $out, $m)) {
             return (int) $m[1] >= 3;
         }
         return true; // версию узнать не удалось — не блокируем
     }
 
-    public function amneziaKeys($ver = null)
+    public function amneziaKeys($ver = null, ?int $instance = null, bool $create = true)
     {
-        $ver = $ver ?: $this->amneziaVer();
+        $ver = $ver ?: $this->amneziaVer($instance);
         $c   = $this->getPacConf();
-        $key = $this->getInstanceWG(1) . 'amnezia_keys';
+        $key = $this->wgKey($instance) . 'amnezia_keys';
         $ak  = (array) ($c[$key] ?? []);
+        if (empty($ak) && !$create) {
+            // режим только для чтения (рендер меню): не генерируем и не пишем в pac
+            return [];
+        }
         if (empty($ak)) {
             // S1 and S2: 15–64 bytes; constraints: S1 + 56 ≠ S2 and S1 ≠ S2
             $s1 = random_int(15, 64);
@@ -10312,7 +10430,7 @@ DNS-over-HTTPS with IP:
         // 3.0/3.1: header protection требует S1-S4 >= 12, иначе ядро не поднимет интерфейс
         if ($ver === '3.1') {
             if (empty($ak['HeaderProtectionKey'])) {
-                $ak['HeaderProtectionKey'] = $this->genAmneziaKey();
+                $ak['HeaderProtectionKey'] = $this->genAmneziaKey($instance);
             }
             // ranged H1-H4 + RandomTrailers ломает классификатор пакетов в awg 3.x
             // (handshake/транспорт не распознаются), поэтому для 3.1 только фиксированные H
@@ -10350,7 +10468,7 @@ DNS-over-HTTPS with IP:
         }
 
         // итоговые размеры сообщений не должны совпадать, иначе клиент считает конфиг битым
-        if (in_array($ver, ['2', '3.1'], true) && !empty($ak['S3']) && !empty($ak['S4'])) {
+        if ($create && in_array($ver, ['2', '3.1'], true) && !empty($ak['S3']) && !empty($ak['S4'])) {
             for ($i = 0; $i < 20; $i++) {
                 $sizes = [148 + (int) $ak['S1'], 92 + (int) $ak['S2'], 64 + (int) $ak['S3'], 32 + (int) $ak['S4']];
                 if (count(array_unique($sizes)) === 4 && (int) $ak['S1'] + 56 !== (int) $ak['S2']) {
@@ -10360,9 +10478,8 @@ DNS-over-HTTPS with IP:
             }
         }
 
-        if ($ak !== (array) ($c[$key] ?? [])) {
-            $c[$key] = $ak;
-            $this->setPacConf($c);
+        if ($create && $ak !== (array) ($c[$key] ?? [])) {
+            $this->patchPacConf([$key => $ak]);
         }
 
         $out = [];
@@ -10376,7 +10493,13 @@ DNS-over-HTTPS with IP:
 
     public function createPeer($ips_user = false, $name = false)
     {
-        $conf      = $this->readConfig();
+        $instance  = $this->wgInstance();
+        $am        = !empty($this->getPacConf()[$this->wgKey($instance) . 'amnezia']);
+        $conf      = $this->readConfig($instance);
+        if (empty($conf['interface']['Address'])) {
+            $this->send($this->input['chat'], 'can not read wg0.conf from ' . $this->wgName($instance), $this->input['message_id']);
+            return;
+        }
         $ipnet     = explode('/', $conf['interface']['Address']);
         $server_ip = ip2long($ipnet[0]);
         $ips       = [$server_ip];
@@ -10394,9 +10517,9 @@ DNS-over-HTTPS with IP:
                 break;
             }
         }
-        $public_server_key = trim($this->dockerExecOut("echo {$conf['interface']['PrivateKey']} | {$this->getWGType()} pubkey", $this->getInstanceWG()));
-        $private_peer_key  = trim($this->dockerExecOut("{$this->getWGType()} genkey", $this->getInstanceWG()));
-        $public_peer_key   = trim($this->dockerExecOut("echo $private_peer_key | {$this->getWGType()} pubkey", $this->getInstanceWG()));
+        $public_server_key = trim($this->dockerExecOut("echo {$conf['interface']['PrivateKey']} | {$this->getWGType(0, $instance)} pubkey", $this->wgName($instance)));
+        $private_peer_key  = trim($this->dockerExecOut("{$this->getWGType(0, $instance)} genkey", $this->wgName($instance)));
+        $public_peer_key   = trim($this->dockerExecOut("echo $private_peer_key | {$this->getWGType(0, $instance)} pubkey", $this->wgName($instance)));
 
         $name = ($name ? "$name" : '') . time();
 
@@ -10405,7 +10528,7 @@ DNS-over-HTTPS with IP:
                 'PublicKey'  => $public_peer_key,
                 'AllowedIPs' => "$client_ip/32",
             ],
-            $this->getPacConf()[$this->getInstanceWG(1) . 'amnezia'] ? ['PresharedKey' => $this->presharedKey()] : []
+            $am ? ['PresharedKey' => $this->presharedKey($instance)] : []
         );
         $client_conf = [
             'interface' => array_merge(
@@ -10414,7 +10537,7 @@ DNS-over-HTTPS with IP:
                     'PrivateKey' => $private_peer_key,
                     'Address'    => "$client_ip/32",
                 ],
-                $this->getPacConf()[$this->getInstanceWG(1) . 'amnezia'] ? $this->amneziaKeys() : []
+                $am ? $this->amneziaKeys(null, $instance) : []
             ),
             'peers' => [
                     array_merge(
@@ -10423,61 +10546,70 @@ DNS-over-HTTPS with IP:
                             'AllowedIPs'          => $ips_user ?: "0.0.0.0/0",
                             'PersistentKeepalive' => 20,
                         ],
-                        $this->getPacConf()[$this->getInstanceWG(1) . 'amnezia'] ? ['PresharedKey' => $this->presharedKey()] : []
+                        $am ? ['PresharedKey' => $this->presharedKey($instance)] : []
                     ),
                 ],
         ];
-        $k = $this->saveClient($client_conf);
-        $this->restartWG($this->createConfig($conf));
+        $k = $this->saveClient($client_conf, $instance);
+        $this->restartWG($this->createConfig($conf, $instance), false, $instance);
         $this->menu('client', "{$k}_-2");
     }
 
-    public function deleteClient(int $client)
+    public function deleteClient(int $client, ?int $instance = null)
     {
-        $clients = $this->readClients();
+        $clients = $this->readClients($instance);
         unset($clients[$client]);
-        $this->saveClients(array_values($clients));
+        $this->saveClients(array_values($clients), $instance);
     }
 
-    public function saveClient(array $client)
+    public function saveClient(array $client, ?int $instance = null)
     {
-        $r = array_merge($this->readClients(), [$client]);
-        $this->saveClients($r);
+        $r = array_merge($this->readClients($instance), [$client]);
+        $this->saveClients($r, $instance);
         return count($r) - 1;
     }
 
     public function syncPortClients()
     {
-        for ($i=0; $i < 2; $i++) {
-            $this->wg = $i;
-            $this->saveClients($this->readClients());
+        for ($i = 0; $i < 2; $i++) {
+            $this->saveClients($this->readClients($i), $i);
         }
-        unset($this->wg);
     }
 
-    public function saveClients(array $clients)
+    public function saveClients(array $clients, ?int $instance = null)
     {
         $c      = $this->getPacConf();
         $ports  = $this->getPorts();
-        $domain = (($c['domain'] ?? '') ?: $this->ip) . ":" . $ports[$this->getInstanceWG()]['port'];
+        $name   = $this->wgName($instance);
+        $domain = (($c['domain'] ?? '') ?: $this->ip) . ":" . $ports[$name]['port'];
         foreach ($clients as $k => $v) {
             $clients[$k]['peers'][0]['Endpoint'] = $domain;
         }
-        file_put_contents($this->getInstanceWG(1) ? $this->clients1 : $this->clients, json_encode($clients, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $file = $this->wgInstance($instance) ? $this->clients1 : $this->clients;
+        file_put_contents($file, json_encode($clients, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
-    public function getWGType($revert = 0)
+    public function getWGType($revert = 0, ?int $instance = null)
     {
-        $wg = $this->getPacConf()[$this->getInstanceWG(1) . 'amnezia'];
+        $wg = !empty($this->getPacConf()[$this->wgKey($instance) . 'amnezia']);
         return ($revert ? !$wg : $wg) ? 'awg' : 'wg';
     }
 
-    public function restartWG($conf_str, $switch = false)
+    public function restartWG($conf_str, $switch = false, ?int $instance = null)
     {
-        $wg = $this->getInstanceWG();
+        $wg = $this->wgName($instance);
+        // защита от затирания рабочего конфига пустым/битым результатом createConfig()
+        if (!preg_match('~^\s*\[Interface\]~m', (string) $conf_str) || !preg_match('~^\s*PrivateKey\s*=\s*\S+~m', (string) $conf_str)) {
+            $err = "refuse to write broken wg0.conf (no [Interface]/PrivateKey) to {$wg}";
+            $this->dockerExecError($wg, 'restartWG', $err);
+            if (!empty($this->input['chat'])) {
+                $this->send($this->input['chat'], $err);
+            }
+            return false;
+        }
         $this->dockerExec("echo '$conf_str' > /etc/wireguard/wg0.conf", $wg);
-        $this->dockerExec("{$this->getWGType((int) $switch)}-quick down wg0", $wg);
-        $r = $this->dockerExec("{$this->getWGType()}-quick up wg0", $wg);
+        $this->dockerExec("{$this->getWGType((int) $switch, $instance)}-quick down wg0", $wg);
+        $r = $this->dockerExec("{$this->getWGType(0, $instance)}-quick up wg0", $wg);
         if (empty($r['ok'])) {
             $err = trim(($r['err'] ?? '') . PHP_EOL . ($r['out'] ?? ''));
             $this->dockerExec('printf %s ' . escapeshellarg($err) . ' > /tmp/wg_last_error', $wg);
