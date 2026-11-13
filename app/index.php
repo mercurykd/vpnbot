@@ -61,6 +61,10 @@ switch (true) {
                 $bot->subscription();
                 exit;
 
+            case 'cla':
+                $bot->subscriptionAge();
+                exit;
+
             case 'te':
                 if (!empty($_GET['te'])) {
                     $t = $bot->getPacConf()["{$_GET['ty']}templates"][$_GET['te']];
